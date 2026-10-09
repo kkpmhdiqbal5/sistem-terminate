@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perangkat Sudah Diambil - Sistem Terminate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="terminate-core.js"></script>
+</head>
+<body>
+  <div class="container px-3 pt-3">
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">📦 Perangkat Sudah Diambil</div>
+      <div class="kecil mb-2" id="tgl">Hanya data hari ini.</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-8" id="kolFilter" style="display:none">
+          <label class="form-label small text-secondary fw-bold mb-1">Sub admin</label>
+          <select id="fAdmin" class="form-select form-select-dark"><option value="">Semua sub admin</option></select>
+        </div>
+        <div class="col-4"><button id="btnMuat" class="btn btn-info btn-sm w-100 fw-bold py-2">🔄 Muat</button></div>
+      </div>
+      <div id="pesan" class="mt-2"></div>
+    </div>
+    <div id="jumlah" class="small text-info mb-2"></div>
+    <div id="daftar"></div>
+  </div>
+  <script>
+    var S = TMC.init({ active: 'diambil', title: '📦 Sudah Diambil' });
+
+    var $ = function (id) { return document.getElementById(id); };
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
+    function foto(x) {
+      var t = TMC.thumb(x.foto, 200);
+      return t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>' : '';
+    }
+    function kartu(x, extra) {
+      return '<div class="card-custom p-3 mb-2"><div class="d-flex gap-3">' + foto(x) + '<div class="small flex-grow-1">' +
+        '<div class="kecil">' + TMC.esc(x.waktu) + ' | <b class="text-info">' + TMC.esc(x.admin) + '</b> | ' + TMC.esc(x.jenis) + '</div>' +
+        '<div><b>' + TMC.esc(x.nama || '(nama belum diisi)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
+        '<div>POP: ' + TMC.esc(x.pop) + ' | ODP: ' + TMC.esc(x.odp) + '</div>' +
+        (x.sn || x.psn ? '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + '</div>' : '') +
+        '<div class="kecil">Verif: ' + TMC.esc(x.verif || '-') + '</div>' + (extra || '') + '</div></div></div>';
+    }
+    function salin(t) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+      var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); return Promise.resolve();
+    }
+
+    var data = [], adaFilter = false;
+    function caption(x) {
+      return 'An : ' + x.nama + '\nCid : ' + x.cid + '\nSn : ' + x.sn + '\nP-Sn : ' + x.psn + '\nOdp : ' + x.odp + '\nKet : ' + x.ket;
+    }
+    function render() {
+      var d = $('daftar'); d.innerHTML = '';
+      $('jumlah').textContent = data.length + ' perangkat';
+      if (!data.length) { d.innerHTML = '<div class="text-center text-secondary py-4">Belum ada perangkat diambil hari ini.</div>'; return; }
+      data.forEach(function (x, i) {
+        var w = document.createElement('div'); w.innerHTML = kartu(x, '<button class="btn btn-outline-info btn-sm py-0 mt-1" data-i="' + i + '">Salin caption</button>');
+        d.appendChild(w.firstChild);
+      });
+    }
+    $('daftar').addEventListener('click', function (e) {
+      var i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i == null) return;
+      salin(caption(data[i])).then(function () { e.target.textContent = 'Tersalin ✔'; });
+    });
+    function muat() {
+      var b = $('btnMuat'); b.disabled = true; pesan('Memuat...', 'secondary');
+      TMC.api('terminateList', { admin: $('fAdmin').value }).then(function (r) {
+        if (r.status !== 'success') { pesan(r.message, 'danger'); data = []; render(); return; }
+        pesan('', ''); data = r.data; $('tgl').textContent = 'Hari ini: ' + r.tanggal;
+        if (r.role === 'ADMIN') {
+          $('kolFilter').style.display = '';
+          if (!adaFilter) {
+            adaFilter = true; var sel = $('fAdmin');
+            r.admins.forEach(function (a) { var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+          }
+        }
+        render();
+      }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
+    }
+    $('btnMuat').onclick = muat; $('fAdmin').onchange = muat; muat();
+  </script>
+</body>
+</html>

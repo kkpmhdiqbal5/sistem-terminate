@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan & Sistem Input - Sistem Lapangan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Pustaka Mammoth.js untuk membaca file .docx -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <style>
+    body { background-color: #0b132b; color: #e0e6ed; font-family: 'Segoe UI', sans-serif; padding-bottom: 85px; }
+    .top-bar { background-color: #1c2541; padding: 14px 20px; border-bottom: 1px solid #2a385b; }
+    .card-custom { background-color: #1c2541; border: 1px solid #2a385b; border-radius: 12px; }
+    .form-control-dark, .form-select-dark { background-color: #0b132b; border: 1px solid #3a506b; color: #ffffff; font-size: 0.85rem; }
+    .form-control-dark:focus, .form-select-dark:focus { background-color: #0b132b; color: #fff; border-color: #38bdf8; box-shadow: none; }
+    
+    .bottom-app-nav { 
+      position: fixed; bottom: 0; left: 0; right: 0; 
+      background: #1c2541; border-top: 1px solid #2a385b; 
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 6px 0; z-index: 1000; height: 65px;
+    }
+    .nav-link-mobile { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #94a3b8; font-size: 0.7rem; font-weight: 600; flex: 1; }
+    .nav-link-mobile.active { color: #38bdf8; }
+    .nav-icon { font-size: 1.2rem; margin-bottom: 2px; }
+
+    .nav-link-center { position: relative; top: -12px; display: flex; flex-direction: column; align-items: center; text-decoration: none; }
+    .nav-center-circle {
+      background: linear-gradient(135deg, #22c55e, #16a34a); color: white;
+      width: 50px; height: 50px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 1.5rem;
+      box-shadow: 0 4px 15px rgba(34, 197, 94, 0.5); border: 3px solid #0b132b;
+    }
+    .nav-center-label { font-size: 0.7rem; font-weight: 700; color: #22c55e; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar d-flex justify-content-between align-items-center mb-4">
+    <div class="fw-bold fs-6 text-white">📊 Pusat Laporan & Sistem Input</div>
+    <button onclick="logout()" class="btn btn-danger btn-sm fw-bold">🚪 Keluar</button>
+  </div>
+
+  <div class="container px-3">
+    <!-- Menu Utama -->
+    <div id="menuUtama" class="row g-3">
+      <div class="col-12">
+        <button onclick="bukaForm('input')" class="btn btn-success w-100 py-3 fw-bold shadow-sm fs-6">
+          📥 Input Data Massal
+        </button>
+      </div>
+      <div class="col-12">
+        <button onclick="bukaForm('hapus')" class="btn btn-danger w-100 py-3 fw-bold shadow-sm fs-6">
+          🗑 Laporan (Hapus & Arsip WA)
+        </button>
+      </div>
+      <div class="col-12">
+        <button onclick="bukaForm('mutasi')" class="btn btn-warning w-100 py-3 fw-bold shadow-sm fs-6 text-dark">
+          🔄 Mutasi Data Antar Sheet
+        </button>
+      </div>
+    </div>
+
+    <!-- Form Input Massal -->
+    <div id="formInputMassal" class="card-custom p-3 d-none mt-2">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-success fw-bold m-0">📥 Form Input Data Massal</h6>
+        <button onclick="tutupForm()" class="btn btn-sm btn-outline-light py-0 px-2">✕ Tutup</button>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small text-info fw-bold">Pilih File (.txt atau .docx):</label>
+        <input type="file" id="fileInput" class="form-control form-control-dark" accept=".txt,.docx" onchange="bacaFile(event, 'teksMassal')">
+      </div>
+      <textarea id="teksMassal" class="form-control form-control-dark font-monospace mb-3" rows="6" placeholder="Atau ketik/tempel data di sini...&#10;Contoh:&#10;Nama : Budi&#10;CID : 1234567890&#10;ODP : ODP-01"></textarea>
+      <button onclick="eksekusiInputMassal()" id="btnInputMassal" class="btn btn-success btn-sm w-100 fw-bold py-2">Proses Input Data</button>
+    </div>
+
+    <!-- Form Hapus & Arsip WA -->
+    <div id="formHapusArsip" class="card-custom p-3 d-none mt-2">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-danger fw-bold m-0">🗑 Form Hapus & Arsip Laporan</h6>
+        <button onclick="tutupForm()" class="btn btn-sm btn-outline-light py-0 px-2">✕ Tutup</button>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small text-info fw-bold">Atau Pilih File Laporan (.txt atau .docx):</label>
+        <input type="file" id="fileInputHapus" class="form-control form-control-dark" accept=".txt,.docx" onchange="bacaFile(event, 'listCidHapus')">
+      </div>
+      <p class="small text-muted mb-2">Tempel rekap laporan WhatsApp di bawah ini:</p>
+      <textarea id="listCidHapus" class="form-control form-control-dark font-monospace mb-3" rows="8" placeholder="Contoh:&#10;An : Budi&#10;Cid : 1234567890&#10;Sn : DF1D-1234&#10;Odp : ODP-01&#10;Ket : Perangkat ditarik"></textarea>
+      <button onclick="eksekusiHapusArsip()" id="btnHapusArsip" class="btn btn-danger btn-sm w-100 fw-bold py-2">Eksekusi Hapus & Arsip</button>
+    </div>
+
+    <!-- Form Mutasi Data Antar Sheet -->
+    <div id="formMutasi" class="card-custom p-3 d-none mt-2">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-warning fw-bold m-0">🔄 Form Mutasi Data Spesifik</h6>
+        <button onclick="tutupForm()" class="btn btn-sm btn-outline-light py-0 px-2">✕ Tutup</button>
+      </div>
+      
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <label class="form-label small text-secondary fw-bold mb-1">DARI SHEET</label>
+          <select id="dariSheet" class="form-select form-select-dark">
+            <option value="Full Data">Full Data</option>
+            <option value="target">target</option>
+            <option value="Baris 1">Baris 1</option>
+            <option value="Baris 2">Baris 2</option>
+            <option value="sudah diambil">sudah diambil</option>
+            <option value="kunjungan">kunjungan</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label small text-secondary fw-bold mb-1">KE SHEET</label>
+          <select id="keSheet" class="form-select form-select-dark">
+            <option value="sudah diambil">sudah diambil</option>
+            <option value="kunjungan">kunjungan</option>
+            <option value="Baris 2">Baris 2</option>
+            <option value="Baris 1">Baris 1</option>
+            <option value="target">target</option>
+            <option value="Full Data">Full Data</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small text-warning fw-bold mb-1">BERDASARKAN KRITERIA</label>
+        <select id="kriteriaMutasi" class="form-select form-select-dark border-warning">
+          <option value="NAMA">NAMA / Nama Pelanggan</option>
+          <option value="CID" selected>CID / Nomor Pelanggan</option>
+          <option value="SALES">SALES / Nama Sales</option>
+          <option value="POP">POP / Area</option>
+          <option value="ODP">ODP (Nama Tiang)</option>
+          <option value="SN">SN / Serial Number</option>
+          <option value="P-SN">P-SN (SN Pendek)</option>
+        </select>
+      </div>
+
+      <p class="small text-muted mb-2">Tempel deretan data yang ingin dipindah (sesuai kriteria di atas):</p>
+      <textarea id="listCidMutasi" class="form-control form-control-dark font-monospace mb-3" rows="6" placeholder="Contoh deretan ke bawah:&#10;Data 1&#10;Data 2&#10;Data 3"></textarea>
+      
+      <button onclick="eksekusiMutasi()" id="btnMutasi" class="btn btn-warning text-dark btn-sm w-100 fw-bold py-2">Proses Mutasi Data</button>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <div class="bottom-app-nav">
+    <a href="search.html" class="nav-link-mobile">
+      <div class="nav-icon">🔍</div><span>Cari</span>
+    </a>
+    <a href="admin.html" class="nav-link-mobile">
+      <div class="nav-icon">💻</div><span>Perangkat</span>
+    </a>
+    <a href="index.html" class="nav-link-center">
+      <div class="nav-center-circle">📝</div>
+      <span class="nav-center-label">Form Lapangan</span>
+    </a>
+    <a href="terminate.html" class="nav-link-mobile">
+      <div class="nav-icon">🚚</div><span>Terminate</span>
+    </a>
+    <a href="laporan.html" class="nav-link-mobile active">
+      <div class="nav-icon">📊</div><span>Laporan</span>
+    </a>
+  </div>
+
+  <script>
+    // GANTI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec"; 
+
+    if (!localStorage.getItem("user_session")) {
+      window.location.href = "login.html";
+    }
+
+    function bukaForm(jenis) {
+      document.getElementById('menuUtama').classList.add('d-none');
+      document.getElementById('formInputMassal').classList.add('d-none');
+      document.getElementById('formHapusArsip').classList.add('d-none');
+      document.getElementById('formMutasi').classList.add('d-none');
+
+      if (jenis === 'input') document.getElementById('formInputMassal').classList.remove('d-none');
+      else if (jenis === 'hapus') document.getElementById('formHapusArsip').classList.remove('d-none');
+      else if (jenis === 'mutasi') document.getElementById('formMutasi').classList.remove('d-none');
+    }
+
+    function tutupForm() {
+      document.getElementById('formInputMassal').classList.add('d-none');
+      document.getElementById('formHapusArsip').classList.add('d-none');
+      document.getElementById('formMutasi').classList.add('d-none');
+      document.getElementById('menuUtama').classList.remove('d-none');
+    }
+
+    // Fungsi pembaca file universal (.txt atau .docx) ke target textarea
+    function bacaFile(event, targetId) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith('.txt')) {
+        const reader = new FileReader();
+        reader.onload = e => document.getElementById(targetId).value = e.target.result;
+        reader.readAsText(file);
+      } 
+      else if (fileName.endsWith('.docx')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const arrayBuffer = e.target.result;
+          mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+            .then(function(result) {
+              document.getElementById(targetId).value = result.value;
+            })
+            .catch(function(err) {
+              alert("Gagal membaca file .docx: " + err.message);
+            });
+        };
+        reader.readAsArrayBuffer(file);
+      } 
+      else {
+        alert("Hanya format .txt atau .docx yang didukung!");
+      }
+    }
+
+    function eksekusiInputMassal() {
+      const teks = document.getElementById('teksMassal').value;
+      if (!teks.trim()) { alert("Teks input masih kosong!"); return; }
+      
+      const btn = document.getElementById('btnInputMassal');
+      btn.disabled = true; btn.innerText = "Memproses Input...";
+      
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "inputMassalFile", teks: teks }) })
+      .then(r => r.json())
+      .then(res => { 
+        alert(res.message); 
+        if(res.status === "success") { document.getElementById('teksMassal').value = ""; tutupForm(); }
+      })
+      .catch(err => alert("Terjadi kesalahan koneksi!"))
+      .finally(() => { btn.disabled = false; btn.innerText = "Proses Input Data"; });
+    }
+
+    function eksekusiHapusArsip() {
+      const teksCid = document.getElementById('listCidHapus').value;
+      if (!teksCid.trim()) { alert("Teks rekap laporan masih kosong!"); return; }
+      
+      const btn = document.getElementById('btnHapusArsip');
+      btn.disabled = true; btn.innerText = "Memproses Arsip...";
+      
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "hapusArsipSelektif", teksCid: teksCid }) })
+      .then(r => r.json())
+      .then(res => { 
+        alert(res.message); 
+        if(res.status === "success") { document.getElementById('listCidHapus').value = ""; tutupForm(); }
+      })
+      .catch(err => alert("Terjadi kesalahan koneksi!"))
+      .finally(() => { btn.disabled = false; btn.innerText = "Eksekusi Hapus & Arsip"; });
+    }
+
+    function eksekusiMutasi() {
+      const dariSheet = document.getElementById('dariSheet').value;
+      const keSheet = document.getElementById('keSheet').value;
+      const kriteriaMutasi = document.getElementById('kriteriaMutasi').value; 
+      const teksCid = document.getElementById('listCidMutasi').value;
+
+      if (!teksCid.trim()) { alert("Daftar data masih kosong!"); return; }
+      if (dariSheet === keSheet) { alert("Sheet asal dan tujuan tidak boleh sama!"); return; }
+      
+      if (!confirm(`Yakin ingin memindahkan data dari '${dariSheet}' ke '${keSheet}' berdasarkan ${kriteriaMutasi}?`)) return;
+
+      const btn = document.getElementById('btnMutasi');
+      btn.disabled = true; btn.innerText = "Memproses Mutasi...";
+
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({ 
+          action: "mutasiData", 
+          dariSheet: dariSheet, 
+          keSheet: keSheet, 
+          kriteria: kriteriaMutasi, 
+          teksCid: teksCid 
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        alert(res.message);
+        if(res.status === "success") {
+          document.getElementById('listCidMutasi').value = "";
+          tutupForm();
+        }
+      })
+      .catch(err => alert("Gagal terhubung ke server."))
+      .finally(() => { btn.disabled = false; btn.innerText = "Proses Mutasi Data"; });
+    }
+
+    function logout() { 
+      localStorage.removeItem("user_session"); 
+      window.location.href = "login.html"; 
+    }
+  </script>
+</body>
+</html>
+
+
+
+
+

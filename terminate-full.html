@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Lengkap - Sistem Terminate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="terminate-core.js"></script>
+</head>
+<body>
+  <div class="container px-3 pt-3">
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-2">🗂️ Data Lengkap <span class="badge bg-warning text-dark">Khusus Admin</span></div>
+      <div class="row g-2">
+        <div class="col-6"><label class="kecil">Dari</label><input type="date" id="dari" class="form-control form-control-dark"></div>
+        <div class="col-6"><label class="kecil">Sampai</label><input type="date" id="sampai" class="form-control form-control-dark"></div>
+        <div class="col-6"><label class="kecil">Sub admin</label><select id="adm" class="form-select form-select-dark"><option value="">Semua</option></select></div>
+        <div class="col-6"><label class="kecil">Jenis</label><select id="jenis" class="form-select form-select-dark">
+          <option value="">Semua</option><option value="TERMINATE">Terminate</option><option value="KUNJUNGAN">Tidak ada di rumah</option><option value="LANJUT">Lanjut</option></select></div>
+        <div class="col-6"><label class="kecil">POP</label><select id="pop" class="form-select form-select-dark">
+          <option value="">Semua</option><option>PERBAUNGAN</option><option>PANTAI CERMIN</option></select></div>
+        <div class="col-6"><label class="kecil">Cari (nama/CID/ODP/SN)</label><input id="q" class="form-control form-control-dark"></div>
+        <div class="col-8"><button id="btnCari" class="btn btn-info w-100 fw-bold">Tampilkan</button></div>
+        <div class="col-4"><button id="btnCsv" class="btn btn-outline-light w-100 fw-bold">CSV</button></div>
+      </div>
+      <div id="pesan" class="mt-2"></div>
+    </div>
+    <div id="jumlah" class="small text-info mb-2"></div>
+    <div id="daftar"></div>
+  </div>
+  <script>
+    var S = TMC.init({ active: 'full', title: '🗂️ Data Lengkap', adminOnly: true });
+
+    var $ = function (id) { return document.getElementById(id); };
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
+    function foto(x) {
+      var t = TMC.thumb(x.foto, 200);
+      return t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>' : '';
+    }
+    function kartu(x, extra) {
+      return '<div class="card-custom p-3 mb-2"><div class="d-flex gap-3">' + foto(x) + '<div class="small flex-grow-1">' +
+        '<div class="kecil">' + TMC.esc(x.waktu) + ' | <b class="text-info">' + TMC.esc(x.admin) + '</b> | ' + TMC.esc(x.jenis) + '</div>' +
+        '<div><b>' + TMC.esc(x.nama || '(nama belum diisi)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
+        '<div>POP: ' + TMC.esc(x.pop) + ' | ODP: ' + TMC.esc(x.odp) + '</div>' +
+        (x.sn || x.psn ? '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + '</div>' : '') +
+        '<div class="kecil">Verif: ' + TMC.esc(x.verif || '-') + '</div>' + (extra || '') + '</div></div></div>';
+    }
+    function salin(t) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+      var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); return Promise.resolve();
+    }
+
+    var data = [];
+    TMC.api('terminateOptions').then(function (r) {
+      (r.users || []).forEach(function (u) { var o = document.createElement('option'); o.value = u; o.textContent = u; $('adm').appendChild(o); });
+    });
+    function cari() {
+      var b = $('btnCari'); b.disabled = true; pesan('Memuat...', 'secondary');
+      TMC.api('terminateFull', { dari: $('dari').value, sampai: $('sampai').value, admin: $('adm').value, jenis: $('jenis').value, pop: $('pop').value, q: $('q').value }).then(function (r) {
+        if (r.status !== 'success') { pesan(r.message, 'danger'); return; }
+        pesan('', ''); data = r.data; $('jumlah').textContent = r.total + ' data' + (r.total > data.length ? ' (ditampilkan ' + data.length + ' terbaru; persempit filter)' : '');
+        var d = $('daftar'); d.innerHTML = '';
+        data.forEach(function (x) { var w = document.createElement('div'); w.innerHTML = kartu(x, '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>'); d.appendChild(w.firstChild); });
+      }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
+    }
+    function csvCell(v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; }
+    $('btnCsv').onclick = function () {
+      if (!data.length) { alert('Tampilkan data dulu.'); return; }
+      var cols = ['waktu', 'admin', 'tim', 'jenis', 'nama', 'cid', 'pop', 'odp', 'sn', 'psn', 'ket', 'verif', 'foto'];
+      var t = cols.join(',') + '\n' + data.map(function (x) { return cols.map(function (c) { return csvCell(x[c]); }).join(','); }).join('\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + t], { type: 'text/csv' }));
+      a.download = 'data-terminate.csv'; a.click();
+    };
+    $('btnCari').onclick = cari; cari();
+  </script>
+</body>
+</html>
