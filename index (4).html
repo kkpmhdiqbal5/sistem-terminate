@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistem Lapangan Mobile</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Leaflet CSS (Peta Satelit Presisi) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    :root {
+      --primary-color: #0284c7;
+      --bg-color: #f4f6f9;
+      --card-radius: 18px;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding-bottom: 24px;
+      color: #334155;
+    }
+
+    /* HEADER APP BAR */
+    .app-header {
+      padding: 16px 20px 8px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--bg-color);
+    }
+    .app-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+    .btn-icon-header {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      cursor: pointer;
+    }
+
+    /* CARD CONTAINER UI */
+    .mobile-card {
+      background: #ffffff;
+      border-radius: var(--card-radius);
+      border: 1px solid #edf2f7;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    /* PETA CONTAINER */
+    #map {
+      height: 200px;
+      width: 100%;
+      border-radius: 14px;
+      z-index: 1;
+    }
+    
+    .banner-info {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+
+    /* FORM STYLE MOBILE */
+    .form-control-mobile, .form-select-mobile {
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .form-control-mobile:focus, .form-select-mobile:focus {
+      background-color: #ffffff;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+
+    /* ACTION BUTTONS */
+    .btn-action-primary {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 12px;
+      font-weight: 700;
+      width: 100%;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+    .btn-action-primary:active {
+      transform: scale(0.98);
+    }
+
+    .preview-thumb {
+      max-height: 70px;
+      border-radius: 10px;
+      border: 2px solid var(--primary-color);
+      object-fit: cover;
+    }
+
+    /* BOTTOM NAV BAR MOBILE */
+    .bottom-app-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0 12px 0;
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+      z-index: 1000;
+    }
+    .nav-link-mobile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      color: #94a3b8;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .nav-link-mobile.active {
+      color: #0284c7;
+    }
+    .nav-icon {
+      font-size: 1.25rem;
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER BAR APP -->
+  <div class="app-header">
+    <div class="app-title">Home</div>
+    <div class="d-flex gap-2">
+      <div class="btn-icon-header" onclick="location.href='terminate.html'" title="Sistem Terminate">
+        <span style="font-size: 1.1rem;">🚚</span>
+      </div>
+      <div class="btn-icon-header" onclick="goToAdminDashboard()" title="Dashboard Admin">
+        <span style="font-size: 1.1rem;">➡️</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container px-3">
+    
+    <!-- MAP CARD (SATELITE / PRECISE) -->
+    <div class="mobile-card p-3">
+      <div id="map" class="mb-2"></div>
+      <div class="d-flex justify-content-between align-items-center pt-2">
+        <span class="small text-muted fw-bold">📍 Satelit GPS Presisi</span>
+        <button type="button" onclick="getLocation()" class="btn btn-sm btn-light text-primary fw-bold px-3 py-1" style="border-radius: 10px;">
+          🔄 Deteksi Ulang
+        </button>
+      </div>
+    </div>
+
+    <!-- BANNER INFORMATION -->
+    <div class="banner-info mb-3">
+      Info Baru: Pastikan ODP, SN, dan P-SN diisi secara tepat dari hasil scan lapangan.
+    </div>
+
+    <!-- LIVE CLOCK & DATE DISPLAY -->
+    <div class="text-center my-3">
+      <div id="liveDate" class="small text-muted fw-bold">...</div>
+      <div id="liveTime" class="fs-4 fw-bold text-primary">...</div>
+    </div>
+
+    <!-- FORM CARD LAPANGAN -->
+    <div class="mobile-card p-3">
+      <form id="fieldForm">
+        
+ 
+
+        <!-- SHERLOCK KOORDINAT -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary mb-1">KOORDINAT TERDETEKSI OTOMATIS</label>
+          <input type="text" id="koordinat" name="koordinat" class="form-control form-control-mobile bg-light" readonly placeholder="Mendeteksi posisi GPS..." required>
+        </div>
+
+        <!-- ODP TERDAFTAR / BARU -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary mb-1">ODP TERDAFTAR / BARU *</label>
+          <input type="text" id="odp" name="odp" class="form-control form-control-mobile" placeholder="Ketik ODP" required>
+        </div>
+
+        <!-- POP -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-secondary mb-1">POP *</label>
+          <select id="pop" name="pop" class="form-select form-select-mobile" required>
+            <option value="" selected disabled>-- Pilih POP --</option>
+            <option value="PERBAUNGAN">PERBAUNGAN</option>
+            <option value="PANTAI CERMIN">PANTAI CERMIN</option>
+          </select>
+        </div>
+
+        <!-- CID LAMA & NAMA LAMA -->
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold text-secondary mb-1">CID LAMA *</label>
+            <input type="text" id="cid_lama" name="cid_lama" class="form-control form-control-mobile" placeholder="Ex: 266170665829" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold text-secondary mb-1">NAMA LAMA *</label>
+            <input type="text" id="nama_lama" name="nama_lama" class="form-control form-control-mobile" placeholder="Ex: Nafisa" required>
+          </div>
+        </div>
+
+        <!-- FOTO RUMAH -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-bold text-secondary m-0">FOTO RUMAH *</label>
+            <span id="statusFotoRumah" class="small text-warning fw-bold">Belum Ada Foto</span>
+          </div>
+          <div class="d-flex gap-2">
+            <input type="file" id="inputFotoRumahCam" accept="image/*" capture="environment" class="d-none" onchange="handleImageUpload(this, 'statusFotoRumah', 'foto_rumah_url', 'thumbFotoRumah')">
+            <input type="file" id="inputFotoRumahGal" accept="image/*" class="d-none" onchange="handleImageUpload(this, 'statusFotoRumah', 'foto_rumah_url', 'thumbFotoRumah')">
+            
+            <button type="button" onclick="document.getElementById('inputFotoRumahCam').click()" class="btn btn-primary btn-sm rounded-3 px-3">📷 Kamera</button>
+            <button type="button" onclick="document.getElementById('inputFotoRumahGal').click()" class="btn btn-light btn-sm rounded-3 border px-3">📂 Galeri</button>
+          </div>
+          <div class="mt-2">
+            <img id="thumbFotoRumah" class="preview-thumb d-none" alt="Preview Rumah">
+          </div>
+          <input type="hidden" id="foto_rumah_url" name="foto_rumah_url" required>
+        </div>
+
+        <!-- FOTO ALAT -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label small fw-bold text-secondary m-0">FOTO ALAT *</label>
+            <span id="statusFotoAlat" class="small text-warning fw-bold">Belum Ada Foto</span>
+          </div>
+          <div class="d-flex gap-2">
+            <input type="file" id="inputFotoAlatCam" accept="image/*" capture="environment" class="d-none" onchange="handleImageUpload(this, 'statusFotoAlat', 'foto_alat_url', 'thumbFotoAlat')">
+            <input type="file" id="inputFotoAlatGal" accept="image/*" class="d-none" onchange="handleImageUpload(this, 'statusFotoAlat', 'foto_alat_url', 'thumbFotoAlat')">
+            
+            <button type="button" onclick="document.getElementById('inputFotoAlatCam').click()" class="btn btn-primary btn-sm rounded-3 px-3">📷 Kamera</button>
+            <button type="button" onclick="document.getElementById('inputFotoAlatGal').click()" class="btn btn-light btn-sm rounded-3 border px-3">📂 Galeri</button>
+          </div>
+          <div class="mt-2">
+            <img id="thumbFotoAlat" class="preview-thumb d-none" alt="Preview Alat">
+          </div>
+          <input type="hidden" id="foto_alat_url" name="foto_alat_url" required>
+        </div>
+
+        <!-- SN & P-SN WITH CAMERA SCANNER -->
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold text-secondary mb-1">SERIAL NUMBER (SN) *</label>
+            <div class="input-group">
+              <input type="text" id="sn" name="sn" class="form-control form-control-mobile" placeholder="SN Unit" required>
+              <button type="button" class="btn btn-info text-white fw-bold px-2" onclick="startScanner('sn')" style="border-radius: 0 12px 12px 0;">📷</button>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold text-secondary mb-1">P-SN (PORT SN)</label>
+            <div class="input-group">
+              <input type="text" id="psn" name="psn" class="form-control form-control-mobile" placeholder="P-SN">
+              <button type="button" class="btn btn-info text-white fw-bold px-2" onclick="startScanner('psn')" style="border-radius: 0 12px 12px 0;">📷</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KETERANGAN -->
+        <div class="mb-4">
+          <label class="form-label small fw-bold text-secondary mb-1">KETERANGAN (OPSIONAL)</label>
+          <textarea id="keterangan" name="keterangan" class="form-control form-control-mobile" rows="2" placeholder="Kosongkan jika ingin teks default otomatis: 'Perangkat Sudah Diambil Dan Port Sudah Di Cabut'"></textarea>
+        </div>
+
+               <!-- NAMA TS / TEKNISI (BARU) -->
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-primary mb-1">NAMA TS / TEKNISI *</label>
+          <input type="text" id="nama_ts" name="nama_ts" class="form-control form-control-mobile" style="border-color: #0284c7;" placeholder="Ketik nama Anda..." required>
+        </div>
+
+        
+
+        <!-- SUBMIT BUTTON -->
+        <button type="submit" id="btnSubmit" class="btn-action-primary">
+          Kirim Data Lapangan
+        </button>
+
+      </form>
+    </div>
+
+  </div>
+
+
+  <!-- MODAL LIVE CAMERA SCANNER -->
+  <div id="scannerModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white rounded-4">
+        <div class="modal-header border-secondary">
+          <h6 class="modal-title text-info">Arahkan Kamera ke Barcode / QR</h6>
+          <button type="button" class="btn-close btn-close-white" onclick="stopScanner()"></button>
+        </div>
+        <div class="modal-body p-2">
+          <div id="reader" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEPENDENCIES SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
+    let map, marker, activeScanTarget = null, html5QrCode = null;
+
+    window.onload = function() {
+      initMap();
+      getLocation();
+      updateClock();
+      setInterval(updateClock, 1000);
+    };
+
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', options);
+      document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID');
+    }
+
+    function goToAdminDashboard() {
+      const userSession = localStorage.getItem("user_session");
+      if (!userSession) {
+        alert("Akses Terkunci! Silakan login terlebih dahulu.");
+        window.location.href = "login.html";
+      } else {
+        window.location.href = "search.html";
+      }
+    }
+
+    function initMap() {
+      map = L.map('map').setView([3.5884, 98.6697], 13);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+      }).addTo(map);
+
+      marker = L.marker([3.5884, 98.6697]).addTo(map)
+        .bindPopup('Posisi Saya').openPopup();
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          const coords = `${lat}, ${lng}`;
+          
+          document.getElementById('koordinat').value = coords;
+          map.setView([lat, lng], 17);
+          marker.setLatLng([lat, lng]).setPopupContent(`Posisi Presisi Anda:<br><b>${coords}</b>`).openPopup();
+        }, () => {
+          alert("Gagal mendeteksi lokasi presisi GPS!");
+        });
+      }
+    }
+
+    function handleImageUpload(input, statusId, hiddenInputId, thumbId) {
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const base64Data = e.target.result;
+          document.getElementById(hiddenInputId).value = base64Data;
+          
+          const statusElem = document.getElementById(statusId);
+          statusElem.innerText = "✓ Terambil (" + (file.size / 1024).toFixed(0) + " KB)";
+          statusElem.className = "small text-success fw-bold";
+
+          const thumbElem = document.getElementById(thumbId);
+          thumbElem.src = base64Data;
+          thumbElem.classList.remove('d-none');
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function startScanner(targetId) {
+      activeScanTarget = targetId;
+      const modal = new bootstrap.Modal(document.getElementById('scannerModal'));
+      modal.show();
+
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        qrCodeMessage => {
+          document.getElementById(activeScanTarget).value = qrCodeMessage;
+          stopScanner();
+        },
+        errorMessage => {}
+      ).catch(err => {
+        alert("Kamera tidak dapat diakses untuk scan!");
+        stopScanner();
+      });
+    }
+
+    function stopScanner() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          html5QrCode.clear();
+          closeModal();
+        }).catch(err => closeModal());
+      } else {
+        closeModal();
+      }
+    }
+
+    function closeModal() {
+      const modalElem = document.getElementById('scannerModal');
+      const modal = bootstrap.Modal.getInstance(modalElem);
+      if (modal) modal.hide();
+    }
+
+    document.getElementById('fieldForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      if(!document.getElementById('foto_rumah_url').value || !document.getElementById('foto_alat_url').value) {
+        alert("Harap lengkapi Foto Rumah dan Foto Alat!");
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = "Mengirim Data & Foto...";
+
+      const formData = new FormData(this);
+      const data = {};
+      formData.forEach((value, key) => data[key] = value);
+      
+      // Tambahkan instruksi action agar backend tahu ini adalah input form lapangan
+      data.action = "formLapangan";
+
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(data)
+      })
+      .then(r => r.json())
+      .then(res => {
+        if(res.status === "success") {
+          alert("✅ Data Lapangan Berhasil Diterima!");
+          
+          // Simpan sementara nama TS agar tidak perlu diketik ulang
+          const namaTsSementara = document.getElementById('nama_ts').value;
+          
+          // Reset form
+          this.reset();
+          
+          // Kembalikan nama TS
+          document.getElementById('nama_ts').value = namaTsSementara;
+          
+          document.getElementById('statusFotoRumah').innerText = "Belum Ada Foto";
+          document.getElementById('statusFotoRumah').className = "small text-warning fw-bold";
+          document.getElementById('thumbFotoRumah').classList.add('d-none');
+          document.getElementById('statusFotoAlat').innerText = "Belum Ada Foto";
+          document.getElementById('statusFotoAlat').className = "small text-warning fw-bold";
+          document.getElementById('thumbFotoAlat').classList.add('d-none');
+          getLocation();
+        } else {
+          alert("Gagal mengirim data: " + res.message);
+        }
+      })
+      .catch(err => alert("Terjadi kesalahan koneksi!"))
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerText = "Kirim Data Lapangan";
+      });
+    });
+  </script>
+</body>
+</html>
