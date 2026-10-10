@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impor WhatsApp - Sistem Terminate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="auth.js"></script>
+  <script src="terminate-core.js"></script>
+  <script src="wa-parser.js"></script>
+</head>
+<body>
+  <div class="container px-3 pt-3">
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">💬 Impor Data dari WhatsApp <span class="badge bg-warning text-dark">Khusus Admin</span></div>
+      <div class="kecil mb-3">Di WhatsApp: buka grup → ⋮ → Lainnya → <b>Ekspor chat</b> → <b>Tanpa media</b>. Pilih file <b>.zip</b> atau <b>.txt</b> hasil ekspor di bawah. Foto tidak diambil, hanya teks.</div>
+      <input id="berkas" type="file" accept=".zip,.txt" class="form-control form-control-dark mb-2">
+      <div class="row g-2 mb-2">
+        <div class="col-6"><label class="kecil">Grup ini berisi</label>
+          <select id="mode" class="form-select form-select-dark">
+            <option value="campur">Campur (deteksi dari isi pesan)</option>
+            <option value="Instalasi">Semua Instalasi</option>
+            <option value="MT">Semua MT</option></select></div>
+        <div class="col-6"><label class="kecil">Jika tidak jelas</label>
+          <select id="ragu" class="form-select form-select-dark">
+            <option value="lewati">Lewati</option><option value="Instalasi">Anggap Instalasi</option><option value="MT">Anggap MT</option></select></div>
+      </div>
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mtGanti" checked>
+        <label class="form-check-label small" for="mtGanti">MT: hanya yang ganti perangkat (harus ada SN)</label></div>
+      <div class="row g-2">
+        <div class="col-6"><label class="kecil">Dari tanggal</label><input type="date" id="dari" class="form-control form-control-dark"></div>
+        <div class="col-6"><label class="kecil">Sampai tanggal</label><input type="date" id="sampai" class="form-control form-control-dark"></div>
+      </div>
+      <button id="btnBaca" class="btn btn-info w-100 fw-bold mt-3">Baca & Tampilkan Pratinjau</button>
+      <div id="pesan" class="mt-2"></div>
+    </div>
+    <div id="pratinjau" class="d-none">
+      <div class="card-custom p-3 mb-3">
+        <div id="ringkas" class="small text-info mb-2"></div>
+        <div class="d-flex gap-2 mb-2">
+          <button id="btnSemua" class="btn btn-outline-light btn-sm">Pilih semua</button>
+          <button id="btnTak" class="btn btn-outline-light btn-sm">Kosongkan</button>
+        </div>
+        <button id="btnKirim" class="btn btn-success w-100 fw-bold">Kirim yang dipilih ke Google Sheet</button>
+        <div id="progres" class="small mt-2"></div>
+      </div>
+      <div id="daftar"></div>
+    </div>
+  </div>
+  <script>
+    var S = TMC.init({ active: 'impor', title: '💬 Impor WhatsApp' });
+    var $ = function (id) { return document.getElementById(id); };
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
+    var baris = [];
+
+    function bacaTeks(file) {
+      if (/\.zip$/i.test(file.name)) {
+        return JSZip.loadAsync(file).then(function (z) {
+          var txt = Object.keys(z.files).filter(function (n) { return /\.txt$/i.test(n) && !z.files[n].dir; });
+          if (!txt.length) throw new Error('Tidak ada file .txt di dalam zip.');
+          return Promise.all(txt.map(function (n) { return z.files[n].async('string'); })).then(function (a) { return a.join('\n'); });
+        });
+      }
+      return file.text();
+    }
+    $('btnBaca').onclick = function () {
+      var f = $('berkas').files[0];
+      if (!f) { pesan('Pilih file ekspor chat dulu.', 'warning'); return; }
+      pesan('Membaca file...', 'secondary');
+      bacaTeks(f).then(function (txt) {
+        var r = WAParser.ekstrak(txt, { mode: $('mode').value, ragu: $('ragu').value, mtHanyaGanti: $('mtGanti').checked });
+        var dari = $('dari').value, sampai = $('sampai').value;
+        baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
+        baris.forEach(function (x) { x.pilih = true; });
+        pesan('', '');
+        if (!baris.length) { pesan('Dari ' + r.jumlahPesan + ' pesan, tidak ada data yang cocok. Coba ubah pilihan "Grup ini berisi" atau "Jika tidak jelas".', 'warning'); $('pratinjau').classList.add('d-none'); return; }
+        tampil();
+      }).catch(function (e) { pesan('Gagal membaca file: ' + e.message, 'danger'); });
+    };
+    function hitung() {
+      var a = 0, b = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else a++; } });
+      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + '. Duplikat dilewati otomatis oleh server.';
+    }
+    function tampil() {
+      $('pratinjau').classList.remove('d-none'); hitung();
+      var d = $('daftar'); d.innerHTML = '';
+      baris.slice(0, 400).forEach(function (x, i) {
+        var c = document.createElement('div'); c.className = 'card-custom p-2 mb-2 small';
+        c.innerHTML = '<div class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input mt-1" data-i="' + i + '" checked>' +
+          '<div class="flex-grow-1"><div class="kecil">' + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
+          '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
+          '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
+          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + '</div>' +
+          (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
+          '<select class="form-select form-select-sm form-select-dark" style="width:110px" data-s="' + i + '"><option' + (x.sheet === 'Instalasi' ? ' selected' : '') + '>Instalasi</option><option' + (x.sheet === 'MT' ? ' selected' : '') + '>MT</option></select></div>';
+        d.appendChild(c);
+      });
+      if (baris.length > 400) { var n = document.createElement('div'); n.className = 'kecil text-center'; n.textContent = 'Menampilkan 400 pertama; semua ' + baris.length + ' data tetap ikut terkirim bila dipilih.'; d.appendChild(n); }
+    }
+    $('daftar').addEventListener('change', function (e) {
+      var i = e.target.getAttribute('data-i'), s = e.target.getAttribute('data-s');
+      if (i != null) baris[i].pilih = e.target.checked;
+      if (s != null) baris[s].sheet = e.target.value;
+      hitung();
+    });
+    $('btnSemua').onclick = function () { baris.forEach(function (x) { x.pilih = true; }); tampil(); };
+    $('btnTak').onclick = function () { baris.forEach(function (x) { x.pilih = false; }); tampil(); };
+
+    $('btnKirim').onclick = function () {
+      var kirim = baris.filter(function (x) { return x.pilih; });
+      if (!kirim.length) { alert('Tidak ada data yang dipilih.'); return; }
+      if (!confirm('Kirim ' + kirim.length + ' data ke Google Sheet?')) return;
+      var btn = $('btnKirim'); btn.disabled = true;
+      var tot = { Instalasi: 0, MT: 0, dobel: 0, ditolak: 0 }, i = 0;
+      function lanjut() {
+        if (i >= kirim.length) { $('progres').innerHTML = '<div class="alert alert-success py-2 mb-0">Selesai. Instalasi +' + tot.Instalasi + ', MT +' + tot.MT + ', duplikat dilewati ' + tot.dobel + ', ditolak ' + tot.ditolak + '.</div>'; btn.disabled = false; return; }
+        var potong = kirim.slice(i, i + 100);
+        $('progres').textContent = 'Mengirim ' + Math.min(i + 100, kirim.length) + ' / ' + kirim.length + '...';
+        TMC.api('terminateImporWA', { rows: potong }).then(function (r) {
+          if (r.status !== 'success') { $('progres').innerHTML = '<div class="alert alert-danger py-2 mb-0">' + TMC.esc(r.message) + ' (terkirim sampai data ke-' + i + ')</div>'; btn.disabled = false; return; }
+          Object.keys(tot).forEach(function (k) { tot[k] += (r.hasil[k] || 0); });
+          i += 100; lanjut();
+        }).catch(function () { $('progres').innerHTML = '<div class="alert alert-danger py-2 mb-0">Gagal terhubung ke server (terkirim sampai data ke-' + i + ').</div>'; btn.disabled = false; });
+      }
+      lanjut();
+    };
+  </script>
+</body>
+</html>

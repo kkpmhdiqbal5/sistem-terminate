@@ -12,7 +12,8 @@
     { href: "terminate-diambil.html", p: "TDIAMBIL" },
     { href: "terminate-edit.html", p: "TEDIT" },
     { href: "terminate-laporan.html", p: "TLAPORAN" },
-    { href: "terminate-full.html", p: "TDATA" }
+    { href: "terminate-full.html", p: "TDATA" },
+    { href: "terminate-impor.html", p: "TIMPOR" }
   ];
   var timer = null;
 
@@ -29,7 +30,7 @@
     location.replace("login.html?next=" + encodeURIComponent(pageName()) + (msg ? "&m=" + encodeURIComponent(msg) : ""));
   }
   function can(p) { var s = get(); return !!(s && s.izin && s.izin[p]); }
-  function anyTerminate() { return ["TINPUT", "TDIAMBIL", "TEDIT", "TLAPORAN", "TDATA"].some(can); }
+  function anyTerminate() { return ["TINPUT", "TDIAMBIL", "TEDIT", "TLAPORAN", "TDATA", "TIMPOR"].some(can); }
   function home() {
     for (var i = 0; i < PAGES.length; i++) if (can(PAGES[i].p)) return PAGES[i].href;
     return "index.html";
