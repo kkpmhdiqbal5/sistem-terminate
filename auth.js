@@ -13,7 +13,8 @@
     { href: "terminate-edit.html", p: "TEDIT" },
     { href: "terminate-laporan.html", p: "TLAPORAN" },
     { href: "terminate-full.html", p: "TDATA" },
-    { href: "terminate-impor.html", p: "TIMPOR" }
+    { href: "terminate-impor.html", p: "TIMPOR" },
+    { href: "bersih-data.html", p: "TIMPOR" }
   ];
   var timer = null;
 

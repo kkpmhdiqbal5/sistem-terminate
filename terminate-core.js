@@ -71,7 +71,7 @@
     var iz = s.izin || {};
     var boleh = NAV.filter(function (n) { return iz[n.p] && (!n.admin || s.role === "ADMIN"); });
     if (!boleh.length) { logout("Akun Anda belum diberi izin ke halaman Terminate mana pun."); throw new Error("izin"); }
-    if (opt.active === "impor" && !iz.TIMPOR) { location.replace(boleh[0].href); throw new Error("izin"); }
+    if ((opt.active === "impor" || opt.active === "bersih") && !(iz.TIMPOR && s.role === "ADMIN")) { location.replace(boleh[0].href); throw new Error("izin"); }
     var kini = NAV.filter(function (n) { return n.k === opt.active; })[0];
     if (kini && !boleh.some(function (n) { return n.k === kini.k; })) { location.replace(boleh[0].href); throw new Error("izin"); }
     var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
@@ -80,7 +80,7 @@
     top.innerHTML = '<div class="fw-bold text-white">' + esc(opt.title || "Sistem Terminate") + "</div>" +
       '<div class="d-flex align-items-center gap-2"><span id="tm-sisa" class="kecil"></span><span class="small text-info">' + esc(s.user) +
       ' <span class="badge bg-secondary">' + (s.role === "ADMIN" ? "ADMIN" : "SUB ADMIN") + "</span></span>" +
-      (Auth.can("TIMPOR") ? '<a href="terminate-impor.html" class="btn btn-outline-info btn-sm py-0">Impor WA</a>' : "") + (Auth.can("DATAADMIN") || Auth.can("DASHBOARD") ? '<a href="' + (Auth.can("DATAADMIN") ? "search.html" : "admin.html") + '" class="btn btn-outline-light btn-sm py-0">Admin</a>' : "") +
+      (Auth.can("TIMPOR") ? '<a href="terminate-impor.html" class="btn btn-outline-info btn-sm py-0">Impor WA</a><a href="bersih-data.html" class="btn btn-outline-warning btn-sm py-0">Bersihkan</a>' : "") + (Auth.can("DATAADMIN") || Auth.can("DASHBOARD") ? '<a href="' + (Auth.can("DATAADMIN") ? "search.html" : "admin.html") + '" class="btn btn-outline-light btn-sm py-0">Admin</a>' : "") +
       '<button id="tm-out" class="btn btn-danger btn-sm fw-bold">Keluar</button></div>';
     document.body.insertBefore(top, document.body.firstChild);
     document.getElementById("tm-out").onclick = function () { logout(); };

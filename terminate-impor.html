@@ -80,7 +80,7 @@
     };
     function hitung() {
       var a = 0, b = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else a++; } });
-      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + '. Duplikat dilewati otomatis oleh server.';
+      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
     }
     function tampil() {
       $('pratinjau').classList.remove('d-none'); hitung();
@@ -91,7 +91,7 @@
           '<div class="flex-grow-1"><div class="kecil">' + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
-          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + '</div>' +
+          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
           (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
           '<select class="form-select form-select-sm form-select-dark" style="width:110px" data-s="' + i + '"><option' + (x.sheet === 'Instalasi' ? ' selected' : '') + '>Instalasi</option><option' + (x.sheet === 'MT' ? ' selected' : '') + '>MT</option></select></div>';
         d.appendChild(c);
@@ -108,18 +108,19 @@
     $('btnTak').onclick = function () { baris.forEach(function (x) { x.pilih = false; }); tampil(); };
 
     $('btnKirim').onclick = function () {
-      var kirim = baris.filter(function (x) { return x.pilih; });
+      var kirim = baris.filter(function (x) { return x.pilih; }).sort(function (a, b) { return (a.tanggal + (a.jam || '')) < (b.tanggal + (b.jam || '')) ? -1 : 1; });
       if (!kirim.length) { alert('Tidak ada data yang dipilih.'); return; }
       if (!confirm('Kirim ' + kirim.length + ' data ke Google Sheet?')) return;
       var btn = $('btnKirim'); btn.disabled = true;
-      var tot = { Instalasi: 0, MT: 0, dobel: 0, ditolak: 0 }, i = 0;
+      var tot = { Instalasi: 0, MT: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0 }, i = 0, lewat = [];
       function lanjut() {
-        if (i >= kirim.length) { $('progres').innerHTML = '<div class="alert alert-success py-2 mb-0">Selesai. Instalasi +' + tot.Instalasi + ', MT +' + tot.MT + ', duplikat dilewati ' + tot.dobel + ', ditolak ' + tot.ditolak + '.</div>'; btn.disabled = false; return; }
+        if (i >= kirim.length) { $('progres').innerHTML = '<div class="alert alert-success py-2 mb-0">Selesai. Instalasi +' + tot.Instalasi + ', MT +' + tot.MT + ', diperbarui ' + tot.diperbarui + ', dobel/lebih lama dilewati ' + tot.dobel + ', baris lama dihapus ' + tot.dihapus + ', ditolak ' + tot.ditolak + ', POP bukan Perbaungan/Pantai Cermin ' + tot.pop + '.</div>' +
+          (lewat.length ? '<div class="card-custom p-2 mt-2 small"><b>Data yang dilewati (' + lewat.length + (lewat.length >= 50 ? '+, 50 pertama' : '') + '):</b><ol class="mb-0 ps-3">' + lewat.map(function (x) { return '<li>' + TMC.esc(x.nama) + ' (CID ' + TMC.esc(x.cid) + (x.sn ? ', SN ' + TMC.esc(x.sn) : '') + ') - ' + TMC.esc(x.alasan) + '</li>'; }).join('') + '</ol></div>' : ''); btn.disabled = false; return; }
         var potong = kirim.slice(i, i + 100);
         $('progres').textContent = 'Mengirim ' + Math.min(i + 100, kirim.length) + ' / ' + kirim.length + '...';
         TMC.api('terminateImporWA', { rows: potong }).then(function (r) {
           if (r.status !== 'success') { $('progres').innerHTML = '<div class="alert alert-danger py-2 mb-0">' + TMC.esc(r.message) + ' (terkirim sampai data ke-' + i + ')</div>'; btn.disabled = false; return; }
-          Object.keys(tot).forEach(function (k) { tot[k] += (r.hasil[k] || 0); });
+          Object.keys(tot).forEach(function (k) { tot[k] += (r.hasil[k] || 0); }); lewat = lewat.concat(r.hasil.lewat || []);
           i += 100; lanjut();
         }).catch(function () { $('progres').innerHTML = '<div class="alert alert-danger py-2 mb-0">Gagal terhubung ke server (terkirim sampai data ke-' + i + ').</div>'; btn.disabled = false; });
       }
