@@ -51,8 +51,8 @@
 
   <div class="login-card">
     <div class="text-center mb-4">
-      <h4 class="fw-bold text-info m-0">🔐 Login Admin</h4>
-      <small class="text-muted">Sistem Lapangan & Rekap Data</small>
+      <h4 class="fw-bold text-info m-0">🔐 Login</h4>
+      <small class="text-muted">Admin, Sub Admin & Tim Terminate (sesi 12 jam)</small>
     </div>
 
     <form id="loginForm">
@@ -76,35 +76,39 @@
     </form>
   </div>
 
+  <script src="auth.js"></script>
   <script>
     // URL Web App Google Apps Script Anda
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
+    const params = new URLSearchParams(location.search);
+    function pilihTujuan() {
+      const n = (params.get("next") || "").split("?")[0];
+      if (/^[a-z0-9-]+\.html$/i.test(n) && n !== "login.html") return n;   // guard halaman tujuan mengalihkan bila tak punya izin
+      return Auth.home();
+    }
 
-    // Cek jika user sudah login sebelumnya, langsung arahkan ke Dashboard
-    window.onload = function() {
-      const session = localStorage.getItem("user_session");
-      if (session) {
-        window.location.href = "search.html";
-      }
+    // Sudah login (sesi 12 jam masih berlaku) -> langsung masuk
+    window.onload = function () {
+      if (params.get("m")) alert(params.get("m"));
+      if (Auth.get()) window.location.href = pilihTujuan();
     };
 
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    document.getElementById('loginForm').addEventListener('submit', function (e) {
       e.preventDefault();
       const user = document.getElementById('username').value.trim();
-      const pass = document.getElementById('password').value.trim();
+      const pass = document.getElementById('password').value;
       const btn = document.getElementById('btnLogin');
-
       btn.disabled = true;
       btn.innerText = "Memverifikasi...";
 
-      fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`)
+      // POST (password tidak ikut di URL). Satu login untuk semua halaman, sesi 12 jam.
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "terminateLogin", username: user, password: pass }) })
         .then(r => r.json())
         .then(res => {
+          if (res.tm !== 1) { alert("Backend (Apps Script) belum diperbarui. Tempel Terminate.gs terbaru lalu Deploy > New version."); return; }
           if (res.status === "success") {
-            // Simpan Session ke LocalStorage
-            localStorage.setItem("user_session", JSON.stringify(res.user));
-            alert("Login Berhasil! Selamat datang, " + res.user.username);
-            window.location.href = "search.html";
+            Auth.save(res);
+            window.location.href = pilihTujuan();
           } else {
             alert(res.message || "Username atau password salah!");
           }

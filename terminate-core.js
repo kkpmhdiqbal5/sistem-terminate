@@ -2,22 +2,12 @@
    Dipakai bersama oleh semua halaman terminate-*.html dan terminate.html. */
 (function () {
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
-  var KEY = "terminate_session";
-  var SESSION_MS = 12 * 60 * 60 * 1000;
   var LIB = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
   var timer = null;
+  // Login & sesi 12 jam dipakai bersama seluruh sistem lewat auth.js (satu login untuk semua halaman)
+  function getSession() { return window.Auth ? Auth.get() : null; }
+  function logout(msg) { Auth.logout(msg); }
 
-  function getSession() {
-    try {
-      var s = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (s && s.token && s.exp > Date.now()) return s;
-    } catch (e) {}
-    return null;
-  }
-  function logout(msg) {
-    localStorage.removeItem(KEY);
-    location.replace("terminate-login.html" + (msg ? "?m=" + encodeURIComponent(msg) : ""));
-  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -37,15 +27,6 @@
     var body = Object.assign({}, payload || {}, { action: action, token: s.token });
     return post(body).then(function (res) {
       if (res && res.code === "SESSION") logout(res.message);
-      return checkTm(res);
-    });
-  }
-  function login(username, password) {
-    return post({ action: "terminateLogin", username: username, password: password }).then(function (res) {
-      if (res && res.status === "success") {
-        var exp = Math.min(res.expiresAt || Infinity, Date.now() + SESSION_MS);
-        localStorage.setItem(KEY, JSON.stringify({ token: res.token, user: res.user, role: res.role, exp: exp }));
-      }
       return checkTm(res);
     });
   }
@@ -76,30 +57,35 @@
     ".kecil{font-size:.78rem;color:#94a3b8}";
 
   var NAV = [
-    { k: "diambil", href: "terminate-diambil.html", ic: "📦", t: "Diambil" },
-    { k: "edit", href: "terminate-edit.html", ic: "✏️", t: "Edit" },
-    { k: "input", href: "terminate.html", ic: "📷", t: "Input", center: true },
-    { k: "laporan", href: "terminate-laporan.html", ic: "📋", t: "Laporan" },
-    { k: "full", href: "terminate-full.html", ic: "🗂️", t: "Data", admin: true }
+    { k: "diambil", p: "TDIAMBIL", href: "terminate-diambil.html", ic: "📦", t: "Diambil" },
+    { k: "edit", p: "TEDIT", href: "terminate-edit.html", ic: "✏️", t: "Edit" },
+    { k: "input", p: "TINPUT", href: "terminate.html", ic: "📷", t: "Input", center: true },
+    { k: "laporan", p: "TLAPORAN", href: "terminate-laporan.html", ic: "📋", t: "Laporan" },
+    { k: "full", p: "TDATA", href: "terminate-full.html", ic: "🗂️", t: "Data", admin: true }
   ];
 
   function init(opt) {
     var s = getSession();
     if (!s) { logout("Silakan login dulu."); throw new Error("login"); }
-    if (opt.adminOnly && s.role !== "ADMIN") { location.replace("terminate.html"); throw new Error("akses"); }
+    s.user = s.username;
+    var iz = s.izin || {};
+    var boleh = NAV.filter(function (n) { return iz[n.p] && (!n.admin || s.role === "ADMIN"); });
+    if (!boleh.length) { logout("Akun Anda belum diberi izin ke halaman Terminate mana pun."); throw new Error("izin"); }
+    var kini = NAV.filter(function (n) { return n.k === opt.active; })[0];
+    if (kini && !boleh.some(function (n) { return n.k === kini.k; })) { location.replace(boleh[0].href); throw new Error("izin"); }
     var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
 
     var top = document.createElement("div"); top.className = "tm-top";
     top.innerHTML = '<div class="fw-bold text-white">' + esc(opt.title || "Sistem Terminate") + "</div>" +
       '<div class="d-flex align-items-center gap-2"><span id="tm-sisa" class="kecil"></span><span class="small text-info">' + esc(s.user) +
       ' <span class="badge bg-secondary">' + (s.role === "ADMIN" ? "ADMIN" : "SUB ADMIN") + "</span></span>" +
-      (s.role === "ADMIN" ? '<a href="search.html" class="btn btn-outline-light btn-sm py-0">Admin</a>' : "") +
+      (Auth.can("DATAADMIN") || Auth.can("DASHBOARD") ? '<a href="' + (Auth.can("DATAADMIN") ? "search.html" : "admin.html") + '" class="btn btn-outline-light btn-sm py-0">Admin</a>' : "") +
       '<button id="tm-out" class="btn btn-danger btn-sm fw-bold">Keluar</button></div>';
     document.body.insertBefore(top, document.body.firstChild);
     document.getElementById("tm-out").onclick = function () { logout(); };
 
     var nav = document.createElement("div"); nav.className = "tm-nav";
-    nav.innerHTML = NAV.filter(function (n) { return !n.admin || s.role === "ADMIN"; }).map(function (n) {
+    nav.innerHTML = boleh.map(function (n) {
       if (n.center) return '<a href="' + n.href + '" class="ctr"><div class="circ">' + n.ic + '</div><span class="' + (n.k === opt.active ? "on" : "") + '">' + n.t + "</span></a>";
       return '<a href="' + n.href + '" class="' + (n.k === opt.active ? "active" : "") + '"><div class="ic">' + n.ic + "</div><span>" + n.t + "</span></a>";
     }).join("");
@@ -110,6 +96,13 @@
       if (e) e.textContent = "Sesi " + Math.floor(m / 60) + "j " + (m % 60) + "m";
     }
     sisa(); setInterval(sisa, 60000);
+    // segarkan izin dari server (bila admin mengubah akses di sheet USERS, halaman menyesuaikan)
+    api("terminateMe").then(function (r) {
+      if (r && r.status === "success" && JSON.stringify(r.izin) !== JSON.stringify(s.izin)) {
+        try { var raw = JSON.parse(localStorage.getItem("user_session")); raw.izin = r.izin; raw.role = r.role; localStorage.setItem("user_session", JSON.stringify(raw)); } catch (e) {}
+        location.reload();
+      }
+    }).catch(function () {});
     clearTimeout(timer);
     timer = setTimeout(function () { logout("Sesi 12 jam berakhir. Silakan login ulang."); }, Math.max(1000, s.exp - Date.now()));
     return s;
@@ -218,6 +211,6 @@
     });
   }
 
-  window.TMC = { init: init, api: api, login: login, getSession: getSession, logout: logout, esc: esc, thumb: thumb,
+  window.TMC = { init: init, api: api, getSession: getSession, logout: logout, esc: esc, thumb: thumb,
                  driveId: driveId, openCamera: openCamera, scanCode: scanCode };
 })();
