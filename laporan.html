@@ -68,6 +68,10 @@
         <button onclick="tutupForm()" class="btn btn-sm btn-outline-light py-0 px-2">✕ Tutup</button>
       </div>
       <div class="mb-3">
+        <label class="form-label small text-warning fw-bold">Nama Sheet Tujuan (hanya sheet ini yang ditulis):</label>
+        <input type="text" id="sheetTujuan" class="form-control form-control-dark" value="target" placeholder="contoh: target">
+      </div>
+      <div class="mb-3">
         <label class="form-label small text-info fw-bold">Pilih File (.txt atau .docx):</label>
         <input type="file" id="fileInput" class="form-control form-control-dark" accept=".txt,.docx" onchange="bacaFile(event, 'teksMassal')">
       </div>
@@ -219,14 +223,16 @@
       }
     }
 
+    try { const st = localStorage.getItem('sheet_tujuan_massal'); if (st) window.addEventListener('DOMContentLoaded', function () { document.getElementById('sheetTujuan').value = st; }); } catch (e) {}
     function eksekusiInputMassal() {
       const teks = document.getElementById('teksMassal').value;
       if (!teks.trim()) { alert("Teks input masih kosong!"); return; }
 
+      try { localStorage.setItem('sheet_tujuan_massal', document.getElementById('sheetTujuan').value); } catch (e) {}
       const btn = document.getElementById('btnInputMassal');
       btn.disabled = true; btn.innerText = "Memproses Input...";
 
-      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "inputMassalFile", teks: teks }) })
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "inputMassalFile", teks: teks, sheet: (document.getElementById('sheetTujuan').value || 'target').trim() }) })
       .then(r => r.json())
       .then(res => {
         alert(res.message);

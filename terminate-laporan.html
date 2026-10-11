@@ -60,8 +60,19 @@
           var row = document.createElement('div'); row.className = 'd-flex gap-2 mt-2';
           var b1 = document.createElement('button'); b1.className = 'btn btn-info btn-sm fw-bold flex-fill'; b1.textContent = 'Salin';
           b1.onclick = function () { salin(l.teks).then(function () { b1.textContent = 'Tersalin ✔'; }); };
-          var b2 = document.createElement('a'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim WhatsApp';
-          b2.target = '_blank'; b2.rel = 'noopener'; b2.href = 'https://wa.me/?text=' + encodeURIComponent(l.teks);
+          var b2;
+          if (Auth.can('TCHAT')) {          // admin: laporan dikirim lewat WhatsApp API (tujuan diatur di sistem)
+            b2 = document.createElement('button'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim via WA API';
+            b2.onclick = function () {
+              if (!confirm('Kirim laporan ' + l.pop + ' lewat WhatsApp API?')) return;
+              b2.disabled = true; b2.textContent = 'Mengirim...';
+              TMC.api('terminateKirimLaporan', { teks: l.teks }).then(function (r) { b2.textContent = r.status === 'success' ? 'Terkirim ✔' : 'Gagal'; if (r.status !== 'success') { alert(r.message); b2.disabled = false; } })
+                .catch(function () { b2.textContent = 'Gagal'; b2.disabled = false; });
+            };
+          } else {
+            b2 = document.createElement('a'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim WhatsApp';
+            b2.target = '_blank'; b2.rel = 'noopener'; b2.href = 'https://wa.me/?text=' + encodeURIComponent(l.teks);
+          }
           row.appendChild(b1); row.appendChild(b2); c.appendChild(h); c.appendChild(ta); c.appendChild(row); $('hasil').appendChild(c);
         });
       }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });

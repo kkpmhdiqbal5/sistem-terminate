@@ -14,7 +14,8 @@
     { href: "terminate-laporan.html", p: "TLAPORAN" },
     { href: "terminate-full.html", p: "TDATA" },
     { href: "terminate-impor.html", p: "TIMPOR" },
-    { href: "bersih-data.html", p: "TIMPOR" }
+    { href: "bersih-data.html", p: "TIMPOR" },
+    { href: "chat-client.html", p: "TCHAT" }
   ];
   var timer = null;
 
@@ -31,7 +32,7 @@
     location.replace("login.html?next=" + encodeURIComponent(pageName()) + (msg ? "&m=" + encodeURIComponent(msg) : ""));
   }
   function can(p) { var s = get(); return !!(s && s.izin && s.izin[p]); }
-  function anyTerminate() { return ["TINPUT", "TDIAMBIL", "TEDIT", "TLAPORAN", "TDATA", "TIMPOR"].some(can); }
+  function anyTerminate() { return ["TINPUT", "TDIAMBIL", "TEDIT", "TLAPORAN", "TDATA", "TIMPOR", "TCHAT"].some(can); }
   function home() {
     for (var i = 0; i < PAGES.length; i++) if (can(PAGES[i].p)) return PAGES[i].href;
     return "index.html";

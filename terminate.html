@@ -155,7 +155,10 @@
         if (!$('cid').value && r.cid) $('cid').value = r.cid;
         if (!$('pop').value && r.pop) { $('pop').value = r.pop; isiOdp(r.odp); }
         else if (!nilaiOdp() && r.odp) setOdp(r.odp);
-        $('info').textContent = 'Ditemukan di sheet ' + r.sheet + (r.nama ? ': ' + r.nama : '') + (r.sheet === 'Baris 1' ? ' (akan dipindah ke Baris 2 saat disimpan)' : '');
+        var tInfo = 'Ditemukan di sheet ' + r.sheet + (r.nama ? ': ' + r.nama : '') + (r.sheet === 'Baris 1' ? ' (akan dipindah ke Baris 2 saat disimpan)' : '');
+        if (r.fotoRumah) {
+          $('info').innerHTML = TMC.esc(tInfo) + '<div class="mt-2"><a href="' + TMC.esc(r.fotoRumah) + '" target="_blank"><img src="' + TMC.esc(TMC.thumb(r.fotoRumah, 300)) + '" alt="foto rumah" style="max-width:220px;border-radius:8px;border:1px solid #3a506b"></a><div class="kecil">Foto rumah dari client (klik untuk memperbesar)</div></div>';
+        } else $('info').textContent = tInfo;
       });
     }
     ['sn', 'psn'].forEach(function (id) {

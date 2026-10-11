@@ -28,7 +28,8 @@
   }
   function odpNama(v) {
     v = String(v || "").trim();
-    var pop = popNorm(v.replace(/^ODP[\s\-]*([A-Z]+).*$/i, "$1"));
+    var cm = /ODP[\s\-]+(PRBGN|PTCRMN)\b/i.exec(v);
+    var pop = cm ? (cm[1].toUpperCase() === "PTCRMN" ? "PANTAI CERMIN" : "PERBAUNGAN") : "";
     var nama = v.replace(/^ODP[\s\-]+[A-Z]+[\s\-]+\d+[\s\-]+\d+\s*(?:[-·•:]\s*)?/i, "").replace(/~/g, " ").replace(/\s+/g, " ").trim();
     return { nama: (nama || v).toUpperCase(), pop: pop };
   }
@@ -120,7 +121,7 @@
     blocks.forEach(function (b) {
       if (b.snbaru) { if (b.sn && b.sn !== b.snbaru && !b.snlama) b.snlama = b.sn; b.sn = b.snbaru; }
       var o = odpNama(b.odp); b.odpN = o.nama; b.popOdp = o.pop;
-      b.popN = popNorm(b.pop) || b.popOdp || b.pop0 || "";
+      b.popN = b.popOdp || popNorm(b.pop) || b.pop0 || "";   // kode ODP (PRBGN/PTCRMN) diutamakan
       b.tglN = b.tgl || b.tglwo || b.tgl0 || "";
     });
     return blocks.filter(function (b) { return b.cid || b.sn || b.psn; });

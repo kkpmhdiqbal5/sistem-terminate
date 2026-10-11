@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Client - Sistem Terminate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="auth.js"></script>
+  <script src="terminate-core.js"></script>
+  <style>
+    .baris{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-bottom:1px solid #2a385b}
+    .baris:last-child{border-bottom:0}
+    .baris input[type=checkbox]{margin-top:4px;transform:scale(1.25)}
+    .bar-aksi{position:sticky;top:0;z-index:20;background:#0b132b;padding:8px 0}
+    .nama{font-weight:600;color:#fff}.kecil{font-size:.74rem;color:#94a3b8}
+    .nav-tabs .nav-link{color:#94a3b8}.nav-tabs .nav-link.active{background:#1c2541;color:#fff;border-color:#2a385b #2a385b #1c2541}
+    .nav-tabs{border-color:#2a385b}
+    .foto{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #3a506b}
+  </style>
+</head>
+<body>
+  <div class="container px-3 pt-3" style="max-width:900px">
+    <div id="info"></div>
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item"><button class="nav-link active" data-tab="kirim">☑️ Pilih &amp; Kirim</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="status">💬 Balasan Client</button></li>
+    </ul>
+
+    <!-- TAB 1 -->
+    <div id="tab-kirim">
+      <div class="card-custom p-3 mb-3">
+        <div class="fw-bold text-white mb-2">Menunggu diambil <span id="jml" class="badge bg-info text-dark"></span></div>
+        <div class="row g-2">
+          <div class="col-12 col-md-5"><input id="cari" class="form-control form-control-dark" placeholder="Cari nama / CID / ODP / alamat..."></div>
+          <div class="col-4 col-md-2"><select id="fPop" class="form-select form-select-dark"><option value="">Semua POP</option><option>PERBAUNGAN</option><option>PANTAI CERMIN</option></select></div>
+          <div class="col-4 col-md-2"><select id="fSumber" class="form-select form-select-dark"><option value="">Semua sheet</option><option>Full Data</option><option>target</option></select></div>
+          <div class="col-4 col-md-3"><select id="fChat" class="form-select form-select-dark"><option value="">Semua status chat</option><option value="_belum">Belum dichat</option><option value="MENUNGGU_BALASAN">Menunggu balasan</option><option value="LANJUT">Lanjut</option><option value="MINTA_FOTO">Diminta foto</option><option value="FOTO_DITERIMA">Foto diterima</option><option value="PERLU_ADMIN">Perlu admin</option><option value="_foto">Punya foto rumah</option></select></div>
+        </div>
+        <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+          <button id="btnSemua" class="btn btn-outline-light btn-sm">Pilih semua hasil</button>
+          <button id="btnTak" class="btn btn-outline-light btn-sm">Kosongkan</button>
+          <span id="dipilih" class="badge bg-success ms-auto">0 dipilih</span>
+        </div>
+      </div>
+
+      <div class="card-custom p-3 mb-3">
+        <div class="fw-bold text-white mb-1">① Kirim data pengambilan perangkat ke teknisi</div>
+        <div class="kecil mb-2">Untuk data pengambilan perangkat saja (bukan laporan, bukan chat client). Admin memilih salah satu saluran.</div>
+        <div class="d-flex gap-3 mb-2">
+          <label class="form-check"><input class="form-check-input" type="radio" name="saluran" value="WA" checked> <span class="form-check-label">WhatsApp API</span></label>
+          <label class="form-check"><input class="form-check-input" type="radio" name="saluran" value="TELEGRAM"> <span class="form-check-label">Telegram</span></label>
+        </div>
+        <input id="tujuanWA" class="form-control form-control-dark mb-2" placeholder="Tujuan WhatsApp (nomor / ID grup) - kosong = bawaan sistem">
+        <button id="btnTeknisi" class="btn btn-info w-100 fw-bold">Kirim yang dipilih ke teknisi</button>
+        <div id="hTeknisi" class="mt-2"></div>
+      </div>
+
+      <div class="card-custom p-3 mb-3">
+        <div class="fw-bold text-white mb-1">② Chat client (WhatsApp API saja, dibalas bot AI) <span id="badgeAI"></span></div>
+        <div class="kecil mb-2">Client yang menjawab TIDAK akan diminta mengirim foto rumah; foto tersimpan &amp; tampil untuk teknisi. Maks <span id="maksKirim">30</span> client sekali kirim, ada jeda otomatis antar pesan.</div>
+        <textarea id="pesan" rows="5" class="form-control form-control-dark mb-2"></textarea>
+        <div class="kecil mb-2">Isian otomatis: <code>{nama}</code> <code>{cid}</code> <code>{odp}</code></div>
+        <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="paksa"> <span class="form-check-label small">Kirim ulang walau masih menunggu balasan</span></label>
+        <button id="btnClient" class="btn btn-success w-100 fw-bold">Kirim chat ke client yang dipilih</button>
+        <div id="hClient" class="mt-2"></div>
+      </div>
+
+      <div class="card-custom mb-4" id="daftar"></div>
+      <div id="lagi" class="text-center mb-4"></div>
+    </div>
+
+    <!-- TAB 2 -->
+    <div id="tab-status" class="d-none">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-bold text-white">Status balasan client</div>
+        <button id="btnMuat" class="btn btn-outline-info btn-sm">Muat ulang</button>
+      </div>
+      <div class="card-custom mb-4" id="daftarStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
+    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta foto rumah', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'] };
+    function badge(st) { var l = LABEL[st] || [st || '-', 'secondary']; return '<span class="badge bg-' + l[1] + (l[1] === 'warning' || l[1] === 'info' ? ' text-dark' : '') + '">' + esc(l[0]) + '</span>'; }
+    function pesan(el, t, j) { $(el).innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small" style="white-space:pre-line">' + esc(t) + '</div>' : ''; }
+
+    // ----- tab
+    document.querySelectorAll('[data-tab]').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('active', x === b); });
+        $('tab-kirim').classList.toggle('d-none', b.dataset.tab !== 'kirim');
+        $('tab-status').classList.toggle('d-none', b.dataset.tab !== 'status');
+        if (b.dataset.tab === 'status') muatStatus();
+      };
+    });
+
+    // ----- konfigurasi & data
+    TMC.api('terminateChatKonfig').then(function (k) {
+      konfig = k; if (k.status !== 'success') { pesan('info', k.message, 'danger'); return; }
+      $('pesan').value = k.teksAwal; $('maksKirim').textContent = k.maxKirim;
+      $('badgeAI').innerHTML = k.ai ? '<span class="badge bg-success">Bot AI aktif</span>' : '<span class="badge bg-secondary">Bot kata kunci (AI belum diatur)</span>';
+      var w = [];
+      if (!k.wa) w.push('WhatsApp API belum diatur (WA_TOKEN) - pengiriman WA tidak akan jalan.');
+      if (!k.telegram) w.push('Telegram belum diatur.');
+      if (w.length) pesan('info', w.join('\n'), 'warning');
+      var t = ''; try { t = localStorage.getItem('tujuan_wa_teknisi') || ''; } catch (e) {}
+      $('tujuanWA').placeholder = 'Tujuan WhatsApp (nomor / ID grup)' + (k.teknisi ? ' - bawaan: ' + k.teknisi : ' - wajib diisi'); $('tujuanWA').value = t;
+    });
+    function muat() {
+      $('daftar').innerHTML = '<div class="p-3 kecil">Memuat data...</div>';
+      TMC.api('terminateMenunggu').then(function (r) {
+        if (r.status !== 'success') { $('daftar').innerHTML = '<div class="p-3 text-danger">' + esc(r.message) + '</div>'; return; }
+        semua = r.data; $('jml').textContent = r.total + ' data'; gambar();
+      });
+    }
+    function saring() {
+      var q = $('cari').value.trim().toLowerCase(), p = $('fPop').value, sm = $('fSumber').value, c = $('fChat').value;
+      return semua.filter(function (x) {
+        if (p && x.pop !== p) return false;
+        if (sm && x.sumber !== sm) return false;
+        if (c === '_belum' && x.chat) return false;
+        if (c === '_foto' && !x.foto) return false;
+        if (c && c.charAt(0) !== '_' && (!x.chat || x.chat.status !== c)) return false;
+        if (q && (x.nama + ' ' + x.cid + ' ' + x.odp + ' ' + x.alamat).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+    }
+    function hitung() { $('dipilih').textContent = Object.keys(pilih).length + ' dipilih'; }
+    function gambar() {
+      var hasil = saring(), el = $('daftar');
+      el.innerHTML = '';
+      hasil.slice(0, tampilN).forEach(function (x) {
+        var d = document.createElement('div'); d.className = 'baris';
+        d.innerHTML = '<input type="checkbox" data-c="' + esc(x.cid) + '"' + (pilih[x.cid] ? ' checked' : '') + '>' +
+          '<div class="flex-grow-1"><div class="nama">' + esc(x.nama || '(tanpa nama)') + ' <span class="kecil">CID ' + esc(x.cid) + '</span></div>' +
+          '<div class="kecil">' + esc(x.odp || '-') + ' | ' + esc(x.pop || '-') + ' | ' + esc(x.paket || '-') + ' | ' + esc(x.sumber) + '</div>' +
+          '<div class="kecil">' + (x.hp ? '📱 ' + esc(x.hp) : '<span class="text-warning">📱 nomor HP tidak valid: ' + esc(x.hpAsli || 'kosong') + '</span>') + (x.alamat ? ' | ' + esc(x.alamat) : '') + '</div>' +
+          (x.chat ? '<div class="mt-1">' + badge(x.chat.status) + ' <span class="kecil">' + esc(x.chat.terakhir) + '</span></div>' : '') + '</div>' +
+          (x.foto ? '<a href="' + esc(x.foto) + '" target="_blank"><img class="foto" src="' + esc(TMC.thumb(x.foto, 120)) + '" alt="rumah"></a>' : '');
+        el.appendChild(d);
+      });
+      if (!hasil.length) el.innerHTML = '<div class="p-3 kecil">Tidak ada data yang cocok.</div>';
+      $('lagi').innerHTML = hasil.length > tampilN ? '<button class="btn btn-outline-light btn-sm" id="btnLagi">Tampilkan lebih banyak (' + (hasil.length - tampilN) + ' lagi)</button>' : '';
+      if ($('btnLagi')) $('btnLagi').onclick = function () { tampilN += 200; gambar(); };
+      hitung();
+    }
+    $('daftar').addEventListener('change', function (e) { var c = e.target.getAttribute('data-c'); if (!c) return; if (e.target.checked) pilih[c] = 1; else delete pilih[c]; hitung(); });
+    ['cari', 'fPop', 'fSumber', 'fChat'].forEach(function (id) { $(id).addEventListener('input', function () { tampilN = 200; gambar(); }); });
+    $('btnSemua').onclick = function () { saring().forEach(function (x) { pilih[x.cid] = 1; }); gambar(); };
+    $('btnTak').onclick = function () { pilih = {}; gambar(); };
+
+    // ----- kirim ke teknisi
+    $('btnTeknisi').onclick = function () {
+      var c = Object.keys(pilih); if (!c.length) { alert('Pilih data dulu (kotak centang).'); return; }
+      var ch = document.querySelector('input[name=saluran]:checked').value, tj = $('tujuanWA').value.trim();
+      if (ch === 'WA') { try { localStorage.setItem('tujuan_wa_teknisi', tj); } catch (e) {} }
+      if (!confirm('Kirim ' + c.length + ' data pengambilan perangkat lewat ' + (ch === 'WA' ? 'WhatsApp' : 'Telegram') + '?')) return;
+      var b = $('btnTeknisi'); b.disabled = true; pesan('hTeknisi', 'Mengirim...', 'secondary');
+      TMC.api('terminateKirimTeknisi', { cids: c, channel: ch, tujuan: tj }).then(function (r) { pesan('hTeknisi', r.message, r.status === 'success' ? 'success' : 'danger'); b.disabled = false; })
+        .catch(function () { pesan('hTeknisi', 'Gagal terhubung ke server.', 'danger'); b.disabled = false; });
+    };
+
+    // ----- chat client
+    $('btnClient').onclick = function () {
+      var c = Object.keys(pilih); if (!c.length) { alert('Pilih client dulu (kotak centang).'); return; }
+      if (c.length > (konfig.maxKirim || 30)) { alert('Maksimal ' + (konfig.maxKirim || 30) + ' client sekali kirim. Kurangi pilihan Anda.'); return; }
+      if (!confirm('Kirim chat WhatsApp ke ' + c.length + ' client? Proses butuh sekitar ' + Math.ceil(c.length * 4 / 60) + ' menit, jangan tutup halaman.')) return;
+      var b = $('btnClient'); b.disabled = true; pesan('hClient', 'Mengirim, mohon tunggu...', 'secondary');
+      TMC.api('terminateChatKirim', { cids: c, pesan: $('pesan').value, paksa: $('paksa').checked }).then(function (r) {
+        var t = r.message || '';
+        if (r.dilewati && r.dilewati.length) t += '\n\nDilewati:\n' + r.dilewati.slice(0, 30).map(function (x, i) { return (i + 1) + '. ' + x.nama + ' (CID ' + x.cid + ') - ' + x.alasan; }).join('\n');
+        pesan('hClient', t, r.status === 'success' ? (r.terkirim ? 'success' : 'warning') : 'danger'); b.disabled = false;
+        if (r.status === 'success') { pilih = {}; muat(); }
+      }).catch(function () { pesan('hClient', 'Koneksi terputus. Cek tab "Balasan Client" untuk melihat yang sudah terkirim.', 'danger'); b.disabled = false; });
+    };
+
+    // ----- status balasan
+    function muatStatus() {
+      $('daftarStatus').innerHTML = '<div class="p-3 kecil">Memuat...</div>';
+      TMC.api('terminateChatStatus').then(function (r) {
+        if (r.status !== 'success') { $('daftarStatus').innerHTML = '<div class="p-3 text-danger">' + esc(r.message) + '</div>'; return; }
+        if (!r.data.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Belum ada chat.</div>'; return; }
+        $('daftarStatus').innerHTML = r.data.map(function (x) {
+          return '<div class="baris"><div class="flex-grow-1"><div class="nama">' + esc(x.nama || '-') + ' <span class="kecil">CID ' + esc(x.cid) + '</span> ' + badge(x.status) + '</div>' +
+            '<div class="kecil">' + esc(x.odp) + ' | ' + esc(x.pop) + ' | kirim: ' + esc(x.kirim || '-') + ' | balas: ' + esc(x.balas || '-') + '</div>' +
+            '<div class="kecil">' + esc(x.terakhir) + '</div><button class="btn btn-outline-light btn-sm py-0 mt-1" data-r="' + esc(x.cid) + '">Lihat percakapan</button></div>' +
+            (x.foto ? '<a href="' + esc(x.foto) + '" target="_blank"><img class="foto" src="' + esc(TMC.thumb(x.foto, 120)) + '" alt="rumah"></a>' : '') + '</div>';
+        }).join('');
+      });
+    }
+    $('daftarStatus').addEventListener('click', function (e) {
+      var c = e.target.getAttribute('data-r'); if (!c) return;
+      TMC.api('terminateChatStatus', { cid: c }).then(function (r) {
+        alert(r.status === 'success' ? (r.riwayat.map(function (x) { return '[' + x.waktu + '] ' + (x.arah === 'IN' ? 'CLIENT' : 'KAMI') + ': ' + x.isi; }).join('\n') || 'Belum ada percakapan.') : r.message);
+      });
+    });
+    $('btnMuat').onclick = muatStatus;
+    muat();
+  </script>
+</body>
+</html>
