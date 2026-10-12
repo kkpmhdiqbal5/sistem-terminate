@@ -163,13 +163,12 @@
     </a>
   </div>
 
+  <script src="auth.js"></script>
   <script>
     // GANTI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec"; 
 
-    if (!localStorage.getItem("user_session")) {
-      window.location.href = "login.html";
-    }
+    Auth.guard("DATAADMIN");
 
     function bukaForm(jenis) {
       document.getElementById('menuUtama').classList.add('d-none');
