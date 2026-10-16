@@ -155,14 +155,7 @@
   <!-- HEADER BAR APP -->
   <div class="app-header">
     <div class="app-title">Home</div>
-    <div class="d-flex gap-2">
-      <div class="btn-icon-header" onclick="location.href='terminate.html'" title="Sistem Terminate">
-        <span style="font-size: 1.1rem;">🚚</span>
-      </div>
-      <div class="btn-icon-header" onclick="goToAdminDashboard()" title="Dashboard Admin">
-        <span style="font-size: 1.1rem;">➡️</span>
-      </div>
-    </div>
+    <div class="d-flex gap-2 align-items-center"><span id="grp-slot"></span></div>
   </div>
 
   <div class="container px-3">
@@ -327,6 +320,8 @@
 
   <!-- DEPENDENCIES SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
+  <script src="menu-grup.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>

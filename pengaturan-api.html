@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengaturan API - Sistem Lapangan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="auth.js"></script>
+  <script src="menu-grup.js"></script>
+  <script src="terminate-core.js"></script>
+  <style>
+    .st{font-size:.72rem;border-radius:999px;padding:1px 9px;font-weight:700}
+    .st.ok{background:#14532d;color:#86efac}.st.no{background:#3f1d1d;color:#fca5a5}
+    code{color:#7dd3fc;word-break:break-all}
+  </style>
+</head>
+<body>
+  <div class="container px-3 pt-3" style="max-width:720px">
+    <div id="info"></div>
+
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">📲 WhatsApp API (Fonnte)</div>
+      <div class="kecil mb-2">Dipakai untuk chat client, kirim laporan, dan (bila dipilih) data pengambilan ke teknisi.</div>
+      <div id="f-WA_TOKEN"></div><div id="f-WA_TEKNISI"></div><div id="f-WA_LAPORAN"></div>
+      <div class="d-flex gap-2 mt-2">
+        <input id="noTes" class="form-control form-control-dark" placeholder="Nomor tes (08xx…)">
+        <button class="btn btn-outline-info btn-sm fw-bold text-nowrap" id="tesWA">Kirim Tes</button>
+      </div>
+    </div>
+
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">🔗 Webhook (balasan client masuk)</div>
+      <div id="f-WA_HOOK_SECRET"></div>
+      <button class="btn btn-outline-light btn-sm mb-2" id="acak">🎲 Buat kata rahasia acak</button>
+      <div class="kecil">Tempel URL ini di pengaturan webhook / auto-reply Fonnte (setelah menyimpan):</div>
+      <div class="d-flex gap-2 align-items-start mt-1"><code id="urlHook" class="flex-fill">-</code><button class="btn btn-info btn-sm fw-bold" id="salinHook">Salin</button></div>
+    </div>
+
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">🤖 Bot AI (Anthropic)</div>
+      <div class="kecil mb-2">Tanpa API key, bot tetap membalas memakai kata kunci sederhana.</div>
+      <div id="f-AI_KEY"></div><div id="f-AI_MODEL"></div>
+      <button class="btn btn-outline-info btn-sm fw-bold" id="tesAI">Tes API key</button>
+    </div>
+
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">✈️ Telegram</div>
+      <div class="kecil mb-2" id="tgBawaan"></div>
+      <div id="f-TG_TOKEN"></div><div id="f-TG_CHAT"></div>
+      <button class="btn btn-outline-info btn-sm fw-bold" id="tesTG">Kirim Tes Telegram</button>
+    </div>
+
+    <div id="pesan" class="mb-2"></div>
+    <button class="btn btn-success w-100 fw-bold py-2 mb-4" id="simpan">💾 Simpan Pengaturan</button>
+  </div>
+
+  <script>
+    var S = TMC.init({ active: 'api', title: '⚙️ Pengaturan API' });
+    var $ = function (i) { return document.getElementById(i); };
+    var KEYS = ['WA_TOKEN', 'WA_TEKNISI', 'WA_LAPORAN', 'WA_HOOK_SECRET', 'AI_KEY', 'AI_MODEL', 'TG_TOKEN', 'TG_CHAT'];
+    var HINT = { WA_TEKNISI: '08xx… atau ID grup 1203…@g.us', WA_LAPORAN: '08xx… atau ID grup 1203…@g.us', AI_MODEL: 'kosong = bawaan', TG_CHAT: 'mis. -1001234567890' };
+    var hapus = [];
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + esc(t) + '</div>' : ''; }
+    function gambar(r) {
+      KEYS.forEach(function (k) {
+        var f = r.nilai[k]; if (!f) return;
+        $('f-' + k).innerHTML = '<div class="mb-2"><div class="d-flex justify-content-between align-items-center"><label class="form-label small text-secondary fw-bold mb-1">' + esc(f.label) + '</label>' +
+          '<span><span class="st ' + (f.ada ? 'ok' : 'no') + '">' + (f.ada ? 'tersimpan' : 'belum diisi') + '</span>' +
+          (f.ada ? ' <button class="btn btn-link btn-sm text-danger p-0 ms-1" data-hapus="' + k + '">hapus</button>' : '') + '</span></div>' +
+          '<input id="i-' + k + '" class="form-control form-control-dark" ' + (f.rahasia ? 'type="password" autocomplete="new-password"' : 'type="text"') +
+          ' placeholder="' + esc(f.ada ? (f.rahasia ? f.tampil + ' — kosongkan bila tidak diubah' : f.tampil + ' — ketik untuk mengganti') : (HINT[k] || 'isi di sini')) + '"></div>';
+      });
+      $('urlHook').textContent = r.hook ? r.url + '?hook=' + r.hook : '(isi & simpan kata rahasia dulu)';
+      $('tgBawaan').textContent = r.telegramBawaan ? 'Bot Telegram dari Kode.gs sudah aktif; kolom di bawah hanya dipakai bila Kode.gs kosong.' : '';
+    }
+    function muat() { TMC.api('terminateApiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); gambar(r); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }); }
+    document.addEventListener('click', function (e) {
+      var k = e.target.getAttribute && e.target.getAttribute('data-hapus');
+      if (!k || !confirm('Hapus ' + k + '?')) return;
+      pesan('Menghapus...', 'secondary');
+      TMC.api('terminateApiSimpan', { nilai: {}, hapus: [k] }).then(function (r) { if (r.status === 'success') { gambar(r); pesan('Dihapus.', 'success'); } else pesan(r.message, 'danger'); });
+    });
+    $('simpan').onclick = function () {
+      var nilai = {}; KEYS.forEach(function (k) { var el = $('i-' + k); if (el && el.value.trim()) nilai[k] = el.value.trim(); });
+      if (!Object.keys(nilai).length) return pesan('Belum ada yang diisi.', 'warning');
+      $('simpan').disabled = true; pesan('Menyimpan...', 'secondary');
+      TMC.api('terminateApiSimpan', { nilai: nilai }).then(function (r) { if (r.status === 'success') { gambar(r); pesan(r.message, 'success'); } else pesan(r.message, 'danger'); })
+        .catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { $('simpan').disabled = false; });
+    };
+    function tes(jenis, extra) {
+      pesan('Menguji...', 'secondary');
+      TMC.api('terminateApiTes', Object.assign({ jenis: jenis }, extra || {})).then(function (r) { pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
+    }
+    $('tesWA').onclick = function () { tes('WA', { nomor: $('noTes').value }); };
+    $('tesAI').onclick = function () { tes('AI'); };
+    $('tesTG').onclick = function () { tes('TELEGRAM'); };
+    $('acak').onclick = function () {
+      var a = new Uint8Array(12); crypto.getRandomValues(a);
+      var v = Array.from(a).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      $('i-WA_HOOK_SECRET').type = 'text'; $('i-WA_HOOK_SECRET').value = v; pesan('Kata rahasia dibuat. Klik Simpan untuk menerapkan.', 'info');
+    };
+    $('salinHook').onclick = function () { var t = $('urlHook').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('salinHook').textContent = 'Tersalin ✔'; }).catch(function () { prompt('Salin URL:', t); }); };
+    muat();
+  </script>
+</body>
+</html>

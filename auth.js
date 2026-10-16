@@ -15,7 +15,9 @@
     { href: "terminate-full.html", p: "TDATA" },
     { href: "terminate-impor.html", p: "TIMPOR" },
     { href: "bersih-data.html", p: "TIMPOR" },
-    { href: "chat-client.html", p: "TCHAT" }
+    { href: "chat-client.html", p: "TCHAT" },
+    { href: "pengaturan-api.html", p: "TCHAT" },
+    { href: "profil.html", p: "" }
   ];
   var timer = null;
 
@@ -34,12 +36,12 @@
   function can(p) { var s = get(); return !!(s && s.izin && s.izin[p]); }
   function anyTerminate() { return ["TINPUT", "TDIAMBIL", "TEDIT", "TLAPORAN", "TDATA", "TIMPOR", "TCHAT"].some(can); }
   function home() {
-    for (var i = 0; i < PAGES.length; i++) if (can(PAGES[i].p)) return PAGES[i].href;
+    for (var i = 0; i < PAGES.length; i++) if (PAGES[i].p && can(PAGES[i].p)) return PAGES[i].href;
     return "index.html";
   }
   function izinHalaman(href) {
     if (href === "terminate.html") return anyTerminate();
-    for (var i = 0; i < PAGES.length; i++) if (PAGES[i].href === href) return can(PAGES[i].p);
+    for (var i = 0; i < PAGES.length; i++) if (PAGES[i].href === href) return !PAGES[i].p || can(PAGES[i].p);
     return true;   // index.html dan tautan lain selalu boleh
   }
   function filterNav() {

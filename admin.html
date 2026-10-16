@@ -45,7 +45,7 @@
   <!-- Top Bar -->
   <div class="top-bar d-flex justify-content-between align-items-center mb-3">
     <div class="fw-bold fs-6 text-white" id="headerTitle">💻 Alat Menunggu Verif (Baris 1)</div>
-    <button onclick="toggleTampilanSheet()" id="btnToggleSheet" class="btn btn-sm btn-outline-warning fw-bold px-3">Lihat Data Terverifikasi (Baris 2)</button>
+    <div class="d-flex align-items-center gap-2"><button onclick="toggleTampilanSheet()" id="btnToggleSheet" class="btn btn-sm btn-outline-warning fw-bold px-3">Lihat Data Terverifikasi (Baris 2)</button><span id="grp-slot"></span></div>
   </div>
 
   <div class="container-fluid px-3">
@@ -156,6 +156,7 @@
   </div>
 
   <script src="auth.js"></script>
+  <script src="menu-grup.js"></script>
   <script>
     // GANTI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
