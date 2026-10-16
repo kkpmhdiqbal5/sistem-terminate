@@ -79,15 +79,14 @@
     // ---------- bilah atas: judul + SATU tombol grup (profil & semua menu) ----------
     var top = document.createElement("div"); top.className = "tm-top";
     top.innerHTML = '<div class="fw-bold text-white">' + esc(opt.title || "Sistem Terminate") + "</div>" +
-      '<div class="d-flex align-items-center gap-2"><span id="tm-sisa" class="kecil"></span>' +
-      '<span id="grp-slot"></span></div>';
+      '';
     document.body.insertBefore(top, document.body.firstChild);
 
     var nav = document.createElement("div"); nav.className = "tm-nav";
     nav.innerHTML = boleh.map(function (n) {
       if (n.center) return '<a href="' + n.href + '" class="ctr"><div class="circ">' + n.ic + '</div><span class="' + (n.k === opt.active ? "on" : "") + '">' + n.t + "</span></a>";
       return '<a href="' + n.href + '" class="' + (n.k === opt.active ? "active" : "") + '"><div class="ic">' + n.ic + "</div><span>" + n.t + "</span></a>";
-    }).join("") + '<a href="profil.html" class="' + (opt.active === "profil" ? "active" : "") + '"><div class="ic">👤</div><span>Profil</span></a>';
+    }).join("");
     document.body.appendChild(nav);
 
     // tombol grup + semua menu: modul bersama menu-grup.js (sama di semua halaman); Profil = halaman profil.html
