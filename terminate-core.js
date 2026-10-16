@@ -82,13 +82,6 @@
       '';
     document.body.insertBefore(top, document.body.firstChild);
 
-    var nav = document.createElement("div"); nav.className = "tm-nav";
-    nav.innerHTML = boleh.map(function (n) {
-      if (n.center) return '<a href="' + n.href + '" class="ctr"><div class="circ">' + n.ic + '</div><span class="' + (n.k === opt.active ? "on" : "") + '">' + n.t + "</span></a>";
-      return '<a href="' + n.href + '" class="' + (n.k === opt.active ? "active" : "") + '"><div class="ic">' + n.ic + "</div><span>" + n.t + "</span></a>";
-    }).join("");
-    document.body.appendChild(nav);
-
     // tombol grup + semua menu: modul bersama menu-grup.js (sama di semua halaman); Profil = halaman profil.html
     if (window.MenuGrup) window.MenuGrup.mount();
 
