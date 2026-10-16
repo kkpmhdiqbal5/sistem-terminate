@@ -16,7 +16,7 @@
     { href: "terminate-impor.html", p: "TIMPOR" },
     { href: "bersih-data.html", p: "TIMPOR" },
     { href: "chat-client.html", p: "TCHAT" },
-    { href: "pengaturan-api.html", p: "TCHAT" },
+    { href: "pengaturan-api.html", p: "TAPI" },
     { href: "profil.html", p: "" }
   ];
   var timer = null;

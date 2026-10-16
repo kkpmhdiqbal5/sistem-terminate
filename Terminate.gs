@@ -59,7 +59,7 @@ function terminateRoute_(d) {
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
-                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateApiBaca: 'TCHAT', terminateApiSimpan: 'TCHAT', terminateApiTes: 'TCHAT' };
+                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
     const perlu = BUTUH[d.action];
@@ -236,7 +236,17 @@ function tmFlag_(v, def) {
   if (['FALSE', 'TIDAK', 'T', 'N', '0', 'SALAH'].indexOf(t) >= 0) return false;
   return def;
 }
-function tmIzinDari_(role, row, h) {
+// ADMIN TERTINGGI (satu-satunya yang boleh membuka Pengaturan API / mengisi token WA, Telegram, AI):
+//  - bila kolom "Akses Pengaturan API" ada dan ada admin bertanda TRUE -> admin-admin itu
+//  - selain itu -> admin PERTAMA (paling atas) di sheet USERS
+function tmSuperAdmin_(h, rows) {
+  const iU = h.indexOf('USERNAME') >= 0 ? h.indexOf('USERNAME') : 0, iR = h.indexOf('AKSESTERMINATE'), iA = h.indexOf('AKSESPENGATURANAPI');
+  const admins = rows.filter(r => iR >= 0 && tmRoleNorm_(r[iR]) === 'ADMIN');
+  if (!admins.length) return [];
+  const tanda = iA >= 0 ? admins.filter(r => tmFlag_(r[iA], false) === true) : [];
+  return (tanda.length ? tanda : [admins[0]]).map(r => tmNorm_(r[iU]));
+}
+function tmIzinDari_(role, row, h, rows) {
   const out = {};
   Object.keys(TM_HDR_LAMA).forEach(k => { const i = h.indexOf(TM_HDR_LAMA[k]); out[k] = i >= 0 ? tmFlag_(row[i], true) : true; });
   TM_IZIN.forEach(k => {
@@ -247,6 +257,8 @@ function tmIzinDari_(role, row, h) {
     if ((k === 'TDATA' || k === 'TIMPOR' || k === 'TCHAT') && role !== 'ADMIN') v = false;   // Data penuh & Impor WA selalu khusus Admin
     out[k] = v;
   });
+  const iUu = h.indexOf('USERNAME') >= 0 ? h.indexOf('USERNAME') : 0;
+  out.TAPI = role === 'ADMIN' && !!rows && tmSuperAdmin_(h, rows).indexOf(tmNorm_(row[iUu])) >= 0;
   return out;
 }
 function tmAkun_(user) {
@@ -257,7 +269,7 @@ function tmAkun_(user) {
   for (let i = 1; i < v.length; i++) {
     if (!tmSame_(v[i][iU], user)) continue;
     const role = iR >= 0 ? tmRoleNorm_(v[i][iR]) : '';
-    return { role: role, izin: tmIzinDari_(role, v[i], h) };
+    return { role: role, izin: tmIzinDari_(role, v[i], h, v.slice(1)) };
   }
   return null;
 }
@@ -328,7 +340,7 @@ function tmLogin_(d) {
       const role = u.iR >= 0 ? tmRoleNorm_(r[u.iR]) : '';
       const exp = Date.now() + TM.SESSION_MS;
       const nama = String(r[u.iU]).trim();
-      return { status: 'success', token: tmMakeToken_(nama, role, exp), user: nama, nama: tmNamaLengkap_(nama), role: role, izin: tmIzinDari_(role, r, u.h), expiresAt: exp };
+      return { status: 'success', token: tmMakeToken_(nama, role, exp), user: nama, nama: tmNamaLengkap_(nama), role: role, izin: tmIzinDari_(role, r, u.h, u.rows), expiresAt: exp };
     }
   }
   Utilities.sleep(600);

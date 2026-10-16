@@ -71,7 +71,7 @@
     var iz = s.izin || {};
     var boleh = NAV.filter(function (n) { return iz[n.p] && (!n.admin || s.role === "ADMIN"); });
     if (!boleh.length) { logout("Akun Anda belum diberi izin ke halaman Terminate mana pun."); throw new Error("izin"); }
-    if (((opt.active === "impor" || opt.active === "bersih") && !(iz.TIMPOR && s.role === "ADMIN")) || ((opt.active === "chat" || opt.active === "api") && !(iz.TCHAT && s.role === "ADMIN"))) { location.replace(boleh[0].href); throw new Error("izin"); }
+    if (((opt.active === "impor" || opt.active === "bersih") && !(iz.TIMPOR && s.role === "ADMIN")) || ((opt.active === "chat" && !(iz.TCHAT && s.role === "ADMIN")) || (opt.active === "api" && !(iz.TAPI && s.role === "ADMIN")))) { location.replace(boleh[0].href); throw new Error("izin"); }
     var kini = NAV.filter(function (n) { return n.k === opt.active; })[0];
     if (kini && !boleh.some(function (n) { return n.k === kini.k; })) { location.replace(boleh[0].href); throw new Error("izin"); }
     var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);

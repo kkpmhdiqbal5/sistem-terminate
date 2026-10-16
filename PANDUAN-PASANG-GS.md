@@ -20,3 +20,9 @@ Ada 3 file .gs. Semuanya ditempel di SATU proyek Apps Script yang sama (proyek y
 8. Login admin > klik tombol nama di kanan atas > **Profil Saya** > **Masuk & Atur API** > isi token > Simpan.
 
 Selesai. Tidak perlu lagi mengisi token lewat kode.
+
+## Siapa "admin tertinggi" (boleh buka Pengaturan API)?
+- Secara bawaan: admin **paling atas** di sheet USERS (kolom "Akses Terminate" = ADMIN).
+- Untuk menunjuk admin lain: tambah kolom **Akses Pengaturan API** di sheet USERS, isi TRUE pada admin yang dipilih
+  (boleh lebih dari satu; bila ada yang TRUE, aturan "paling atas" tidak dipakai lagi).
+- Admin lain tetap bisa memakai Impor WA, Bersihkan Data, Chat Client, dll., tetapi tidak bisa membuka/mengubah token & API key.

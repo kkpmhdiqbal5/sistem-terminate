@@ -4,22 +4,24 @@
    Semua tautan diatur di satu tempat: GRUP di bawah ini. */
 (function () {
   var GRUP = [
+    { id: "lapangan", ic: "🛠️", t: "Lapangan", items: [
+      { h: "index.html", ic: "📝", t: "Form Lapangan" },
+      { h: "terminate.html", ic: "📷", t: "Input", p: "TINPUT" }] },
     { id: "terminate", ic: "🚚", t: "Terminate", items: [
-      { h: "terminate.html", ic: "📷", t: "Input", p: "TINPUT" },
       { h: "terminate-diambil.html", ic: "📦", t: "Diambil", p: "TDIAMBIL" },
       { h: "terminate-edit.html", ic: "✏️", t: "Edit", p: "TEDIT" },
       { h: "terminate-laporan.html", ic: "📋", t: "Laporan", p: "TLAPORAN" },
       { h: "terminate-full.html", ic: "🗂️", t: "Data Penuh", p: "TDATA", admin: true }] },
-    { id: "lapangan", ic: "🛠️", t: "Lapangan", items: [
-      { h: "index.html", ic: "📝", t: "Form Lapangan" },
+    { id: "dashboard", ic: "📊", t: "Dashboard", items: [
       { h: "admin.html", ic: "📊", t: "Dashboard", p: "DASHBOARD" },
-      { h: "search.html", ic: "🔎", t: "Pencarian", p: "DATAADMIN" },
-      { h: "laporan.html", ic: "📑", t: "Laporan & Input Massal", p: "DATAADMIN", alt: ["laporan50.html"] }] },
-    { id: "admin", ic: "⚙️", t: "Admin", admin: true, items: [
+      { h: "search.html", ic: "🔎", t: "Pencarian", p: "DATAADMIN" }] },
+    { id: "profil", ic: "👤", t: "Profil", admin: true, items: [          // khusus admin: profil + seluruh fitur admin
+      { h: "profil.html", ic: "🪪", t: "Profil Saya" },
       { h: "terminate-impor.html", ic: "📥", t: "Impor WhatsApp", p: "TIMPOR" },
       { h: "bersih-data.html", ic: "🧹", t: "Bersihkan Data", p: "TIMPOR" },
       { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT" },
-      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TCHAT" }] }
+      { h: "laporan.html", ic: "📑", t: "Laporan & Input Massal", p: "DATAADMIN", alt: ["laporan50.html"] },
+      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TAPI" }] }   // hanya admin tertinggi
   ];
   var CSS = ".mg-nav{position:fixed;left:0;right:0;bottom:0;z-index:2000;background:#1c2541;border-top:1px solid #2a385b;font-family:'Segoe UI',sans-serif;color:#e0e6ed;box-shadow:0 -4px 14px rgba(0,0,0,.4)}" +
     ".mg-nav *{box-sizing:border-box}" +
@@ -48,15 +50,14 @@
     function cocok(x) { return x.h === now || (x.alt || []).indexOf(now) >= 0; }
     var aktif = null;
     grup.forEach(function (g) { if (g.items.some(cocok)) aktif = g; });
-    var profil = now === "profil.html";
-    if (!aktif && !profil) aktif = grup[0] || null;           // halaman tanpa grup (mis. profil): tab pertama tidak disorot
-    var tampil = aktif || (profil ? grup[0] : null);
+    var tampil = aktif || grup[0] || null;
 
     var nav = document.createElement("nav"); nav.id = "mg-nav"; nav.className = "mg-nav";
     var m = Math.max(0, Math.floor((s.exp - Date.now()) / 60000));
     nav.innerHTML = (tampil ? '<div class="mg-r2">' + tampil.items.map(function (x) { return '<a class="mg-lk' + (cocok(x) ? " on" : "") + '" href="' + x.h + '">' + x.ic + " " + esc(x.t) + "</a>"; }).join("") + "</div>" : "") +
-      '<div class="mg-r1">' + grup.map(function (g) { return '<a class="mg-tab' + (aktif === g && !profil ? " on" : "") + '" href="' + g.items[0].h + '"><span class="ic">' + g.ic + "</span>" + g.t + "</a>"; }).join("") +
-      '<a class="mg-tab' + (profil ? " on" : "") + '" href="profil.html" title="Sesi ' + Math.floor(m / 60) + "j " + (m % 60) + 'm"><span class="ic"><span class="mg-av">' + ini + "</span></span>Profil</a>" +
+      '<div class="mg-r1">' + grup.map(function (g) {
+        var ikon = g.id === "profil" ? '<span class="mg-av">' + ini + "</span>" : g.ic;
+        return '<a class="mg-tab' + (aktif === g ? " on" : "") + '" href="' + g.items[0].h + '"' + (g.id === "profil" ? ' title="Sesi ' + Math.floor(m / 60) + "j " + (m % 60) + 'm"' : "") + '><span class="ic">' + ikon + "</span>" + g.t + "</a>"; }).join("") +
       '<button type="button" class="mg-tab out" id="mg-out"><span class="ic">⎋</span>Keluar</button></div>';
     document.body.appendChild(nav);
     document.body.style.paddingBottom = (nav.offsetHeight + 16) + "px";

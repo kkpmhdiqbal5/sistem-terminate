@@ -52,7 +52,7 @@
     </div>
 
     <div class="kartu p-3 mb-3" id="kotakApi" style="display:none">
-      <div class="fw-bold text-white mb-1">Pengaturan API (khusus admin)</div>
+      <div class="fw-bold text-white mb-1">Pengaturan API (khusus admin tertinggi)</div>
       <div class="kecil mb-2">Isi token WhatsApp, Telegram, dan API key bot AI tanpa membuka Apps Script.</div>
       <a href="pengaturan-api.html" class="btn btn-warning w-100 fw-bold">⚙️ Masuk &amp; Atur API</a>
     </div>
@@ -62,10 +62,11 @@
 
   <script>
     var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
-    var S = Auth.guard();          // cukup login; semua akun boleh membuka profilnya sendiri
+    var S = Auth.guard();
+    if (S.role !== "ADMIN") { location.replace(Auth.home()); throw new Error("admin"); }   // Profil & fitur admin: khusus admin
     var user = S.username || "?", iz = S.izin || {};
     var NAMA = { TINPUT: "Input Terminate", TDIAMBIL: "Perangkat Diambil", TEDIT: "Edit Data", TLAPORAN: "Laporan Terminate", TDATA: "Data Penuh",
-      TIMPOR: "Impor & Bersihkan Data", TCHAT: "Chat Client", DASHBOARD: "Dashboard Admin", FORMINPUT: "Form Input", DATAADMIN: "Data Admin", MANAJEMENAKUN: "Manajemen Akun" };
+      TIMPOR: "Impor & Bersihkan Data", TCHAT: "Chat Client", TAPI: "Pengaturan API (admin tertinggi)", DASHBOARD: "Dashboard Admin", FORMINPUT: "Form Input", DATAADMIN: "Data Admin", MANAJEMENAKUN: "Manajemen Akun" };
     function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
     document.getElementById("av").textContent = user.charAt(0).toUpperCase();
     document.getElementById("nama").textContent = S.nama || user;
@@ -74,7 +75,7 @@
     document.getElementById("izin").innerHTML = Object.keys(NAMA).filter(function (k) { return iz[k]; })
       .map(function (k) { return '<span class="chip">' + NAMA[k] + "</span>"; }).join("") || '<span class="kecil">Belum ada izin halaman.</span>';
     document.getElementById("kembali").href = Auth.home();
-    if (S.role === "ADMIN" && Auth.can("TCHAT")) document.getElementById("kotakApi").style.display = "";
+    if (S.role === "ADMIN" && Auth.can("TAPI")) document.getElementById("kotakApi").style.display = "";
     document.getElementById("btnKeluar").onclick = function () { Auth.logout(); };
 
     function h(t, j) { document.getElementById("pesan").innerHTML = '<div class="alert alert-' + j + ' py-2 mb-0 small">' + esc(t) + "</div>"; }
