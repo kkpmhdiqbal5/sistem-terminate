@@ -19,7 +19,7 @@
   var BELUM = "Backend (Apps Script) belum diperbarui. Tempel Terminate.gs terbaru, lalu Deploy > New version.";
   function checkTm(res) {
     if (!res || res.tm !== 1) return { status: "error", message: BELUM };
-    if (res.status === "error" && res.message === "Aksi tidak dikenal.") return { status: "error", message: "Fitur ini belum aktif di server: tambahkan file ChatClient.gs terbaru di Apps Script (sebagai file baru), lalu Deploy > Manage deployments > Edit > New version." };
+    if (res.status === "error" && /^(Aksi tidak dikenal|ChatClient\.gs)/.test(res.message || "")) return { status: "error", message: "Fitur ini belum aktif di server: tempel ChatClient.gs terbaru (file baru bernama ChatClient) dan Terminate.gs terbaru (ke Code.gs) di Apps Script, lalu Deploy > Manage deployments > Edit > Version: New version > Deploy." };
     return res;
   }
   function api(action, payload) {

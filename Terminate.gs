@@ -84,7 +84,7 @@ function terminateRoute_(d) {
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
     }
     if (typeof chatRoute_ === 'function') { const c = chatRoute_(d, au); if (c) return tmJson_(c); }
-    return tmJson_({ status: 'error', message: typeof chatRoute_ === 'function' ? 'Aksi tidak dikenal.' : 'File ChatClient.gs belum dipasang di Apps Script. Tambahkan sebagai file baru lalu Deploy > New version.' });
+    return tmJson_({ status: 'error', message: typeof chatRoute_ === 'function' ? 'ChatClient.gs yang terpasang versi lama (tidak mengenal aksi ini). Tempel ulang ChatClient.gs terbaru lalu Deploy > New version.' : 'File ChatClient.gs belum dipasang di Apps Script. Tambahkan sebagai file baru lalu Deploy > New version.' });
   } catch (err) {
     return tmJson_({ status: 'error', message: 'Gagal: ' + err.message });
   }

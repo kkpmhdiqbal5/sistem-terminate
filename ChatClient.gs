@@ -291,7 +291,7 @@ function ccApiTes_(d, au) {
 }
 
 
-/* ---------- AI: saklar per fitur (Admin > Pengaturan AI) ---------- */
+/* ---------- AI: saklar per fitur (Profil > Pengaturan AI) ---------- */
 function ccAiCfg_() {
   let c = {}; try { c = JSON.parse(ccProp_('AI_CFG') || '{}'); } catch (e) {}
   const f = (k, def) => ({ aktif: c[k] && c[k].aktif !== undefined ? !!c[k].aktif : def, instruksi: String((c[k] && c[k].instruksi) || '') });
