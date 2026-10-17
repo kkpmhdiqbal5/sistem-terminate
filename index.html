@@ -155,7 +155,7 @@
   <!-- HEADER BAR APP -->
   <div class="app-header">
     <div class="app-title">Home</div>
-    <div class="d-flex gap-2 align-items-center"><a id="btnTerm" href="terminate.html" class="btn btn-sm btn-dark fw-bold" style="display:none">🚚 Input Terminate</a><a id="btnAdmin" href="admin.html" class="btn btn-sm btn-dark fw-bold" style="display:none">🔐 Sistem Admin</a></div>
+    <div class="d-flex gap-2 align-items-center"><a id="btnTerm" href="terminate.html" class="btn btn-sm btn-dark fw-bold">🚚 Input Terminate</a><a id="btnAdmin" href="admin.html" class="btn btn-sm btn-dark fw-bold">🔐 Sistem Admin</a></div>
   </div>
 
   <div class="container px-3">
@@ -340,12 +340,16 @@
       setInterval(updateClock, 1000);
     };
 
-    // tombol masuk Sistem Admin (hanya akun admin / berizin dashboard) + AI Lapangan (bila dihidupkan admin)
+    // (tombol Sistem Admin & Input Terminate selalu tampil; izin dicek oleh halaman tujuan) + AI Lapangan (bila dihidupkan admin)
     (function () {
+      // klik tanpa izin: beri tahu saja (tanpa keluar akun); belum login: biarkan halaman tujuan meminta login
+      [["btnAdmin", "DASHBOARD", "Sistem Admin"], ["btnTerm", "TINPUT", "Input Terminate"]].forEach(function (x) {
+        document.getElementById(x[0]).addEventListener("click", function (e) {
+          var u = window.Auth && Auth.get();
+          if (u && !(u.role === "ADMIN" || Auth.can(x[1]))) { e.preventDefault(); alert("Akun Anda belum punya izin ke " + x[2] + "."); }
+        });
+      });
       var s = window.Auth && Auth.get(); if (!s) return;
-      var bt = document.getElementById("btnTerm"); if (bt && Auth.can("TINPUT")) bt.style.display = "";
-      var b = document.getElementById("btnAdmin");
-      if (b && (s.role === "ADMIN" || Auth.can("DASHBOARD"))) { b.style.display = ""; b.href = Auth.can("DASHBOARD") ? "admin.html" : Auth.home(); }
       fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "terminateAiIsi", token: s.token, teks: "" }) }).then(function (r) { return r.json(); }).then(function (r) {
         if (r && r.tm === 1 && r.code !== "SESSION" && !/dinonaktifkan|belum diatur/.test(r.message || "")) document.getElementById("aiBox").style.display = "";
       }).catch(function () {});
