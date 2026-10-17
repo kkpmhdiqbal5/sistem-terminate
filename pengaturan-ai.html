@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengaturan AI - Sistem Lapangan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="auth.js"></script>
+  <script src="menu-grup.js"></script>
+  <script src="terminate-core.js"></script>
+  <style>
+    /* saklar ON / OFF */
+    .sw{position:relative;width:118px;height:50px;border:0;border-radius:999px;cursor:pointer;flex:none;transition:background .25s;box-shadow:inset 0 3px 8px rgba(0,0,0,.4),0 0 0 3px #e5e7eb}
+    .sw.on{background:linear-gradient(#34d058,#16a34a)}.sw.off{background:linear-gradient(#ef4444,#b91c1c)}
+    .sw .kn{position:absolute;top:5px;left:5px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#fff;
+      background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,0) 45%),var(--k);box-shadow:0 3px 6px rgba(0,0,0,.5);transition:transform .25s}
+    .sw.on{--k:#16a34a}.sw.off{--k:#dc2626}.sw.on .kn{transform:translateX(68px)}
+    .sw:disabled{opacity:.5;cursor:wait}
+    .st{font-size:.72rem;border-radius:999px;padding:1px 9px;font-weight:700}.st.ok{background:#14532d;color:#86efac}.st.no{background:#3f1d1d;color:#fca5a5}
+  </style>
+</head>
+<body>
+  <div class="container px-3 pt-3" style="max-width:720px">
+    <div id="info"></div>
+    <div class="kecil mb-3">Hidupkan / matikan AI <b>per fitur</b>. Token AI diisi di <span id="linkApi">Profil &gt; Pengaturan API</span> (pilih fungsi "AI chat client" / "AI form lapangan"; boleh API yang sama atau berbeda).</div>
+
+    <div id="kartu"></div>
+    <div id="pesan"></div>
+  </div>
+
+  <script>
+    var S = TMC.init({ active: 'ai', title: '🤖 Pengaturan AI' });
+    var $ = function (i) { return document.getElementById(i); }, esc = TMC.esc;
+    if (Auth.can('TAPI')) $('linkApi').innerHTML = '<a href="pengaturan-api.html" class="text-info">Profil &gt; Pengaturan API</a>';
+    var FITUR = [
+      { k: 'chat', ic: '💬', t: 'AI Chat Client', d: 'Membalas client & calon pelanggan di WhatsApp otomatis (lanjut / berhenti / minta foto rumah / ingin pasang WiFi). Mati = bot memakai kata kunci sederhana.',
+        ph: 'Contoh: Paket HOME 10 = 10 Mbps. Wilayah layanan Perbaungan & Pantai Cermin. Jam admin 08.00-17.00.', tes: false },
+      { k: 'lapangan', ic: '🛠️', t: 'AI Lapangan', d: 'Di Form Lapangan muncul kotak "Isi dengan AI": teknisi menempel pesan/catatan, AI mengisi kolom ODP, POP, CID, nama, SN, P-SN.',
+        ph: 'Contoh: SN selalu diawali DF1D. Abaikan nomor telepon di teks.', tes: true }
+    ];
+    var data = null;
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc(t) + '</div>' : ''; }
+    function gambar() {
+      $('kartu').innerHTML = FITUR.map(function (f) {
+        var c = data.cfg[f.k], ada = data.api[f.k];
+        return '<div class="card-custom p-3 mb-3"><div class="d-flex align-items-center gap-3"><div class="flex-grow-1">' +
+          '<div class="fw-bold text-white">' + f.ic + ' ' + f.t + ' <span class="st ' + (ada ? 'ok' : 'no') + '">' + (ada ? 'API siap' : 'API belum diatur') + '</span></div>' +
+          '<div class="kecil">' + f.d + '</div></div>' +
+          '<button class="sw ' + (c.aktif ? 'on' : 'off') + '" data-sw="' + f.k + '" aria-pressed="' + c.aktif + '" title="' + (c.aktif ? 'Klik untuk mematikan' : 'Klik untuk menghidupkan') + '"><span class="kn">' + (c.aktif ? 'ON' : 'OFF') + '</span></button></div>' +
+          '<label class="form-label small text-secondary fw-bold mt-3 mb-1">Instruksi / informasi tambahan untuk AI (opsional)</label>' +
+          '<textarea id="ins-' + f.k + '" rows="3" class="form-control form-control-dark" maxlength="1500" placeholder="' + esc(f.ph) + '">' + esc(c.instruksi) + '</textarea>' +
+          '<div class="d-flex gap-2 mt-2"><button class="btn btn-info btn-sm fw-bold" data-simpan="' + f.k + '">Simpan instruksi</button></div>' +
+          (f.tes ? '<div class="mt-3"><label class="form-label small text-secondary fw-bold mb-1">Coba AI Lapangan</label><textarea id="tes-lap" rows="2" class="form-control form-control-dark" placeholder="Tempel contoh pesan teknisi..."></textarea>' +
+            '<button class="btn btn-outline-info btn-sm fw-bold mt-2" data-tes="1">Coba isi kolom</button><pre id="tes-out" class="kecil mt-2 mb-0" style="white-space:pre-wrap"></pre></div>' : '') + '</div>';
+      }).join('');
+    }
+    function muat() { TMC.api('terminateAiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); data = r; gambar(); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }); }
+    function simpan(k, extra, tombol) {
+      if (tombol) tombol.disabled = true; pesan('Menyimpan...', 'secondary');
+      return TMC.api('terminateAiSimpan', Object.assign({ fitur: k }, extra)).then(function (r) {
+        if (r.status === 'success') { data = r; gambar(); pesan(r.message, 'success'); } else { pesan(r.message, 'danger'); if (tombol) tombol.disabled = false; }
+      }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); if (tombol) tombol.disabled = false; });
+    }
+    $('kartu').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.sw) simpan(b.dataset.sw, { aktif: !data.cfg[b.dataset.sw].aktif }, b);
+      else if (b.dataset.simpan) simpan(b.dataset.simpan, { instruksi: $('ins-' + b.dataset.simpan).value }, b);
+      else if (b.dataset.tes) {
+        var t = $('tes-lap').value.trim(); if (!t) return;
+        $('tes-out').textContent = 'Memproses...';
+        TMC.api('terminateAiIsi', { teks: t }).then(function (r) { $('tes-out').textContent = r.status === 'success' ? JSON.stringify(r.data, null, 2) : r.message; });
+      }
+    });
+    muat();
+  </script>
+</body>
+</html>

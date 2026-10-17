@@ -11,17 +11,19 @@
       { h: "terminate-diambil.html", ic: "📦", t: "Diambil", p: "TDIAMBIL" },
       { h: "terminate-edit.html", ic: "✏️", t: "Edit", p: "TEDIT" },
       { h: "terminate-laporan.html", ic: "📋", t: "Laporan", p: "TLAPORAN" },
-      { h: "terminate-full.html", ic: "🗂️", t: "Data Penuh", p: "TDATA", admin: true }] },
+      { h: "terminate-full.html", ic: "🗂️", t: "Data Penuh", p: "TDATA", admin: true },
+      { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT", admin: true }] },
     { id: "dashboard", ic: "📊", t: "Dashboard", items: [
       { h: "admin.html", ic: "📊", t: "Dashboard", p: "DASHBOARD" },
       { h: "search.html", ic: "🔎", t: "Pencarian", p: "DATAADMIN" }] },
-    { id: "profil", ic: "👤", t: "Profil", admin: true, items: [          // khusus admin: profil + seluruh fitur admin
-      { h: "profil.html", ic: "🪪", t: "Profil Saya" },
+    { id: "admin", ic: "⚙️", t: "Admin", admin: true, items: [            // sisa fitur admin
       { h: "terminate-impor.html", ic: "📥", t: "Impor WhatsApp", p: "TIMPOR" },
       { h: "bersih-data.html", ic: "🧹", t: "Bersihkan Data", p: "TIMPOR" },
-      { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT" },
       { h: "laporan.html", ic: "📑", t: "Laporan & Input Massal", p: "DATAADMIN", alt: ["laporan50.html"] },
-      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TAPI" }] }   // hanya admin tertinggi
+      { h: "pengaturan-ai.html", ic: "🤖", t: "Pengaturan AI", p: "TCHAT" }] },
+    { id: "profil", ic: "👤", t: "Profil", admin: true, items: [
+      { h: "profil.html", ic: "🪪", t: "Profil Saya" },
+      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TAPI" }] }   // token WA/Telegram/AI: admin tertinggi
   ];
   var CSS = ".mg-nav{position:fixed;left:0;right:0;bottom:0;z-index:2000;background:#1c2541;border-top:1px solid #2a385b;font-family:'Segoe UI',sans-serif;color:#e0e6ed;box-shadow:0 -4px 14px rgba(0,0,0,.4)}" +
     ".mg-nav *{box-sizing:border-box}" +

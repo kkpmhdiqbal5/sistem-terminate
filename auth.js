@@ -17,6 +17,7 @@
     { href: "bersih-data.html", p: "TIMPOR" },
     { href: "chat-client.html", p: "TCHAT" },
     { href: "pengaturan-api.html", p: "TAPI" },
+    { href: "pengaturan-ai.html", p: "TCHAT" },
     { href: "profil.html", p: "" }
   ];
   var timer = null;

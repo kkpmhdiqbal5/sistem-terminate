@@ -9,99 +9,101 @@
   <script src="menu-grup.js"></script>
   <script src="terminate-core.js"></script>
   <style>
-    .st{font-size:.72rem;border-radius:999px;padding:1px 9px;font-weight:700}
-    .st.ok{background:#14532d;color:#86efac}.st.no{background:#3f1d1d;color:#fca5a5}
+    .st{font-size:.72rem;border-radius:999px;padding:1px 9px;font-weight:700;background:#26335a;color:#cbd5e1}
+    .fn{display:inline-block;background:#0b132b;border:1px solid #3a506b;border-radius:999px;padding:1px 9px;font-size:.72rem;margin:2px 4px 0 0;color:#7dd3fc}
     code{color:#7dd3fc;word-break:break-all}
   </style>
 </head>
 <body>
-  <div class="container px-3 pt-3" style="max-width:720px">
+  <div class="container px-3 pt-3" style="max-width:760px">
     <div id="info"></div>
+    <div class="kecil mb-3">Admin tertinggi mengisi token lalu <b>memilih fungsinya</b>. Satu fungsi hanya dipegang satu API (per jenis); memilih fungsi yang sama di API lain otomatis memindahkannya.</div>
 
-    <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-1">📲 WhatsApp API (Fonnte)</div>
-      <div class="kecil mb-2">Dipakai untuk chat client, kirim laporan, dan (bila dipilih) data pengambilan ke teknisi.</div>
-      <div id="f-WA_TOKEN"></div><div id="f-WA_TEKNISI"></div><div id="f-WA_LAPORAN"></div>
-      <div class="d-flex gap-2 mt-2">
-        <input id="noTes" class="form-control form-control-dark" placeholder="Nomor tes (08xx…)">
-        <button class="btn btn-outline-info btn-sm fw-bold text-nowrap" id="tesWA">Kirim Tes</button>
+    <div class="d-flex justify-content-between align-items-center mb-2"><div class="fw-bold text-white">Daftar API</div><button id="tambah" class="btn btn-success btn-sm fw-bold">＋ Tambah API</button></div>
+    <div id="daftar" class="mb-3"></div>
+
+    <div id="form" class="card-custom p-3 mb-3" style="display:none">
+      <div class="fw-bold text-white mb-2" id="fJudul">Tambah API</div>
+      <div class="row g-2">
+        <div class="col-7"><label class="form-label small text-secondary fw-bold mb-1">Nama</label><input id="fNama" class="form-control form-control-dark" placeholder="mis. WA Admin 1"></div>
+        <div class="col-5"><label class="form-label small text-secondary fw-bold mb-1">Jenis</label>
+          <select id="fJenis" class="form-select form-select-dark"><option value="WA">WhatsApp (Fonnte)</option><option value="TELEGRAM">Telegram</option><option value="AI">AI (Anthropic)</option></select></div>
+        <div class="col-12"><label class="form-label small text-secondary fw-bold mb-1">Token / API key</label><input id="fToken" type="password" autocomplete="new-password" class="form-control form-control-dark" placeholder="tempel token di sini"><div class="kecil" id="fTokenInfo"></div></div>
+        <div class="col-12 j-TELEGRAM"><label class="form-label small text-secondary fw-bold mb-1">ID chat / grup Telegram</label><input id="fChat" class="form-control form-control-dark" placeholder="mis. -1001234567890"></div>
+        <div class="col-12 j-AI"><label class="form-label small text-secondary fw-bold mb-1">Model (kosong = bawaan)</label><input id="fModel" class="form-control form-control-dark"></div>
+        <div class="col-12"><label class="form-label small text-secondary fw-bold mb-1">Fungsi API ini</label><div id="fFungsi"></div></div>
+        <div class="col-12 j-WA" id="fTujuan"></div>
       </div>
+      <div class="d-flex gap-2 mt-3"><button id="fSimpan" class="btn btn-success fw-bold flex-fill">💾 Simpan</button><button id="fBatal" class="btn btn-outline-light flex-fill">Batal</button></div>
     </div>
 
     <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-1">🔗 Webhook (balasan client masuk)</div>
-      <div id="f-WA_HOOK_SECRET"></div>
-      <button class="btn btn-outline-light btn-sm mb-2" id="acak">🎲 Buat kata rahasia acak</button>
-      <div class="kecil">Tempel URL ini di pengaturan webhook / auto-reply Fonnte (setelah menyimpan):</div>
+      <div class="fw-bold text-white mb-1">🔗 Webhook balasan client (WhatsApp)</div>
+      <div class="input-group mb-2"><input id="hook" class="form-control form-control-dark" placeholder="kata rahasia (8-64 huruf/angka)"><button class="btn btn-outline-light" id="acak">🎲 Acak</button><button class="btn btn-info fw-bold" id="hookSimpan">Simpan</button></div>
+      <div class="kecil">Tempel URL ini di webhook / auto-reply Fonnte:</div>
       <div class="d-flex gap-2 align-items-start mt-1"><code id="urlHook" class="flex-fill">-</code><button class="btn btn-info btn-sm fw-bold" id="salinHook">Salin</button></div>
     </div>
-
-    <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-1">🤖 Bot AI (Anthropic)</div>
-      <div class="kecil mb-2">Tanpa API key, bot tetap membalas memakai kata kunci sederhana.</div>
-      <div id="f-AI_KEY"></div><div id="f-AI_MODEL"></div>
-      <button class="btn btn-outline-info btn-sm fw-bold" id="tesAI">Tes API key</button>
-    </div>
-
-    <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-1">✈️ Telegram</div>
-      <div class="kecil mb-2" id="tgBawaan"></div>
-      <div id="f-TG_TOKEN"></div><div id="f-TG_CHAT"></div>
-      <button class="btn btn-outline-info btn-sm fw-bold" id="tesTG">Kirim Tes Telegram</button>
-    </div>
-
-    <div id="pesan" class="mb-2"></div>
-    <button class="btn btn-success w-100 fw-bold py-2 mb-4" id="simpan">💾 Simpan Pengaturan</button>
+    <div id="pesan" class="mb-4"></div>
   </div>
 
   <script>
-    var S = TMC.init({ active: 'api', title: '⚙️ Pengaturan API' });
-    var $ = function (i) { return document.getElementById(i); };
-    var KEYS = ['WA_TOKEN', 'WA_TEKNISI', 'WA_LAPORAN', 'WA_HOOK_SECRET', 'AI_KEY', 'AI_MODEL', 'TG_TOKEN', 'TG_CHAT'];
-    var HINT = { WA_TEKNISI: '08xx… atau ID grup 1203…@g.us', WA_LAPORAN: '08xx… atau ID grup 1203…@g.us', AI_MODEL: 'kosong = bawaan', TG_CHAT: 'mis. -1001234567890' };
-    var hapus = [];
-    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + esc(t) + '</div>' : ''; }
-    function gambar(r) {
-      KEYS.forEach(function (k) {
-        var f = r.nilai[k]; if (!f) return;
-        $('f-' + k).innerHTML = '<div class="mb-2"><div class="d-flex justify-content-between align-items-center"><label class="form-label small text-secondary fw-bold mb-1">' + esc(f.label) + '</label>' +
-          '<span><span class="st ' + (f.ada ? 'ok' : 'no') + '">' + (f.ada ? 'tersimpan' : 'belum diisi') + '</span>' +
-          (f.ada ? ' <button class="btn btn-link btn-sm text-danger p-0 ms-1" data-hapus="' + k + '">hapus</button>' : '') + '</span></div>' +
-          '<input id="i-' + k + '" class="form-control form-control-dark" ' + (f.rahasia ? 'type="password" autocomplete="new-password"' : 'type="text"') +
-          ' placeholder="' + esc(f.ada ? (f.rahasia ? f.tampil + ' — kosongkan bila tidak diubah' : f.tampil + ' — ketik untuk mengganti') : (HINT[k] || 'isi di sini')) + '"></div>';
-      });
-      $('urlHook').textContent = r.hook ? r.url + '?hook=' + r.hook : '(isi & simpan kata rahasia dulu)';
-      $('tgBawaan').textContent = r.telegramBawaan ? 'Bot Telegram dari Kode.gs sudah aktif; kolom di bawah hanya dipakai bila Kode.gs kosong.' : '';
+    var S = TMC.init({ active: 'api', title: '🔐 Pengaturan API' });
+    var $ = function (i) { return document.getElementById(i); }, esc = TMC.esc;
+    var D = null, editId = '', TUJ = { TEKNISI: 'Tujuan data pengambilan (teknisi)', LAPORAN: 'Tujuan bawaan laporan', NOTIF: 'Tujuan notifikasi calon pelanggan' };
+    function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc(t) + '</div>' : ''; }
+    function label(jenis, f) { var o = D.opsi[jenis].filter(function (x) { return x[0] === f; })[0]; return o ? o[1] : f; }
+    function gambar() {
+      $('daftar').innerHTML = D.list.length ? D.list.map(function (e) {
+        return '<div class="card-custom p-3 mb-2"><div class="d-flex justify-content-between align-items-start gap-2"><div>' +
+          '<div class="fw-bold text-white">' + esc(e.nama) + ' <span class="st">' + e.jenis + '</span>' + (e.lama ? ' <span class="st">cadangan lama</span>' : '') + '</div>' +
+          '<div class="kecil">Token ' + esc(e.tampil) + (e.chat ? ' · chat ' + esc(e.chat) : '') + (e.model ? ' · model ' + esc(e.model) : '') + '</div>' +
+          (e.fungsi.length ? e.fungsi.map(function (f) { return '<span class="fn">' + esc(label(e.jenis, f)) + '</span>'; }).join('') : '<span class="kecil text-warning">belum punya fungsi</span>') +
+          Object.keys(e.tujuan || {}).map(function (k) { return '<div class="kecil">' + esc(TUJ[k] || k) + ': ' + esc(e.tujuan[k]) + '</div>'; }).join('') +
+          '</div><div class="d-flex flex-column gap-1">' + (e.lama ? '' : '<button class="btn btn-outline-info btn-sm py-0" data-e="' + esc(e.id) + '">Ubah</button>') +
+          '<button class="btn btn-outline-light btn-sm py-0" data-t="' + esc(e.id) + '">Tes</button><button class="btn btn-outline-danger btn-sm py-0" data-h="' + esc(e.id) + '">Hapus</button></div></div></div>';
+      }).join('') : '<div class="kecil">Belum ada API. Klik "＋ Tambah API".</div>';
+      $('urlHook').textContent = D.hook ? D.url + '?hook=' + D.hook : '(isi & simpan kata rahasia dulu)';
     }
-    function muat() { TMC.api('terminateApiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); gambar(r); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }); }
-    document.addEventListener('click', function (e) {
-      var k = e.target.getAttribute && e.target.getAttribute('data-hapus');
-      if (!k || !confirm('Hapus ' + k + '?')) return;
-      pesan('Menghapus...', 'secondary');
-      TMC.api('terminateApiSimpan', { nilai: {}, hapus: [k] }).then(function (r) { if (r.status === 'success') { gambar(r); pesan('Dihapus.', 'success'); } else pesan(r.message, 'danger'); });
+    function bentuk(jenis, e) {                      // checkbox fungsi + kolom sesuai jenis
+      $('fJenis').value = jenis;
+      document.querySelectorAll('.j-WA,.j-TELEGRAM,.j-AI').forEach(function (x) { x.style.display = x.classList.contains('j-' + jenis) ? '' : 'none'; });
+      $('fFungsi').innerHTML = D.opsi[jenis].map(function (o) { return '<label class="form-check me-3 d-block"><input class="form-check-input" type="checkbox" value="' + o[0] + '"' + (e && e.fungsi.indexOf(o[0]) >= 0 ? ' checked' : '') + '> <span class="form-check-label small">' + esc(o[1]) + '</span></label>'; }).join('');
+      $('fTujuan').innerHTML = jenis === 'WA' ? Object.keys(TUJ).map(function (k) { return '<label class="form-label small text-secondary fw-bold mb-1 mt-1">' + TUJ[k] + '</label><input data-tj="' + k + '" class="form-control form-control-dark" placeholder="08xx… atau ID grup …@g.us" value="' + esc(e && e.tujuan && e.tujuan[k] || '') + '">'; }).join('') : '';
+    }
+    function bukaForm(e) {
+      editId = e ? e.id : ''; $('form').style.display = ''; $('fJudul').textContent = e ? 'Ubah API' : 'Tambah API';
+      $('fNama').value = e ? e.nama : ''; $('fToken').value = ''; $('fChat').value = e ? e.chat : ''; $('fModel').value = e ? e.model : '';
+      $('fJenis').disabled = !!e; $('fTokenInfo').textContent = e ? 'Tersimpan ' + e.tampil + ' - kosongkan bila tidak diganti.' : '';
+      bentuk(e ? e.jenis : 'WA', e); $('form').scrollIntoView({ behavior: 'smooth' });
+    }
+    $('fJenis').onchange = function () { bentuk($('fJenis').value, null); };
+    $('tambah').onclick = function () { bukaForm(null); };
+    $('fBatal').onclick = function () { $('form').style.display = 'none'; };
+    $('fSimpan').onclick = function () {
+      var jenis = $('fJenis').value, tuj = {};
+      document.querySelectorAll('[data-tj]').forEach(function (x) { if (x.value.trim()) tuj[x.dataset.tj] = x.value.trim(); });
+      var item = { id: editId, nama: $('fNama').value, jenis: jenis, token: $('fToken').value, chat: $('fChat').value, model: $('fModel').value, tujuan: tuj,
+        fungsi: Array.prototype.map.call(document.querySelectorAll('#fFungsi input:checked'), function (x) { return x.value; }) };
+      $('fSimpan').disabled = true; pesan('Menyimpan...', 'secondary');
+      TMC.api('terminateApiSimpan', { item: item }).then(function (r) {
+        if (r.status === 'success') { D = r; gambar(); $('form').style.display = 'none'; pesan(r.message, 'success'); } else pesan(r.message, 'danger');
+      }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { $('fSimpan').disabled = false; });
+    };
+    $('daftar').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b) return;
+      if (b.dataset.e) bukaForm(D.list.filter(function (x) { return x.id === b.dataset.e; })[0]);
+      else if (b.dataset.h) { if (!confirm('Hapus API ini?')) return; TMC.api('terminateApiHapus', { id: b.dataset.h }).then(function (r) { if (r.status === 'success') { D = r; gambar(); } pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }); }
+      else if (b.dataset.t) {
+        var e = D.list.filter(function (x) { return x.id === b.dataset.t; })[0], no = '';
+        if (e.jenis === 'WA') { no = prompt('Kirim pesan tes ke nomor / ID grup:', Object.keys(e.tujuan || {}).map(function (k) { return e.tujuan[k]; })[0] || ''); if (no === null) return; }
+        pesan('Menguji...', 'secondary');
+        TMC.api('terminateApiTes', { id: e.id, nomor: no }).then(function (r) { pesan(r.message, r.status === 'success' ? 'success' : 'danger'); });
+      }
     });
-    $('simpan').onclick = function () {
-      var nilai = {}; KEYS.forEach(function (k) { var el = $('i-' + k); if (el && el.value.trim()) nilai[k] = el.value.trim(); });
-      if (!Object.keys(nilai).length) return pesan('Belum ada yang diisi.', 'warning');
-      $('simpan').disabled = true; pesan('Menyimpan...', 'secondary');
-      TMC.api('terminateApiSimpan', { nilai: nilai }).then(function (r) { if (r.status === 'success') { gambar(r); pesan(r.message, 'success'); } else pesan(r.message, 'danger'); })
-        .catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { $('simpan').disabled = false; });
-    };
-    function tes(jenis, extra) {
-      pesan('Menguji...', 'secondary');
-      TMC.api('terminateApiTes', Object.assign({ jenis: jenis }, extra || {})).then(function (r) { pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
-    }
-    $('tesWA').onclick = function () { tes('WA', { nomor: $('noTes').value }); };
-    $('tesAI').onclick = function () { tes('AI'); };
-    $('tesTG').onclick = function () { tes('TELEGRAM'); };
-    $('acak').onclick = function () {
-      var a = new Uint8Array(12); crypto.getRandomValues(a);
-      var v = Array.from(a).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
-      $('i-WA_HOOK_SECRET').type = 'text'; $('i-WA_HOOK_SECRET').value = v; pesan('Kata rahasia dibuat. Klik Simpan untuk menerapkan.', 'info');
-    };
+    $('acak').onclick = function () { var a = new Uint8Array(12); crypto.getRandomValues(a); $('hook').value = Array.from(a).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); };
+    $('hookSimpan').onclick = function () { TMC.api('terminateApiSimpan', { hook: $('hook').value }).then(function (r) { if (r.status === 'success') { D = r; gambar(); $('hook').value = ''; } pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }); };
     $('salinHook').onclick = function () { var t = $('urlHook').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('salinHook').textContent = 'Tersalin ✔'; }).catch(function () { prompt('Salin URL:', t); }); };
-    muat();
+    TMC.api('terminateApiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); D = r; gambar(); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
   </script>
 </body>
 </html>
