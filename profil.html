@@ -54,7 +54,8 @@
     <div class="kartu p-3 mb-3" id="kotakApi" style="display:none">
       <div class="fw-bold text-white mb-1">Pengaturan API (khusus admin tertinggi)</div>
       <div class="kecil mb-2">Isi token WhatsApp, Telegram, dan API key bot AI tanpa membuka Apps Script.</div>
-      <a href="pengaturan-api.html" class="btn btn-warning w-100 fw-bold">⚙️ Masuk &amp; Atur API</a>
+      <a id="btnApi" href="pengaturan-api.html" class="btn btn-warning w-100 fw-bold">⚙️ Masuk &amp; Atur API</a>
+      <div id="infoApi" class="kecil text-warning" style="display:none">Akun ini bukan admin tertinggi, jadi belum bisa membuka Pengaturan API. Jadikan akun ini admin tertinggi: isi kolom <b>Akses Pengaturan API</b> = TRUE di sheet USERS (atau jadikan akun ini admin pertama), lalu login ulang.</div>
     </div>
 
     <button id="btnKeluar" class="btn btn-danger w-100 fw-bold">⎋ Keluar</button>
@@ -75,7 +76,10 @@
     document.getElementById("izin").innerHTML = Object.keys(NAMA).filter(function (k) { return iz[k]; })
       .map(function (k) { return '<span class="chip">' + NAMA[k] + "</span>"; }).join("") || '<span class="kecil">Belum ada izin halaman.</span>';
     document.getElementById("kembali").href = Auth.home();
-    if (S.role === "ADMIN" && Auth.can("TAPI")) document.getElementById("kotakApi").style.display = "";
+    if (S.role === "ADMIN") {
+      document.getElementById("kotakApi").style.display = "";
+      if (!Auth.can("TAPI")) { document.getElementById("btnApi").style.display = "none"; document.getElementById("infoApi").style.display = ""; }
+    }
     document.getElementById("btnKeluar").onclick = function () { Auth.logout(); };
 
     function h(t, j) { document.getElementById("pesan").innerHTML = '<div class="alert alert-' + j + ' py-2 mb-0 small">' + esc(t) + "</div>"; }

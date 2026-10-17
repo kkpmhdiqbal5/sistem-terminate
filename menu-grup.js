@@ -39,14 +39,17 @@
   function halaman() { return location.pathname.split("/").pop() || "index.html"; }
 
   function mount() {
-    var s = window.Auth && Auth.get(); if (!s || document.getElementById("mg-nav")) return;
+    var s = window.Auth && Auth.get(), tamu = !s;       // tamu (belum login): hanya di Form Lapangan, menu sama tapi tautan minta login
+    if (tamu && halaman() !== "index.html") return;
+    if (document.getElementById("mg-nav")) return;
+    if (tamu) s = { role: "", username: "?", exp: 0 };
     var admin = s.role === "ADMIN", user = s.username || s.user || "?", ini = esc(user.charAt(0).toUpperCase()), now = halaman();
     var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
 
     // saring tautan sesuai izin
     var grup = GRUP.map(function (g) {
       if (g.admin && !admin) return null;
-      var it = g.items.filter(function (x) { return (!x.admin || admin) && (!x.p || Auth.can(x.p)); });
+      var it = g.items.filter(function (x) { return tamu || ((!x.admin || admin) && (!x.p || Auth.can(x.p))); });
       return it.length ? { id: g.id, ic: g.ic, t: g.t, items: it } : null;
     }).filter(Boolean);
     function cocok(x) { return x.h === now || (x.alt || []).indexOf(now) >= 0; }
@@ -60,10 +63,10 @@
       '<div class="mg-r1">' + grup.map(function (g) {
         var ikon = g.id === "profil" ? '<span class="mg-av">' + ini + "</span>" : g.ic;
         return '<a class="mg-tab' + (aktif === g ? " on" : "") + '" href="' + g.items[0].h + '"' + (g.id === "profil" ? ' title="Sesi ' + Math.floor(m / 60) + "j " + (m % 60) + 'm"' : "") + '><span class="ic">' + ikon + "</span>" + g.t + "</a>"; }).join("") +
-      '<button type="button" class="mg-tab out" id="mg-out"><span class="ic">⎋</span>Keluar</button></div>';
+      (tamu ? '<a class="mg-tab" href="login.html"><span class="ic">🔑</span>Masuk</a>' : '<button type="button" class="mg-tab out" id="mg-out"><span class="ic">⎋</span>Keluar</button>') + '</div>';
     document.body.appendChild(nav);
     document.body.style.paddingBottom = (nav.offsetHeight + 16) + "px";
-    document.getElementById("mg-out").onclick = function () { Auth.logout(); };
+    var out = document.getElementById("mg-out"); if (out) out.onclick = function () { Auth.logout(); };
     var on = nav.querySelector(".mg-lk.on"); if (on && on.parentNode) { try { on.parentNode.scrollLeft = on.offsetLeft - 40; } catch (e) {} }
   }
   window.MenuGrup = { mount: mount };
