@@ -47,28 +47,43 @@
     var LS = 'lapkirim_';
     function ls(k) { try { return localStorage.getItem(LS + k) || ''; } catch (e) { return ''; } }
     function lsSet(k, v) { try { localStorage.setItem(LS + k, v); } catch (e) {} }
+    function daftarLs(k, def) { try { var a = JSON.parse(ls(k) || '[]'); return a.length ? a : def; } catch (e) { return def; } }
+    // pop-up: 1-10 nama TS dan 1-10 nomor tujuan (diingat di perangkat ini)
     function dialogKirim(l, tombol) {
+      var ts = daftarLs('tsl', [ls('ts')]), no = daftarLs('nol', [ls('no')]);
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
-      ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:400px">' +
-        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan ' + esc2(l.pop) + '</div><div class="kecil mb-3">Lewat WhatsApp API. Isi data pengirim dan tujuan.</div>' +
-        '<label class="form-label small text-secondary fw-bold mb-1">Nama TS *</label>' +
-        '<input id="dTs" class="form-control form-control-dark mb-2" placeholder="Nama TS pengirim laporan" value="' + esc2(ls('ts')) + '">' +
-        '<label class="form-label small text-secondary fw-bold mb-1">Nomor tujuan *</label>' +
-        '<input id="dNo" class="form-control form-control-dark mb-1" inputmode="tel" placeholder="08xx… atau ID grup 1203…@g.us" value="' + esc2(ls('no')) + '">' +
-        '<div class="kecil mb-2">Nomor HP (08xx / 628xx) atau ID grup WhatsApp.</div><div id="dMsg"></div>' +
+      ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">' +
+        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan ' + esc2(l.pop) + '</div><div class="kecil mb-3">Lewat WhatsApp API. Isi 1 sampai 10 nama TS dan 1 sampai 10 nomor tujuan.</div>' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Nama TS *</label><div id="dTs"></div><button class="btn btn-outline-info btn-sm mb-3" id="dTsT">+ Tambah TS</button>' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Nomor tujuan * <span class="fw-normal">(08xx / 628xx / ID grup @g.us)</span></label><div id="dNo"></div><button class="btn btn-outline-info btn-sm mb-2" id="dNoT">+ Tambah nomor</button>' +
+        '<div id="dMsg"></div>' +
         '<div class="d-flex gap-2"><button class="btn btn-outline-light fw-bold flex-fill" id="dBatal">Batal</button><button class="btn btn-success fw-bold flex-fill" id="dKirim">Kirim</button></div></div>';
       document.body.appendChild(ov);
       var m = function (t, j) { ov.querySelector('#dMsg').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc2(t) + '</div>' : ''; };
-      ov.querySelector('#dTs').focus();
+      function ambil() { [['#dTs', ts], ['#dNo', no]].forEach(function (p) { Array.prototype.forEach.call(ov.querySelectorAll(p[0] + ' input'), function (e) { p[1][e.getAttribute('data-i')] = e.value; }); }); }
+      function gambar() {
+        ambil();
+        [['#dTs', ts, 'Nama TS', 'text'], ['#dNo', no, '08xx… atau 1203…@g.us', 'tel']].forEach(function (p) {
+          ov.querySelector(p[0]).innerHTML = p[1].map(function (v, i) {
+            return '<div class="d-flex gap-1 mb-1"><input class="form-control form-control-dark" data-i="' + i + '" inputmode="' + p[3] + '" placeholder="' + p[2] + '" value="' + esc2(v) + '">' +
+              (p[1].length > 1 ? '<button class="btn btn-outline-danger btn-sm" data-x="' + i + '" data-l="' + p[0] + '">✕</button>' : '') + '</div>';
+          }).join('');
+        });
+      }
+      gambar();
+      ov.querySelector('#dTsT').onclick = function () { ambil(); if (ts.length < 10) ts.push(''); gambar(); };
+      ov.querySelector('#dNoT').onclick = function () { ambil(); if (no.length < 10) no.push(''); gambar(); };
+      ov.addEventListener('click', function (e) { var x = e.target.getAttribute && e.target.getAttribute('data-x'); if (x == null) return; ambil(); (e.target.getAttribute('data-l') === '#dTs' ? ts : no).splice(+x, 1); gambar(); });
       ov.querySelector('#dBatal').onclick = function () { ov.remove(); };
       ov.querySelector('#dKirim').onclick = function () {
-        var ts = ov.querySelector('#dTs').value.trim(), no = ov.querySelector('#dNo').value.trim();
-        if (!ts) return m('Nama TS wajib diisi.', 'warning');
-        if (!no) return m('Nomor tujuan wajib diisi.', 'warning');
+        ambil();
+        var t = ts.map(function (v) { return v.trim(); }).filter(Boolean), n = no.map(function (v) { return v.trim(); }).filter(Boolean);
+        if (!t.length) return m('Nama TS wajib diisi (minimal 1).', 'warning');
+        if (!n.length) return m('Nomor tujuan wajib diisi (minimal 1).', 'warning');
         var bt = ov.querySelector('#dKirim'); bt.disabled = true; bt.textContent = 'Mengirim...'; m('', '');
-        TMC.api('terminateKirimLaporan', { teks: l.teks, ts: ts, nomor: no }).then(function (r) {
-          if (r.status === 'success') { lsSet('ts', ts); lsSet('no', no); tombol.textContent = 'Terkirim ✔'; ov.remove(); }
+        TMC.api('terminateKirimLaporan', { teks: l.teks, ts: t, nomor: n }).then(function (r) {
+          if (r.status === 'success') { lsSet('tsl', JSON.stringify(t)); lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (r.hasil && r.hasil.gagal.length) alert(r.message); }
           else { m(r.message, 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; }
         }).catch(function () { m('Gagal terhubung ke server.', 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; });
       };

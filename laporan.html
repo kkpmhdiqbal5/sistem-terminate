@@ -76,6 +76,7 @@
         <input type="file" id="fileInput" class="form-control form-control-dark" accept=".txt,.docx" onchange="bacaFile(event, 'teksMassal')">
       </div>
       <textarea id="teksMassal" class="form-control form-control-dark font-monospace mb-3" rows="6" placeholder="Atau ketik/tempel data di sini...&#10;Contoh:&#10;Nama : Budi&#10;CID : 1234567890&#10;ODP : ODP-01"></textarea>
+      <button onclick="rapikanAI()" id="btnAiMassal" class="btn btn-outline-info btn-sm w-100 fw-bold py-2 mb-2" style="display:none">✨ Rapikan dengan AI (periksa hasilnya, lalu Proses)</button>
       <button onclick="eksekusiInputMassal()" id="btnInputMassal" class="btn btn-success btn-sm w-100 fw-bold py-2">Proses Input Data</button>
     </div>
 
@@ -225,6 +226,31 @@
     }
 
     try { const st = localStorage.getItem('sheet_tujuan_massal'); if (st) window.addEventListener('DOMContentLoaded', function () { document.getElementById('sheetTujuan').value = st; }); } catch (e) {}
+    // AI Input Massal: teks bebas -> format NAMA/CID/..., hasil ditampilkan di kotak untuk diperiksa; pemeriksaan POP & duplikat tetap oleh sistem
+    (function () {
+      var s = Auth.get(); if (!s) return;
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "terminateAiAktif", token: s.token }) }).then(function (r) { return r.json(); })
+        .then(function (r) { if (r && r.massal) document.getElementById('btnAiMassal').style.display = ""; }).catch(function () {});
+    })();
+    async function rapikanAI() {
+      var box = document.getElementById('teksMassal'), btn = document.getElementById('btnAiMassal'), s = Auth.get();
+      if (!box.value.trim()) { alert("Teks masih kosong!"); return; }
+      var bagian = [], cur = "";                                   // potong per paragraf, maks ~5500 huruf
+      box.value.split(/\n\s*\n/).forEach(function (p) { if (cur && (cur + p).length > 5500) { bagian.push(cur); cur = ""; } cur += p + "\n\n"; });
+      if (cur.trim()) bagian.push(cur);
+      btn.disabled = true; var hasil = [];
+      try {
+        for (var i = 0; i < bagian.length; i++) {
+          btn.innerText = "AI membaca " + (i + 1) + " / " + bagian.length + "...";
+          var r = await (await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "terminateAiMassal", token: s.token, teks: bagian[i] }) })).json();
+          if (r.status !== "success") { alert((r.message || "AI gagal") + (hasil.length ? "\n\nBagian sebelumnya sudah dirapikan, sisanya belum." : "")); break; }
+          hasil.push(r.teks);
+        }
+        if (hasil.length === bagian.length) box.value = hasil.join("\n\n");
+        else if (hasil.length) box.value = hasil.join("\n\n") + "\n\n" + bagian.slice(hasil.length).join("");
+      } catch (e) { alert("Terjadi kesalahan koneksi!"); }
+      btn.disabled = false; btn.innerText = "✨ Rapikan dengan AI (periksa hasilnya, lalu Proses)";
+    }
     function eksekusiInputMassal() {
       const teks = document.getElementById('teksMassal').value;
       if (!teks.trim()) { alert("Teks input masih kosong!"); return; }

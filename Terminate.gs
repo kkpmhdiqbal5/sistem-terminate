@@ -54,12 +54,17 @@ function terminateRoute_(d) {
   if (!d || String(d.action || '').indexOf('terminate') !== 0) return null;
   try {
     if (d.action === 'terminateLogin') return tmJson_(tmLogin_(d));
+    if (['terminateAiIsi', 'terminateAiMassal', 'terminateAiImpor', 'terminateAiAktif'].indexOf(d.action) >= 0) {          // AI Lapangan/Massal/Impor/Aktif: akun yang login (izin dicek di ChatClient.gs)
+      const tk = tmCheckToken_(d.token), ak = tk && tmAkun_(tk.user);
+      if (!ak || typeof chatRoute_ !== 'function') return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
+      return tmJson_(chatRoute_(d, { user: tk.user, role: ak.role, izin: ak.izin }));
+    }
     const au = tmAuth_(d);
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
-                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
+                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
     const perlu = BUTUH[d.action];

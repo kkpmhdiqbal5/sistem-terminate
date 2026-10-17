@@ -29,6 +29,8 @@
       </div>
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mtGanti" checked>
         <label class="form-check-label small" for="mtGanti">MT: hanya yang ganti perangkat (harus ada SN)</label></div>
+      <div class="form-check mb-2" id="aiBox" style="display:none"><input class="form-check-input" type="checkbox" id="pakaiAi" checked>
+        <label class="form-check-label small" for="pakaiAi">✨ AI ikut membaca pesan yang tidak terbaca parser (ditandai "AI", periksa dulu sebelum kirim)</label></div>
       <div class="row g-2">
         <div class="col-6"><label class="kecil">Dari tanggal</label><input type="date" id="dari" class="form-control form-control-dark"></div>
         <div class="col-6"><label class="kecil">Sampai tanggal</label><input type="date" id="sampai" class="form-control form-control-dark"></div>
@@ -73,12 +75,45 @@
         var r = WAParser.ekstrak(txt, { mode: $('mode').value, ragu: $('ragu').value, mtHanyaGanti: $('mtGanti').checked });
         var dari = $('dari').value, sampai = $('sampai').value;
         baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
+        return (aiAktif && $('pakaiAi').checked ? bacaAi(txt, r, dari, sampai) : Promise.resolve()).then(function () { return r; });
+      }).then(function (r) {
         baris.forEach(function (x) { x.pilih = true; });
         pesan('', '');
         if (!baris.length) { pesan('Dari ' + r.jumlahPesan + ' pesan, tidak ada data yang cocok. Coba ubah pilihan "Grup ini berisi" atau "Jika tidak jelas".', 'warning'); $('pratinjau').classList.add('d-none'); return; }
         tampil();
       }).catch(function (e) { pesan('Gagal membaca file: ' + e.message, 'danger'); });
     };
+    var aiAktif = false;
+    TMC.api('terminateAiAktif').then(function (r) { if (r && r.impor) { aiAktif = true; $('aiBox').style.display = ''; } }).catch(function () {});
+    function popDari(odp, pop) {                       // sama dengan aturan parser: kode ODP diutamakan
+      var m = /ODP[\s\-]+(PRBGN|PTCRMN)\b/i.exec(odp || ''), n = String(pop || '').toUpperCase().replace(/[^A-Z]/g, '');
+      return m ? (m[1].toUpperCase() === 'PTCRMN' ? 'PANTAI CERMIN' : 'PERBAUNGAN') : (n.indexOf('PERBAUNGAN') > -1 ? 'PERBAUNGAN' : (n.indexOf('PANTAICERMIN') > -1 ? 'PANTAI CERMIN' : ''));
+    }
+    // pesan yang tidak menghasilkan baris tetapi tampak memuat data -> AI (maks 75 pesan, 25 per panggilan)
+    function bacaAi(txt, r, dari, sampai) {
+      var ada = {}; r.baris.forEach(function (x) { ada[x.tanggal + '|' + x.jam + '|' + x.pengirim] = 1; });
+      var sisa = WAParser.pesan(txt).filter(function (p) {
+        return !ada[p.tanggal + '|' + p.jam + '|' + p.pengirim] && p.teks.length >= 25 && /cid|\bsn\b|psn|odp|pelanggan|ganti|pasang|instal|\d{9,}/i.test(p.teks) &&
+          (!dari || p.tanggal >= dari) && (!sampai || p.tanggal <= sampai);
+      }).slice(0, 75);
+      var mode = $('mode').value, ragu = $('ragu').value, ganti = $('mtGanti').checked, i = 0;
+      function lanjut() {
+        if (i >= sisa.length) return Promise.resolve();
+        pesan('AI membaca pesan tak terbaca ' + Math.min(i + 25, sisa.length) + ' / ' + sisa.length + '...', 'secondary');
+        var potong = sisa.slice(i, i + 25).map(function (p, j) { return { i: i + j, teks: p.teks }; }); i += 25;
+        return TMC.api('terminateAiImpor', { pesan: potong }).then(function (a) {
+          if (a.status !== 'success') { pesan('AI dilewati: ' + a.message, 'warning'); return; }
+          a.baris.forEach(function (x) {
+            var p = sisa[x.i], sh = mode === 'Instalasi' || mode === 'MT' ? mode : (x.sheet || (ragu !== 'lewati' ? ragu : ''));
+            if (!sh || (sh === 'MT' && ganti && !x.snlama)) return;
+            var pop = popDari(x.odp, x.pop);
+            baris.push({ sheet: sh, tanggal: p.tanggal, jam: p.jam, pengirim: p.pengirim, nama: x.nama, cid: x.cid, odp: x.odp, pop: pop, popasli: pop ? '' : x.pop, sn: x.sn, snlama: x.snlama, psn: x.psn, ket: x.ket, ai: true });
+          });
+          return lanjut();
+        });
+      }
+      return lanjut();
+    }
     function hitung() {
       var a = 0, b = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else a++; } });
       $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
@@ -89,7 +124,7 @@
       baris.slice(0, 400).forEach(function (x, i) {
         var c = document.createElement('div'); c.className = 'card-custom p-2 mb-2 small';
         c.innerHTML = '<div class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input mt-1" data-i="' + i + '" checked>' +
-          '<div class="flex-grow-1"><div class="kecil">' + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
+          '<div class="flex-grow-1"><div class="kecil">' + (x.ai ? '<span class="badge bg-info text-dark">AI</span> ' : '') + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
           '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +

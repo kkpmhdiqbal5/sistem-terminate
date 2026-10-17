@@ -22,7 +22,7 @@
 <body>
   <div class="container px-3 pt-3" style="max-width:720px">
     <div id="info"></div>
-    <div class="kecil mb-3">Hidupkan / matikan AI <b>per fitur</b>. Token AI diisi di <span id="linkApi">Profil &gt; Pengaturan API</span> (pilih fungsi "AI chat client" / "AI form lapangan"; boleh API yang sama atau berbeda).</div>
+    <div class="kecil mb-3">Hidupkan / matikan AI <b>per fitur</b>. Token AI diisi di <span id="linkApi">Profil &gt; Pengaturan API</span> (centang fungsi AI yang sesuai; boleh satu API untuk semua fitur atau berbeda-beda).</div>
 
     <div id="kartu"></div>
     <div id="pesan"></div>
@@ -36,7 +36,11 @@
       { k: 'chat', ic: '💬', t: 'AI Chat Client', d: 'Membalas client & calon pelanggan di WhatsApp otomatis (lanjut / berhenti / minta foto rumah / ingin pasang WiFi). Mati = bot memakai kata kunci sederhana.',
         ph: 'Contoh: Paket HOME 10 = 10 Mbps. Wilayah layanan Perbaungan & Pantai Cermin. Jam admin 08.00-17.00.', tes: false },
       { k: 'lapangan', ic: '🛠️', t: 'AI Lapangan', d: 'Di Form Lapangan muncul kotak "Isi dengan AI": teknisi menempel pesan/catatan, AI mengisi kolom ODP, POP, CID, nama, SN, P-SN.',
-        ph: 'Contoh: SN selalu diawali DF1D. Abaikan nomor telepon di teks.', tes: true }
+        ph: 'Contoh: SN selalu diawali DF1D. Abaikan nomor telepon di teks.', tes: true },
+      { k: 'massal', ic: '📥', t: 'AI Input Massal', d: 'Di Laporan & Input Massal muncul tombol "Rapikan dengan AI": teks bebas diubah ke format Nama/CID/ODP lalu diperiksa admin. Aturan POP & CID dobel tetap oleh sistem.',
+        ph: 'Contoh: "DS" artinya Sales. Abaikan baris yang berisi harga.', tes: false },
+      { k: 'impor', ic: '💬', t: 'AI Impor WhatsApp', d: 'Di Impor WhatsApp, pesan yang tidak terbaca parser dibaca AI dan ditandai "AI" di pratinjau. Kirim ke sheet tetap lewat aturan SN terbaru.',
+        ph: 'Contoh: "TTS" artinya ganti perangkat (MT).', tes: false }
     ];
     var data = null;
     function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc(t) + '</div>' : ''; }
