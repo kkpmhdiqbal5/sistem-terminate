@@ -101,6 +101,16 @@
       TMC.api('terminateRekap', { scope: $('scope').value }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'warning'); return; }
         pesan('', '');
+        if (r.laporan.length > 1) {          // gabungan: semua POP dalam 1 pesan (tiap kartu di bawah = 1 pesan per POP)
+          var gt = r.laporan.map(function (l) { return l.teks; }).join('\n\n━━━━━━━━━━\n\n'), g = document.createElement('div'); g.className = 'card-custom p-3 mb-3';
+          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan semua POP (1 pesan)</div>';
+          var gr = document.createElement('div'); gr.className = 'd-flex gap-2';
+          var g1 = document.createElement('button'); g1.className = 'btn btn-info btn-sm fw-bold flex-fill'; g1.textContent = 'Salin gabungan';
+          g1.onclick = function () { salin(gt).then(function () { g1.textContent = 'Tersalin ✔'; }); };
+          var g2 = Auth.can('TCHAT') ? document.createElement('button') : document.createElement('a'); g2.className = 'btn btn-success btn-sm fw-bold flex-fill'; g2.textContent = Auth.can('TCHAT') ? 'Kirim gabungan via WA API' : 'Kirim gabungan WhatsApp';
+          if (Auth.can('TCHAT')) g2.onclick = function () { dialogKirim({ pop: 'GABUNGAN', teks: gt }, g2); }; else { g2.target = '_blank'; g2.rel = 'noopener'; g2.href = 'https://wa.me/?text=' + encodeURIComponent(gt); }
+          gr.appendChild(g1); gr.appendChild(g2); g.appendChild(gr); $('hasil').appendChild(g);
+        }
         r.laporan.forEach(function (l) {
           var c = document.createElement('div'); c.className = 'card-custom p-3 mb-3';
           var h = document.createElement('div'); h.className = 'small text-info fw-bold mb-2';

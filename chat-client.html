@@ -51,6 +51,10 @@
           <label class="form-check"><input class="form-check-input" type="radio" name="saluran" value="WA" checked> <span class="form-check-label">WhatsApp API</span></label>
           <label class="form-check"><input class="form-check-input" type="radio" name="saluran" value="TELEGRAM"> <span class="form-check-label">Telegram</span></label>
         </div>
+        <div class="mb-2">
+          <label class="form-check"><input class="form-check-input" type="radio" name="modeKirim" value="GABUNG" checked> <span class="form-check-label">Gabungan (beberapa data dalam 1 pesan)</span></label>
+          <label class="form-check"><input class="form-check-input" type="radio" name="modeKirim" value="SATU"> <span class="form-check-label">1 data 1 pesan (maks 60)</span></label>
+        </div>
         <input id="tujuanWA" class="form-control form-control-dark mb-2" placeholder="Tujuan WhatsApp (nomor / ID grup) - kosong = bawaan sistem">
         <button id="btnTeknisi" class="btn btn-info w-100 fw-bold">Kirim yang dipilih ke teknisi</button>
         <div id="hTeknisi" class="mt-2"></div>
@@ -161,7 +165,7 @@
       if (ch === 'WA') { try { localStorage.setItem('tujuan_wa_teknisi', tj); } catch (e) {} }
       if (!confirm('Kirim ' + c.length + ' data pengambilan perangkat lewat ' + (ch === 'WA' ? 'WhatsApp' : 'Telegram') + '?')) return;
       var b = $('btnTeknisi'); b.disabled = true; pesan('hTeknisi', 'Mengirim...', 'secondary');
-      TMC.api('terminateKirimTeknisi', { cids: c, channel: ch, tujuan: tj }).then(function (r) { pesan('hTeknisi', r.message, r.status === 'success' ? 'success' : 'danger'); b.disabled = false; })
+      TMC.api('terminateKirimTeknisi', { cids: c, channel: ch, tujuan: tj, mode: document.querySelector('input[name=modeKirim]:checked').value }).then(function (r) { pesan('hTeknisi', r.message, r.status === 'success' ? 'success' : 'danger'); b.disabled = false; })
         .catch(function () { pesan('hTeknisi', 'Gagal terhubung ke server.', 'danger'); b.disabled = false; });
     };
 

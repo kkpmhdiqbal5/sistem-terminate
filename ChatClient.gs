@@ -163,17 +163,20 @@ function ccKirimTeknisi_(d, au) {
   const tujuan = String(d.tujuan || '').trim() || ccTujuan_('TEKNISI');
   if (ch === 'WA' && !tujuan) return tmErr_('Tujuan WhatsApp teknisi belum diisi.');
   const tgl = tmTglIndo_(tmIso_(new Date()));
+  // mode SATU = 1 data 1 pesan (maks 60), GABUNG = beberapa data dalam 1 pesan (8 per pesan)
+  const satu = String(d.mode || '').toUpperCase() === 'SATU', per = satu ? 1 : 8;
+  if (satu && items.length > 60) return tmErr_('Mode 1 data 1 pesan maksimal 60 data. Kurangi pilihan atau pakai mode gabungan.');
   let kirim = 0, gagal = [];
-  for (let i = 0; i < items.length; i += 8) {
-    const potong = items.slice(i, i + 8);
+  for (let i = 0; i < items.length; i += per) {
+    const potong = items.slice(i, i + per);
     const teks = '*DATA PENGAMBILAN PERANGKAT*\n' + tgl + '\n\n' + ccTeksAmbil_(potong, i);
     const r = ch === 'WA' ? waKirim_(tujuan, teks, 'TEKNISI') : tgKirim_(teks, 'TEKNISI');
     if (r.ok) kirim += potong.length; else { gagal.push(r.msg); break; }
-    if (i + 8 < items.length) Utilities.sleep(1500);
+    if (i + per < items.length) Utilities.sleep(satu ? 1000 : 1500);
   }
   tmLogChat_('', '', 'OUT', '[' + ch + ' teknisi oleh ' + au.user + '] ' + kirim + ' data');
   return gagal.length ? { status: 'error', message: 'Terkirim ' + kirim + ' dari ' + items.length + ' data. Gagal: ' + gagal[0], terkirim: kirim }
-                      : { status: 'success', message: 'Terkirim ' + kirim + ' data lewat ' + (ch === 'WA' ? 'WhatsApp' : 'Telegram') + '.', terkirim: kirim };
+                      : { status: 'success', message: 'Terkirim ' + kirim + ' data (' + (satu ? '1 data 1 pesan' : 'gabungan') + ') lewat ' + (ch === 'WA' ? 'WhatsApp' : 'Telegram') + '.', terkirim: kirim };
 }
 // Laporan: HANYA lewat WhatsApp API. Wajib: nama TS & nomor tujuan (nomor HP atau ID grup xxx@g.us)
 function ccKirimLaporan_(d, au) {
@@ -183,7 +186,7 @@ function ccKirimLaporan_(d, au) {
   const ts = arr(d.ts).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan);
   if (!ts.length) return tmErr_('Nama TS wajib diisi.');
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
-  const pesan = ('👷 TS: ' + ts.join(', ') + '\n\n' + teks).slice(0, 3800), hasil = { terkirim: [], gagal: [] };
+  const pesan = ('👷 TS: ' + ts.join(', ') + '\n\n' + teks).slice(0, 6000), hasil = { terkirim: [], gagal: [] };
   mentah.forEach((m, i) => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
     if (!tujuan) { hasil.gagal.push(m + ' (nomor/ID grup tidak valid)'); return; }
