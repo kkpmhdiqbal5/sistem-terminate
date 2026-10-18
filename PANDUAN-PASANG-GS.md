@@ -37,3 +37,6 @@ Di Profil > Pengaturan API, centang fungsi AI "input massal" / "impor WhatsApp" 
 
 ## AI gratis (Gemini / Groq / Grok / Claude)
 Profil > Pengaturan API > Tambah API > Jenis "AI" > pilih Penyedia. Paling mudah: **Google Gemini** (key gratis di aistudio.google.com/apikey, model bawaan gemini-3.5-flash-lite). Lalu centang fungsi AI (Chat, Lapangan, Massal, Impor) dan tekan Tes. Satu fungsi hanya dipegang satu API; boleh pakai API berbeda per fungsi. Ingat: paket gratis ada batas pemakaian dan data bisa dipakai penyedia untuk pelatihan. Setelah menempel ChatClient.gs terbaru, Deploy > New version.
+
+## Kirim WA lewat API dari Pencarian & Admin
+Akun dengan izin Chat Client (TCHAT) melihat tombol tambahan di halaman Pencarian dan Admin: "📤 API Gabungan", "📤 API 1 data 1 pesan", dan 📤 per baris. Isi 1-10 nomor/ID grup, maksimal 150 pesan sekali kirim. Butuh ChatClient.gs + Terminate.gs terbaru dan Deploy > New version.

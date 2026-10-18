@@ -178,25 +178,57 @@ function ccKirimTeknisi_(d, au) {
   return gagal.length ? { status: 'error', message: 'Terkirim ' + kirim + ' dari ' + items.length + ' data. Gagal: ' + gagal[0], terkirim: kirim }
                       : { status: 'success', message: 'Terkirim ' + kirim + ' data (' + (satu ? '1 data 1 pesan' : 'gabungan') + ') lewat ' + (ch === 'WA' ? 'WhatsApp' : 'Telegram') + '.', terkirim: kirim };
 }
-// Laporan: HANYA lewat WhatsApp API. Wajib: nama TS & nomor tujuan (nomor HP atau ID grup xxx@g.us)
-function ccKirimLaporan_(d, au) {
-  const teks = String(d.teks || '').trim();
-  if (!teks) return tmErr_('Teks laporan kosong.');
-  const arr = v => (Array.isArray(v) ? v : [v]).map(x => String(x == null ? '' : x).trim()).filter(Boolean).slice(0, 10);
-  const ts = arr(d.ts).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan);
-  if (!ts.length) return tmErr_('Nama TS wajib diisi.');
+// Kirim teks siap-pakai (dari Pencarian / Admin) lewat WA API: mode SATU = 1 data 1 pesan, GABUNG = digabung (maks ~6000 huruf per pesan)
+function ccKirimTeks_(d, au) {
+  const pesan = (Array.isArray(d.pesan) ? d.pesan : [d.pesan]).map(x => String(x == null ? '' : x).trim().slice(0, 3800)).filter(Boolean).slice(0, 60);
+  const mentah = (Array.isArray(d.nomor) ? d.nomor : [d.nomor]).map(x => String(x == null ? '' : x).trim()).filter(Boolean).slice(0, 10);
+  if (!pesan.length) return tmErr_('Tidak ada data yang dikirim.');
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
-  const pesan = ('👷 TS: ' + ts.join(', ') + '\n\n' + teks).slice(0, 6000), hasil = { terkirim: [], gagal: [] };
-  mentah.forEach((m, i) => {
+  let unit = pesan;
+  if (String(d.mode || '').toUpperCase() !== 'SATU') {
+    unit = [];
+    pesan.forEach(p => { const k = unit.length - 1; if (k >= 0 && (unit[k] + '\n\n' + p).length <= 6000) unit[k] += '\n\n' + p; else unit.push(p); });
+  }
+  if (unit.length * mentah.length > 150) return tmErr_('Terlalu banyak pesan (' + unit.length * mentah.length + '). Maksimal 150 pesan sekali kirim; kurangi data/nomor atau pakai gabungan.');
+  const hasil = { terkirim: [], gagal: [] };
+  let n = 0;
+  mentah.forEach(m => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
     if (!tujuan) { hasil.gagal.push(m + ' (nomor/ID grup tidak valid)'); return; }
-    if (i) Utilities.sleep(700);
-    const r = waKirim_(tujuan, pesan, 'LAPORAN');
-    if (r.ok) hasil.terkirim.push(tujuan); else hasil.gagal.push(m + ' (' + r.msg + ')');
+    let ok = 0;
+    for (const u of unit) { if (n++) Utilities.sleep(700); const r = waKirim_(tujuan, u, 'LAPORAN'); if (r.ok) ok++; else { hasil.gagal.push(m + ' (' + r.msg + ')'); break; } }
+    if (ok === unit.length) hasil.terkirim.push(tujuan);
   });
-  tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA laporan, TS ' + ts.join(', ') + ', oleh ' + au.user + ']');
+  tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA data ' + pesan.length + ' item, ' + unit.length + ' pesan, oleh ' + au.user + ']');
   return { status: hasil.terkirim.length ? 'success' : 'error', hasil: hasil,
-    message: 'Laporan terkirim ke ' + hasil.terkirim.length + ' tujuan (TS: ' + ts.join(', ') + ')' + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
+    message: pesan.length + ' data (' + unit.length + ' pesan) terkirim ke ' + hasil.terkirim.length + ' tujuan' + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
+}
+// Laporan: HANYA lewat WhatsApp API. Wajib: nama TS & nomor tujuan (nomor HP atau ID grup xxx@g.us)
+function ccKirimLaporan_(d, au) {
+  const arr = v => (Array.isArray(v) ? v : [v]).map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+  const teksList = arr(d.teks);                                  // teks = 1 pesan, atau daftar teks = 1 data 1 pesan
+  if (!teksList.length) return tmErr_('Teks laporan kosong.');
+  if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
+  const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 10);
+  if (!ts.length) return tmErr_('Nama TS wajib diisi.');
+  if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
+  if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
+  const hasil = { terkirim: [], gagal: [] };
+  let n = 0;
+  mentah.forEach(m => {
+    const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
+    if (!tujuan) { hasil.gagal.push(m + ' (nomor/ID grup tidak valid)'); return; }
+    let ok = 0;
+    teksList.forEach(t => {
+      if (n++) Utilities.sleep(700);
+      const r = waKirim_(tujuan, ('👷 TS: ' + ts.join(', ') + '\n\n' + t).slice(0, 6000), 'LAPORAN');
+      if (r.ok) ok++; else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
+    });
+    if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
+  });
+  tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA laporan, TS ' + ts.join(', ') + ', ' + teksList.length + ' pesan, oleh ' + au.user + ']');
+  return { status: hasil.terkirim.length ? 'success' : 'error', hasil: hasil,
+    message: teksList.length + ' pesan dikirim ke ' + hasil.terkirim.length + ' tujuan (TS: ' + ts.join(', ') + ')' + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
 }
 
 /* ---------- PENGATURAN API (admin tertinggi, dari Profil > Pengaturan API) ---------- */
@@ -685,6 +717,7 @@ function chatRoute_(d, au) {
     case 'terminateChatKirim': return ccKirimClient_(d, au);
     case 'terminateChatStatus': return ccStatus_(d);
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
+    case 'terminateKirimTeks': return ccKirimTeks_(d, au);
     case 'terminateApiBaca': return ccApiBaca_();
     case 'terminateAiBaca': return ccAiBaca_();
     case 'terminateAiSimpan': return ccAiSimpan_(d, au);

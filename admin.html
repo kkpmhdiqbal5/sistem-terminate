@@ -66,6 +66,10 @@
         </div>
         <div class="col-12 col-md-3">
           <button class="btn btn-info text-dark fw-bold w-100" onclick="kirimWAGabungan()">📲 WA Gabungan</button>
+          <div id="apiTombol" class="gap-1 mt-1" style="display:none">
+            <button class="btn btn-success btn-sm fw-bold flex-fill" onclick="apiPilih('GABUNG')">📤 API Gabungan</button>
+            <button class="btn btn-success btn-sm fw-bold flex-fill" onclick="apiPilih('SATU')">📤 API 1 data 1 pesan</button>
+          </div>
         </div>
       </div>
     </div>
@@ -157,6 +161,7 @@
 
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
+  <script src="kirim-api.js"></script>
   <script>
     // GANTI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
@@ -170,6 +175,7 @@
     let html5QrcodeScannerModal = null;
 
     Auth.guard("DASHBOARD");
+    if (KirimApi.ok()) document.getElementById("apiTombol").style.display = "flex";
 
     function toggleTampilanSheet() {
       if (modeSheetAktif === "Baris 1") {
@@ -229,7 +235,7 @@
         let chkDisplay = `<td><input type="checkbox" class="form-check-input row-check" value="${index}"></td>`;
         
         let btnVerif = modeSheetAktif === "Baris 1" ? `<button class="btn btn-warning text-dark btn-sm fw-bold px-2 py-0 mb-1 w-100" onclick="bukaModalVerif(${index})">✔ Verif</button><br>` : "";
-        let btnWA1 = `<button class="btn btn-success btn-sm fw-bold px-2 py-0 w-100" onclick="kirimWASatu(${index})">📲 WA</button>`;
+        let btnWA1 = `<button class="btn btn-success btn-sm fw-bold px-2 py-0 w-100" onclick="kirimWASatu(${index})">📲 WA</button>` + (KirimApi.ok() ? `<button class="btn btn-outline-success btn-sm fw-bold px-2 py-0 w-100 mt-1" onclick="apiSatu(${index})">📤 API</button>` : "");
 
         tr.innerHTML = `
           ${chkDisplay}
@@ -367,45 +373,24 @@
     // ============================================
     // KIRIM WHATSAPP (1 DATA & GABUNGAN) FORMAT RAPI
     // ============================================
-    function kirimWASatu(index) {
-      let row = globalDataList[index];
-      let namaTS = row.ts || row.sales || "-"; 
-      
-      let teksWA = 
-`Nama : ${row.nama_lama || "-"}
+    function teksAdmin(row) {
+      return `Nama : ${row.nama_lama || "-"}
 CID  : ${row.cid_lama || "-"}
 ODP  : ${row.odp || "-"}
 POP  : ${row.pop || "-"}
 SN   : ${row.sn || "-"}
 P-SN : ${row.psn || "-"}
 KET  : ${row.keterangan || "-"}
-TS   : ${namaTS}`;
-
-      window.open(`https://wa.me/?text=${encodeURIComponent(teksWA)}`, '_blank');
+TS   : ${row.ts || row.sales || "-"}`;
     }
-
+    function dipilihAdmin() { return Array.prototype.map.call(document.querySelectorAll('.row-check:checked'), function (cb) { return teksAdmin(globalDataList[cb.value]); }); }
+    function kirimWASatu(index) { window.open(`https://wa.me/?text=${encodeURIComponent(teksAdmin(globalDataList[index]))}`, '_blank'); }
     function kirimWAGabungan() {
-      let checkboxes = document.querySelectorAll('.row-check:checked');
-      if (checkboxes.length === 0) return alert("Centang data yang ingin dikirim!");
-
-      let teksWA = "";
-      checkboxes.forEach((cb) => {
-        let row = globalDataList[cb.value];
-        let namaTS = row.ts || row.sales || "-";
-        
-        teksWA += 
-`Nama : ${row.nama_lama || "-"}
-CID  : ${row.cid_lama || "-"}
-ODP  : ${row.odp || "-"}
-POP  : ${row.pop || "-"}
-SN   : ${row.sn || "-"}
-P-SN : ${row.psn || "-"}
-KET  : ${row.keterangan || "-"}
-TS   : ${namaTS}\n\n`;
-      });
-      
-      window.open(`https://wa.me/?text=${encodeURIComponent(teksWA.trim())}`, '_blank');
+      let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!");
+      window.open(`https://wa.me/?text=${encodeURIComponent(t.join("\n\n"))}`, '_blank');
     }
+    function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksAdmin(globalDataList[index])], 'GABUNG'); }
+    function apiPilih(mode) { let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!"); KirimApi.buka(SCRIPT_URL, t, mode); }
 
     function searchTable() {
       let input = document.getElementById("searchInput").value.toLowerCase();
