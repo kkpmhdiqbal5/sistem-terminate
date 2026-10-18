@@ -19,6 +19,12 @@
         <option value="LANJUT">✅ Lanjut Berlangganan</option>
       </select>
 
+      <div id="aiBox" class="mb-3 p-2 border border-info rounded d-none">
+        <label class="form-label small text-info fw-bold mb-1">✨ ISI DENGAN AI</label>
+        <textarea id="aiTeks" class="form-control form-control-dark" rows="3" placeholder="Tempel pesan / catatan, AI mengisi POP, ODP, SN, P-SN, Nama, CID"></textarea>
+        <button type="button" id="aiBtn" class="btn btn-sm btn-info fw-bold mt-2">Isi kolom otomatis</button> <span id="aiMsg" class="kecil"></span>
+      </div>
+
       <div class="mb-3">
         <label id="lblFoto" class="form-label small text-info fw-bold">Foto Perangkat *</label>
         <div><button type="button" id="btnFoto" class="btn btn-primary btn-sm fw-bold">📷 Ambil Foto (Kamera)</button>
@@ -37,8 +43,9 @@
         </div>
         <div class="col-12 col-md-6">
           <label class="form-label small text-secondary fw-bold mb-1">ODP * <span class="kecil">(sesuai POP)</span></label>
-          <select id="odp" class="form-select form-select-dark" disabled><option value="">-- Pilih POP dulu --</option></select>
-          <input id="odpBaru" class="form-control form-control-dark mt-1 d-none" placeholder="Ketik nama ODP baru">
+          <input id="odp" list="odpList" class="form-control form-control-dark" autocomplete="off" autocapitalize="characters" placeholder="Pilih POP dulu" disabled>
+          <datalist id="odpList"></datalist>
+          <div class="kecil">Ketik untuk mencari; nama yang belum ada di daftar akan disimpan sebagai ODP baru.</div>
         </div>
       </div>
 
@@ -114,25 +121,36 @@
     $('jenis').onchange = ubahJenis; ubahJenis();
 
     function isiOdp(pilih) {
-      var pop = $('pop').value, sel = $('odp');
-      sel.innerHTML = ''; $('odpBaru').classList.add('d-none');
-      function opt(v, t) { var o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); }
-      if (!pop) { opt('', '-- Pilih POP dulu --'); sel.disabled = true; return; }
-      sel.disabled = false; opt('', '-- Pilih ODP --');
-      (opts[pop] || []).forEach(function (o) { opt(o, o); });
-      opt('__baru', '+ ODP baru...');
+      var pop = $('pop').value, el = $('odp'), dl = $('odpList');
+      dl.innerHTML = ''; el.value = '';
+      el.disabled = !pop; el.placeholder = pop ? 'Ketik / pilih ODP' : 'Pilih POP dulu';
+      (opts[pop] || []).forEach(function (o) { var x = document.createElement('option'); x.value = o; dl.appendChild(x); });
       if (pilih) setOdp(pilih);
     }
-    function setOdp(v) {
-      v = String(v || '').toUpperCase(); if (!v) return;
-      var sel = $('odp'), ada = false;
-      for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === v) ada = true;
-      if (ada) { sel.value = v; $('odpBaru').classList.add('d-none'); }
-      else { sel.value = '__baru'; $('odpBaru').classList.remove('d-none'); $('odpBaru').value = v; }
-    }
-    function nilaiOdp() { return $('odp').value === '__baru' ? $('odpBaru').value.trim().toUpperCase() : $('odp').value; }
+    function setOdp(v) { $('odp').value = String(v || '').toUpperCase(); }
+    function nilaiOdp() { return $('odp').value.trim().toUpperCase(); }
     $('pop').onchange = function () { isiOdp(); };
-    $('odp').onchange = function () { $('odpBaru').classList.toggle('d-none', $('odp').value !== '__baru'); };
+
+    // AI: kolom ODP dicocokkan ke daftar ODP yang sudah ada (persis, lalu mengandung), kalau tidak ada dipakai apa adanya
+    function cocokOdp(v) {
+      var L = opts[$('pop').value] || [], u = String(v || '').toUpperCase().trim(); if (!u) return '';
+      return L.filter(function (o) { return o.toUpperCase() === u; })[0] || L.filter(function (o) { return o.toUpperCase().indexOf(u) >= 0 || u.indexOf(o.toUpperCase()) >= 0; })[0] || u;
+    }
+    TMC.api('terminateAiIsi', { teks: '' }).then(function (r) {
+      if (r && r.tm === 1 && r.code !== 'SESSION' && !/dinonaktifkan|belum diatur/.test(r.message || '')) $('aiBox').classList.remove('d-none');
+    }).catch(function () {});
+    $('aiBtn').onclick = function () {
+      var t = $('aiTeks').value.trim(), m = $('aiMsg'), btn = this; if (!t) return;
+      m.textContent = 'Memproses...'; btn.disabled = true;
+      TMC.api('terminateAiIsi', { teks: t }).then(function (r) {
+        if (!r || r.status !== 'success') { m.textContent = (r && r.message) || 'AI gagal.'; return; }
+        var d = r.data, n = 0;
+        if (d.pop) { $('pop').value = d.pop; isiOdp(); n++; }
+        if (d.odp) { if ($('pop').value) { setOdp(cocokOdp(d.odp)); n++; } else m.textContent = 'POP belum terbaca, pilih POP lalu ketik ODP: ' + d.odp + '. '; }
+        [['sn', d.sn], ['psn', d.psn], ['nama', d.nama_lama], ['cid', d.cid_lama]].forEach(function (p) { if (p[1] && $(p[0])) { $(p[0]).value = p[1]; n++; } });
+        m.textContent = (m.textContent.indexOf('POP belum') === 0 ? m.textContent : '') + n + ' kolom terisi. Periksa lagi sebelum kirim.';
+      }).catch(function () { m.textContent = 'Gagal terhubung.'; }).finally(function () { btn.disabled = false; });
+    };
 
     TMC.api('terminateOptions').then(function (r) {
       if (r && r.status === 'success') { opts = r.odp || {}; isiOdp(); }

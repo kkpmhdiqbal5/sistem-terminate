@@ -34,3 +34,6 @@ Selesai. Tidak perlu lagi mengisi token lewat kode.
 
 ## AI Input Massal & Impor WhatsApp
 Di Profil > Pengaturan API, centang fungsi AI "input massal" / "impor WhatsApp" pada API AI Anda, lalu nyalakan saklarnya di Profil > Pengaturan AI. Setelah itu muncul tombol "Rapikan dengan AI" (Laporan & Input Massal) dan kotak centang AI di Impor WhatsApp. Hasil AI selalu diperiksa admin dulu; aturan POP, CID dobel, dan SN terbaru tetap dijalankan sistem.
+
+## AI gratis (Gemini / Groq / Grok / Claude)
+Profil > Pengaturan API > Tambah API > Jenis "AI" > pilih Penyedia. Paling mudah: **Google Gemini** (key gratis di aistudio.google.com/apikey, model bawaan gemini-3.5-flash-lite). Lalu centang fungsi AI (Chat, Lapangan, Massal, Impor) dan tekan Tes. Satu fungsi hanya dipegang satu API; boleh pakai API berbeda per fungsi. Ingat: paket gratis ada batas pemakaian dan data bisa dipakai penyedia untuk pelatihan. Setelah menempel ChatClient.gs terbaru, Deploy > New version.

@@ -27,10 +27,20 @@
       <div class="row g-2">
         <div class="col-7"><label class="form-label small text-secondary fw-bold mb-1">Nama</label><input id="fNama" class="form-control form-control-dark" placeholder="mis. WA Admin 1"></div>
         <div class="col-5"><label class="form-label small text-secondary fw-bold mb-1">Jenis</label>
-          <select id="fJenis" class="form-select form-select-dark"><option value="WA">WhatsApp (Fonnte)</option><option value="TELEGRAM">Telegram</option><option value="AI">AI (Anthropic)</option></select></div>
+          <select id="fJenis" class="form-select form-select-dark"><option value="WA">WhatsApp (Fonnte)</option><option value="TELEGRAM">Telegram</option><option value="AI">AI (Gemini / Groq / Grok / Claude)</option></select></div>
         <div class="col-12"><label class="form-label small text-secondary fw-bold mb-1">Token / API key</label><input id="fToken" type="password" autocomplete="new-password" class="form-control form-control-dark" placeholder="tempel token di sini"><div class="kecil" id="fTokenInfo"></div></div>
         <div class="col-12 j-TELEGRAM"><label class="form-label small text-secondary fw-bold mb-1">ID chat / grup Telegram</label><input id="fChat" class="form-control form-control-dark" placeholder="mis. -1001234567890"></div>
-        <div class="col-12 j-AI"><label class="form-label small text-secondary fw-bold mb-1">Model (kosong = bawaan)</label><input id="fModel" class="form-control form-control-dark"></div>
+        <div class="col-12 j-AI"><label class="form-label small text-secondary fw-bold mb-1">Penyedia AI</label>
+          <select id="fPeny" class="form-select form-select-dark">
+            <option value="GEMINI">Google Gemini (gratis, paling mudah)</option>
+            <option value="GROQ">Groq (gratis)</option>
+            <option value="OPENROUTER">OpenRouter (model berakhiran :free)</option>
+            <option value="GROK">Grok (xAI, cek biaya dulu)</option>
+            <option value="CLAUDE">Claude (Anthropic, berbayar)</option>
+            <option value="LAIN">Lainnya (OpenAI-compatible)</option>
+          </select><div class="kecil" id="fPenyInfo"></div></div>
+        <div class="col-12 j-AI j-URL"><label class="form-label small text-secondary fw-bold mb-1">URL API</label><input id="fUrl" class="form-control form-control-dark" placeholder="https://.../v1"></div>
+        <div class="col-12 j-AI"><label class="form-label small text-secondary fw-bold mb-1">Model</label><input id="fModel" class="form-control form-control-dark"></div>
         <div class="col-12"><label class="form-label small text-secondary fw-bold mb-1">Fungsi API ini</label><div id="fFungsi"></div></div>
         <div class="col-12 j-WA" id="fTujuan"></div>
       </div>
@@ -56,7 +66,7 @@
       $('daftar').innerHTML = D.list.length ? D.list.map(function (e) {
         return '<div class="card-custom p-3 mb-2"><div class="d-flex justify-content-between align-items-start gap-2"><div>' +
           '<div class="fw-bold text-white">' + esc(e.nama) + ' <span class="st">' + e.jenis + '</span>' + (e.lama ? ' <span class="st">cadangan lama</span>' : '') + '</div>' +
-          '<div class="kecil">Token ' + esc(e.tampil) + (e.chat ? ' · chat ' + esc(e.chat) : '') + (e.model ? ' · model ' + esc(e.model) : '') + '</div>' +
+          '<div class="kecil">Token ' + esc(e.tampil) + (e.chat ? ' · chat ' + esc(e.chat) : '') + (e.jenis === 'AI' ? ' · ' + esc(e.penyedia || 'CLAUDE') : '') + (e.model ? ' · model ' + esc(e.model) : '') + '</div>' +
           (e.fungsi.length ? e.fungsi.map(function (f) { return '<span class="fn">' + esc(label(e.jenis, f)) + '</span>'; }).join('') : '<span class="kecil text-warning">belum punya fungsi</span>') +
           Object.keys(e.tujuan || {}).map(function (k) { return '<div class="kecil">' + esc(TUJ[k] || k) + ': ' + esc(e.tujuan[k]) + '</div>'; }).join('') +
           '</div><div class="d-flex flex-column gap-1">' + (e.lama ? '' : '<button class="btn btn-outline-info btn-sm py-0" data-e="' + esc(e.id) + '">Ubah</button>') +
@@ -64,6 +74,26 @@
       }).join('') : '<div class="kecil">Belum ada API. Klik "＋ Tambah API".</div>';
       $('urlHook').textContent = D.hook ? D.url + '?hook=' + D.hook : '(isi & simpan kata rahasia dulu)';
     }
+    var PRESET = {
+      GEMINI: { p: 'GEMINI', m: 'gemini-3.5-flash-lite', i: 'Key gratis: aistudio.google.com/apikey. Batas gratis berlaku; data di paket gratis bisa dipakai Google untuk pelatihan, jangan kirim data sensitif.' },
+      GROQ: { p: 'OPENAI', u: 'https://api.groq.com/openai/v1', m: 'openai/gpt-oss-20b', i: 'Key gratis: console.groq.com/keys.' },
+      OPENROUTER: { p: 'OPENAI', u: 'https://openrouter.ai/api/v1', m: '', i: 'Key: openrouter.ai/keys. Isi model yang berakhiran :free (lihat daftar di situs mereka).' },
+      GROK: { p: 'OPENAI', u: 'https://api.x.ai/v1', m: '', i: 'Key: console.x.ai. Isi nama model Grok yang tersedia di akun Anda; belum tentu gratis.' },
+      CLAUDE: { p: 'CLAUDE', m: 'claude-haiku-5-5', i: 'Berbayar (console.anthropic.com).' },
+      LAIN: { p: 'OPENAI', u: '', m: '', i: 'Isi URL dasar (sampai /v1) dan nama model penyedia pilihan Anda.' }
+    };
+    function terapkanPeny(isi) {
+      var p = PRESET[$('fPeny').value];
+      $('fPenyInfo').textContent = p.i; document.querySelectorAll('.j-URL').forEach(function (x) { x.style.display = p.p === 'OPENAI' && $('fJenis').value === 'AI' ? '' : 'none'; });
+      if (isi) { $('fUrl').value = p.u || ''; $('fModel').value = p.m || ''; }
+    }
+    function tebakPeny(e) {
+      if (!e) return 'GEMINI';
+      if (!e.penyedia || e.penyedia === 'CLAUDE') return 'CLAUDE';
+      if (e.penyedia === 'GEMINI') return 'GEMINI';
+      return /groq/.test(e.url) ? 'GROQ' : /openrouter/.test(e.url) ? 'OPENROUTER' : /x\.ai/.test(e.url) ? 'GROK' : 'LAIN';
+    }
+    $('fPeny').onchange = function () { terapkanPeny(true); };
     function bentuk(jenis, e) {                      // checkbox fungsi + kolom sesuai jenis
       $('fJenis').value = jenis;
       document.querySelectorAll('.j-WA,.j-TELEGRAM,.j-AI').forEach(function (x) { x.style.display = x.classList.contains('j-' + jenis) ? '' : 'none'; });
@@ -74,15 +104,17 @@
       editId = e ? e.id : ''; $('form').style.display = ''; $('fJudul').textContent = e ? 'Ubah API' : 'Tambah API';
       $('fNama').value = e ? e.nama : ''; $('fToken').value = ''; $('fChat').value = e ? e.chat : ''; $('fModel').value = e ? e.model : '';
       $('fJenis').disabled = !!e; $('fTokenInfo').textContent = e ? 'Tersimpan ' + e.tampil + ' - kosongkan bila tidak diganti.' : '';
-      bentuk(e ? e.jenis : 'WA', e); $('form').scrollIntoView({ behavior: 'smooth' });
+      bentuk(e ? e.jenis : 'WA', e);
+      if (!e || e.jenis === 'AI') { $('fPeny').value = tebakPeny(e); terapkanPeny(!e); if (e) { $('fUrl').value = e.url || ''; $('fModel').value = e.model || ''; } }
+      $('form').scrollIntoView({ behavior: 'smooth' });
     }
-    $('fJenis').onchange = function () { bentuk($('fJenis').value, null); };
+    $('fJenis').onchange = function () { bentuk($('fJenis').value, null); if ($('fJenis').value === 'AI') { $('fPeny').value = 'GEMINI'; terapkanPeny(true); } };
     $('tambah').onclick = function () { bukaForm(null); };
     $('fBatal').onclick = function () { $('form').style.display = 'none'; };
     $('fSimpan').onclick = function () {
       var jenis = $('fJenis').value, tuj = {};
       document.querySelectorAll('[data-tj]').forEach(function (x) { if (x.value.trim()) tuj[x.dataset.tj] = x.value.trim(); });
-      var item = { id: editId, nama: $('fNama').value, jenis: jenis, token: $('fToken').value, chat: $('fChat').value, model: $('fModel').value, tujuan: tuj,
+      var item = { id: editId, nama: $('fNama').value, jenis: jenis, token: $('fToken').value, chat: $('fChat').value, model: $('fModel').value, penyedia: (PRESET[$('fPeny').value] || {}).p, url: $('fUrl').value, tujuan: tuj,
         fungsi: Array.prototype.map.call(document.querySelectorAll('#fFungsi input:checked'), function (x) { return x.value; }) };
       $('fSimpan').disabled = true; pesan('Menyimpan...', 'secondary');
       TMC.api('terminateApiSimpan', { item: item }).then(function (r) {
