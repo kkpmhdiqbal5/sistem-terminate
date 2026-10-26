@@ -20,9 +20,10 @@
       <div class="row g-2 mb-2">
         <div class="col-6"><label class="kecil">Grup ini berisi</label>
           <select id="mode" class="form-select form-select-dark">
-            <option value="campur">Campur (deteksi dari isi pesan)</option>
+            <option value="campur">Campur (Instalasi, MT, dan laporan Terminate)</option>
             <option value="Instalasi">Semua Instalasi</option>
-            <option value="MT">Semua MT</option></select></div>
+            <option value="MT">Semua MT</option>
+            <option value="Terminate">Semua laporan Terminate</option></select></div>
         <div class="col-6"><label class="kecil">Jika tidak jelas</label>
           <select id="ragu" class="form-select form-select-dark">
             <option value="lewati">Lewati</option><option value="Instalasi">Anggap Instalasi</option><option value="MT">Anggap MT</option></select></div>
@@ -115,8 +116,8 @@
       return lanjut();
     }
     function hitung() {
-      var a = 0, b = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else a++; } });
-      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
+      var a = 0, b = 0, t = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else if (x.sheet === 'Instalasi') a++; else t++; } });
+      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + ', Terminate/Kunjungan/Lanjut ' + t + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
     }
     function tampil() {
       $('pratinjau').classList.remove('d-none'); hitung();
@@ -129,7 +130,7 @@
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
           '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
           (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
-          '<select class="form-select form-select-sm form-select-dark" style="width:110px" data-s="' + i + '"><option' + (x.sheet === 'Instalasi' ? ' selected' : '') + '>Instalasi</option><option' + (x.sheet === 'MT' ? ' selected' : '') + '>MT</option></select></div>';
+          '<select class="form-select form-select-sm form-select-dark" style="width:120px" data-s="' + i + '">' + [['Instalasi', 'Instalasi'], ['MT', 'MT'], ['TERMINATE', 'Diambil'], ['KUNJUNGAN', 'Tdk ada orang'], ['LANJUT', 'Lanjut']].map(function (o) { return '<option value="' + o[0] + '"' + (x.sheet === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
         d.appendChild(c);
       });
       if (baris.length > 400) { var n = document.createElement('div'); n.className = 'kecil text-center'; n.textContent = 'Menampilkan 400 pertama; semua ' + baris.length + ' data tetap ikut terkirim bila dipilih.'; d.appendChild(n); }
@@ -148,9 +149,9 @@
       if (!kirim.length) { alert('Tidak ada data yang dipilih.'); return; }
       if (!confirm('Kirim ' + kirim.length + ' data ke Google Sheet?')) return;
       var btn = $('btnKirim'); btn.disabled = true;
-      var tot = { Instalasi: 0, MT: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0 }, i = 0, lewat = [];
+      var tot = { Instalasi: 0, MT: 0, terminate: 0, kunjungan: 0, lanjut: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0 }, i = 0, lewat = [];
       function lanjut() {
-        if (i >= kirim.length) { $('progres').innerHTML = '<div class="alert alert-success py-2 mb-0">Selesai. Instalasi +' + tot.Instalasi + ', MT +' + tot.MT + ', diperbarui ' + tot.diperbarui + ', dobel/lebih lama dilewati ' + tot.dobel + ', baris lama dihapus ' + tot.dihapus + ', ditolak ' + tot.ditolak + ', POP bukan Perbaungan/Pantai Cermin ' + tot.pop + '.</div>' +
+        if (i >= kirim.length) { $('progres').innerHTML = '<div class="alert alert-success py-2 mb-0">Selesai. Instalasi +' + tot.Instalasi + ', MT +' + tot.MT + ', Diambil +' + tot.terminate + ', Tidak ada di rumah +' + tot.kunjungan + ', Lanjut +' + tot.lanjut + ', diperbarui ' + tot.diperbarui + ', dobel/lebih lama dilewati ' + tot.dobel + ', baris lama dihapus ' + tot.dihapus + ', ditolak ' + tot.ditolak + ', POP bukan Perbaungan/Pantai Cermin ' + tot.pop + '.</div>' +
           (lewat.length ? '<div class="card-custom p-2 mt-2 small"><b>Data yang dilewati (' + lewat.length + (lewat.length >= 50 ? '+, 50 pertama' : '') + '):</b><ol class="mb-0 ps-3">' + lewat.map(function (x) { return '<li>' + TMC.esc(x.nama) + ' (CID ' + TMC.esc(x.cid) + (x.sn ? ', SN ' + TMC.esc(x.sn) : '') + ') - ' + TMC.esc(x.alasan) + '</li>'; }).join('') + '</ol></div>' : ''); btn.disabled = false; return; }
         var potong = kirim.slice(i, i + 100);
         $('progres').textContent = 'Mengirim ' + Math.min(i + 100, kirim.length) + ' / ' + kirim.length + '...';

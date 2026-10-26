@@ -62,7 +62,8 @@
     snlama: /^(?:sn|s\/n)\s*(?:ont\s*|unit\s*)?lama\s*[:=]\s*(.*)$/i,
     sn: /^(?:sn(?:\s*(?:ont|unit))?|s\/n|serial(?:\s*number)?)\s*[:=]\s*(.*)$/i,
     laporan: /^(?:laporan|tanggal)\s*[:=]\s*(.*)$/i,
-    ket: /^(?:ket|keterangan|status|kendala)\s*[:=]\s*(.*)$/i
+    ket: /^(?:ket|keterangan|status|kendala)\s*[:=]\s*(.*)$/i,
+    ts: /^(?:ts|teknisi)\s*[:=]\s*(.*)$/i
   };
   function nilai(k, v, b) {
     v = bersih(v).trim();
@@ -80,7 +81,7 @@
   // Satu pesan -> beberapa blok pelanggan. ctx: {tgl, pop}
   function blok(teks, ctx) {
     ctx = ctx || {};
-    var blocks = [], cur = null, sec = "";
+    var blocks = [], cur = null, sec = "", inTim = false;
     function tutup() { if (cur) { blocks.push(cur); cur = null; } }
     String(teks || "").split("\n").forEach(function (ln) {
       var l = bersih(ln).trim();
@@ -90,6 +91,14 @@
       if (/^(MAINTENANCE( ION CORE| ION BROADBAND)?|MAINTENANCE & INSTALASI)$/.test(j) && j !== "MAINTENANCE & INSTALASI") { tutup(); sec = "MAINTENANCE"; return; }
       if (/^INSTALASI( ION BROADBAND)?$/.test(j)) { tutup(); sec = "INSTALASI"; return; }
       if (/^RESCHEDULE$/.test(j)) { tutup(); sec = "RESCHEDULE"; return; }
+      // laporan Terminate: judul bagian (berhenti / lanjut / tidak ada di rumah)
+      if (/^LAPORAN HARIAN TERMINATE/.test(j)) { tutup(); sec = ""; ctx.pop = popNorm(j) || ctx.pop; inTim = false; return; }
+      if (/BERHENTI BERLANGGANAN|PERANGKAT SUDAH DIAMBIL/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "TERMINATE"; inTim = false; return; }
+      if (/MASIH LANJUT/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "LANJUT"; inTim = false; return; }
+      if (/TIDAK ADA (DI ?)?RUMAH/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "KUNJUNGAN"; inTim = false; return; }
+      if (/^TIM\s*[:=]?$/.test(j)) { tutup(); inTim = true; return; }
+      if (inTim && !/[:=]/.test(l)) return;                              // daftar nama tim di kepala laporan
+      if (/^LANJUT\.?$/.test(j)) { tutup(); return; }
       if (/^UPDATE LAPORAN/.test(j) || /^LAPORAN[\s\-]*SELESAI/.test(j)) { tutup(); sec = ""; return; }
       // keterangan header (bukan milik blok pelanggan)
       var h = /^\*?\s*(?:hari\s*\/?\s*tanggal)\s*[:=]\s*(.*)$/i.exec(l);
@@ -105,6 +114,9 @@
       else if (LBL.nama.test(l) && (!cur || (cur.cid || cur.sn || cur.snlama))) mulai = !(cur && cur._wo && !cur.cid && !cur.sn && !cur.nama0);
       if (mulai) { tutup(); cur = { _raw: [], sec: sec, pop0: ctx.pop || "", tgl0: ctx.tgl || "", _wo: LBL.wo.test(l) }; }
       if (!cur) cur = { _raw: [], sec: sec, pop0: ctx.pop || "", tgl0: ctx.tgl || "" };
+      cur.tim = cur.tim || [];
+      if (cur._ts && !/[:=]/.test(l) && sec) { cur.tim.push(l.replace(/^[\-•*\d.\s]+/, "").trim()); return; }
+      cur._ts = false;
       cur._raw.push(l);
       var wo = /WO-(\d{4})(\d{2})(\d{2})/i.exec(l); if (wo && !cur.tglwo) cur.tglwo = wo[1] + "-" + wo[2] + "-" + wo[3];
       for (var k in LBL) {
@@ -113,6 +125,7 @@
         if (m) {
           if (k === "nama") cur.nama0 = true;
           if (k === "laporan") { var t2 = tglDari(m[1]); if (t2 && !cur.tgl) cur.tgl = t2; break; }
+          if (k === "ts") { cur.tim = cur.tim || []; cur._ts = true; if (m[1].trim()) cur.tim.push(m[1].trim()); break; }
           var v = nilai(k, m[1], cur); if (v && !cur[k]) cur[k] = v; break;
         }
       }
@@ -135,6 +148,14 @@
       var ctx = { tgl: p.tanggal || "", pop: "" };
       blok(p.teks, ctx).forEach(function (b) {
         var all = b._raw.join(" ");
+        if (b.sec === "TERMINATE" || b.sec === "LANJUT" || b.sec === "KUNJUNGAN") {      // laporan Terminate harian
+          if (opsi.mode === "Instalasi" || opsi.mode === "MT") return;
+          if (b.sec === "TERMINATE" ? !(b.cid || b.sn || b.psn) : !(b.cid && b.nama)) return;
+          hasil.push({ sheet: b.sec, tanggal: b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
+                       sn: b.sn || "", snlama: "", psn: b.psn || "", ket: b.ket || "", tim: (b.tim || []).join(", ") });
+          return;
+        }
+        if (opsi.mode === "Terminate") return;
         var sheet = opsi.mode === "Instalasi" || opsi.mode === "MT" ? opsi.mode : "";
         if (!sheet) {
           if (b.sec === "INSTALASI") sheet = "Instalasi";

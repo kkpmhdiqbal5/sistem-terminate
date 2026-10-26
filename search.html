@@ -17,6 +17,7 @@
         .bg-menunggu { background-color: #b45309; }
         .bg-sudah { background-color: #15803d; }
         .bg-kunjungan { background-color: #0369a1; }
+        .bg-lanjut { background-color: #7c3aed; }
         /* Navbar Bawah */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background-color: #1e293b; border-top: 1px solid #334155; display: flex; justify-content: space-around; padding: 10px 0; z-index: 50; }
         .nav-item { color: #94a3b8; text-align: center; text-decoration: none; font-size: 0.75rem; flex: 1; }
@@ -51,6 +52,7 @@
                     <option value="MENUNGGU DIAMBIL">MENUNGGU DIAMBIL</option>
                     <option value="SUDAH DIAMBIL">SUDAH DIAMBIL</option>
                     <option value="SUDAH KUNJUNGAN">SUDAH KUNJUNGAN</option>
+                    <option value="LANJUT BERLANGGANAN">LANJUT BERLANGGANAN</option>
                 </select>
             </div>
 
@@ -233,6 +235,7 @@
                 let badgeClass = "bg-menunggu";
                 if(row.sumber_sheet === "SUDAH DIAMBIL") badgeClass = "bg-sudah";
                 if(row.sumber_sheet === "SUDAH KUNJUNGAN") badgeClass = "bg-kunjungan";
+                if(row.sumber_sheet === "LANJUT BERLANGGANAN") badgeClass = "bg-lanjut";
 
                 let mapsLink = row.sherlock && row.sherlock !== "-" ? `<a href="${row.sherlock.includes('http') ? row.sherlock : 'https://www.google.com/maps?q='+row.sherlock}" target="_blank" class="text-blue-400 hover:underline cursor-pointer"><i class="fas fa-map-marker-alt"></i> Buka Maps</a>` : "-";
 

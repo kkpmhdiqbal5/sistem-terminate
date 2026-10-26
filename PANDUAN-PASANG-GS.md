@@ -40,3 +40,16 @@ Profil > Pengaturan API > Tambah API > Jenis "AI" > pilih Penyedia. Paling mudah
 
 ## Kirim WA lewat API dari Pencarian & Admin
 Akun dengan izin Chat Client (TCHAT) melihat tombol tambahan di halaman Pencarian dan Admin: "📤 API Gabungan", "📤 API 1 data 1 pesan", dan 📤 per baris. Isi 1-10 nomor/ID grup, maksimal 150 pesan sekali kirim. Butuh ChatClient.gs + Terminate.gs terbaru dan Deploy > New version.
+
+## Impor WhatsApp membaca laporan Terminate
+Impor WA (mode Campur atau "Semua laporan Terminate") ikut membaca laporan harian berformat "LAPORAN HARIAN TERMINATE <POP>": bagian *PERANGKAT SUDAH DIAMBIL*, *MASIH LANJUT BERLANGGANAN*, dan *TIDAK ADA DIRUMAH*. Anti dobel: diambil = SN/P-SN sama (atau CID + tanggal bila tanpa SN); lanjut & tidak ada di rumah = CID + tanggal sama. Tanpa foto. Tempel Terminate.gs terbaru ke Code.gs lalu Deploy > New version.
+
+## Balasan client tidak masuk? (webhook)
+1. Pasang **ChatClient.gs, Terminate.gs, dan Kode.gs terbaru** lalu Deploy > Manage deployments > Edit > Version: New version.
+2. Buka `URL_WEB_APP?hook=KATA_RAHASIA&cek=1` di browser: harus tampil "Webhook aktif". (Kata rahasia ada di Profil > Pengaturan API.)
+3. Di dashboard Fonnte, pada device yang dipakai, isi kolom Webhook dengan `URL_WEB_APP?hook=KATA_RAHASIA` (bagian pesan masuk) dan simpan.
+4. Chat Client > tab Balasan Client > **Cek koneksi balasan** menampilkan log tiap pesan yang masuk (sheet WEBHOOK LOG) dan hasilnya. Log kosong = Fonnte belum mengirim ke Apps Script.
+
+## Alur lanjut / berhenti
+- Lanjut: status LANJUT, tampil di kelompok "Lanjut - belum dilapor". Setelah tim terminate melaporkan (Input Terminate / impor WA), pindah ke "sudah dilapor" dan masuk sheet "lanjut berlanganan" (tampil di Pencarian: sumber "LANJUT BERLANGGANAN").
+- Berhenti: bot meminta share lokasi + foto rumah. Lengkap = otomatis dibuat baris di sheet "Baris 1" (NAMA TS "BOT WA"). Saat tim terminate menyimpan pengambilan (CID sama), baris itu pindah ke Baris 2 dan SN/P-SN terisi.

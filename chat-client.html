@@ -62,7 +62,7 @@
 
       <div class="card-custom p-3 mb-3">
         <div class="fw-bold text-white mb-1">② Chat client (WhatsApp API saja, dibalas bot AI) <span id="badgeAI"></span></div>
-        <div class="kecil mb-2">Client yang menjawab TIDAK akan diminta mengirim foto rumah; foto tersimpan &amp; tampil untuk teknisi. Maks <span id="maksKirim">30</span> client sekali kirim, ada jeda otomatis antar pesan.</div>
+        <div class="kecil mb-2">Bot membalas otomatis. Client yang berhenti diminta share lokasi (Sherlock) dan foto rumah; bila keduanya lengkap, otomatis masuk <b>Baris 1</b> untuk diambil tim terminate. Client yang lanjut dipisah di tab Balasan Client sampai dilaporkan tim terminate. Maks <span id="maksKirim">30</span> client sekali kirim, ada jeda otomatis antar pesan.</div>
         <textarea id="pesan" rows="5" class="form-control form-control-dark mb-2"></textarea>
         <div class="kecil mb-2">Isian otomatis: <code>{nama}</code> <code>{cid}</code> <code>{odp}</code></div>
         <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="paksa"> <span class="form-check-label small">Kirim ulang walau masih menunggu balasan</span></label>
@@ -78,9 +78,11 @@
     <div id="tab-status" class="d-none">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="fw-bold text-white">Status balasan client</div>
-        <div class="d-flex gap-2"><select id="fStat" class="form-select form-select-dark form-select-sm"><option value="">Semua</option><option value="INGIN_PASANG">Ingin pasang WiFi</option><option value="PERLU_ADMIN">Perlu admin</option><option value="MINTA_FOTO">Diminta foto</option></select>
+        <div class="d-flex gap-2"><button id="btnDiag" class="btn btn-outline-warning btn-sm">Cek koneksi balasan</button>
         <button id="btnMuat" class="btn btn-outline-info btn-sm">Muat ulang</button></div>
       </div>
+      <div id="grupStatus" class="d-flex gap-1 flex-wrap mb-2"></div>
+      <div id="hDiag" class="mb-2"></div>
       <div class="card-custom mb-4" id="daftarStatus"></div>
     </div>
   </div>
@@ -89,7 +91,7 @@
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
     var $ = function (id) { return document.getElementById(id); };
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
-    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta foto rumah', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary']};
+    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary']};
     function badge(st) { var l = LABEL[st] || [st || '-', 'secondary']; return '<span class="badge bg-' + l[1] + (l[1] === 'warning' || l[1] === 'info' ? ' text-dark' : '') + '">' + esc(l[0]) + '</span>'; }
     function pesan(el, t, j) { $(el).innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small" style="white-space:pre-line">' + esc(t) + '</div>' : ''; }
 
@@ -192,20 +194,47 @@
         statusData = r.data; gambarStatus();
       });
     }
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    function grupDari(x) {
+      if (!x.cid) return 'calon';
+      if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
+      if (x.status === 'LANJUT') return x.lapor ? 'lanjut_sudah' : 'lanjut_belum';
+      if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(x.status) >= 0) return 'berhenti';
+      if (x.status === 'PERLU_ADMIN') return 'admin';
+      if (x.status === 'STOP') return 'stop';
+      return 'menunggu';
+    }
     function gambarStatus() {
-      var f = $('fStat').value, rows = statusData.filter(function (x) { return !f || x.status === f; });
-      if (!rows.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Belum ada chat.</div>'; return; }
+      var hit = {}; statusData.forEach(function (x) { var g = grupDari(x); hit[g] = (hit[g] || 0) + 1; });
+      $('grupStatus').innerHTML = GRUP.map(function (g) {
+        return '<button class="btn btn-sm ' + (g[0] === grupAktif ? 'btn-info' : 'btn-outline-light') + '" data-g="' + g[0] + '">' + g[1] + ' (' + (g[0] === 'semua' ? statusData.length : (hit[g[0]] || 0)) + ')</button>';
+      }).join('');
+      var rows = statusData.filter(function (x) { return grupAktif === 'semua' || grupDari(x) === grupAktif; });
+      if (!rows.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Tidak ada data di kelompok ini.</div>'; return; }
       $('daftarStatus').innerHTML = rows.map(function (x) {
-        var calon = !x.cid;
+        var calon = !x.cid, g = grupDari(x), ex = '';
+        if (g === 'berhenti') ex = '<div class="kecil mt-1">' + (x.foto ? '📷 foto ✔' : '📷 foto ✖') + ' | ' + (x.sherlock ? '📍 lokasi ✔' : '📍 lokasi ✖') + (x.baris1 ? ' | <span class="text-success">Masuk Baris 1 (' + esc(x.baris1) + ')</span>' : '') + (x.diambil ? ' | <span class="text-info">Sudah diambil tim terminate</span>' : '') + '</div>';
+        if (g.indexOf('lanjut') === 0) ex = '<div class="kecil mt-1">' + (x.lapor ? '<span class="text-success">Sudah dilaporkan tim terminate (masuk sheet lanjut berlangganan)</span>' : '<span class="text-warning">Belum dilaporkan tim terminate</span>') + '</div>';
         return '<div class="baris"><div class="flex-grow-1"><div class="nama">' + esc(x.nama || (calon ? 'Calon pelanggan' : '-')) + ' <span class="kecil">' + (calon ? '📱 ' + esc(x.phone) : 'CID ' + esc(x.cid)) + '</span> ' + badge(x.status) + '</div>' +
-          '<div class="kecil">' + (calon ? 'masuk: ' : esc(x.odp) + ' | ' + esc(x.pop) + ' | kirim: ' + esc(x.kirim || '-') + ' | balas: ') + esc(x.balas || '-') + '</div>' +
+          '<div class="kecil">' + (calon ? 'masuk: ' : esc(x.odp) + ' | ' + esc(x.pop) + ' | kirim: ' + esc(x.kirim || '-') + ' | balas: ') + esc(x.balas || '-') + '</div>' + ex +
           '<div class="kecil">' + esc(x.terakhir) + '</div><button class="btn btn-outline-light btn-sm py-0 mt-1" data-r="' + esc(x.cid) + '" data-p="' + esc(x.phone) + '">Lihat percakapan</button>' +
           (calon && x.status === 'INGIN_PASANG' ? ' <button class="btn btn-outline-info btn-sm py-0 mt-1" data-tandai="DIHUBUNGI" data-p="' + esc(x.phone) + '">Sudah dihubungi</button>' : '') +
           (calon && x.status !== 'SELESAI' ? ' <button class="btn btn-outline-success btn-sm py-0 mt-1" data-tandai="SELESAI" data-p="' + esc(x.phone) + '">Selesai</button>' : '') + '</div>' +
           (x.foto ? '<a href="' + esc(x.foto) + '" target="_blank"><img class="foto" src="' + esc(TMC.thumb(x.foto, 120)) + '" alt="rumah"></a>' : '') + '</div>';
       }).join('');
     }
-    $('fStat').onchange = gambarStatus;
+    $('grupStatus').addEventListener('click', function (e) { var g = e.target.getAttribute('data-g'); if (g) { grupAktif = g; gambarStatus(); } });
+    $('btnDiag').onclick = function () {
+      pesan('hDiag', 'Memeriksa...', 'secondary');
+      TMC.api('terminateChatDiag').then(function (r) {
+        if (r.status !== 'success') { pesan('hDiag', r.message, 'danger'); return; }
+        var t = 'Balasan client yang tercatat sampai sekarang: ' + r.masuk + '.\n' + (r.hook ? 'Kata rahasia webhook: sudah diatur.' : 'Kata rahasia webhook BELUM diatur (Profil > Pengaturan API).') +
+          '\nTes dari browser: buka ' + r.url + '?hook=KATA_RAHASIA&cek=1 , harus muncul "Webhook aktif".' +
+          '\nUrl webhook yang ditempel di penyedia WA: ' + r.url + '?hook=KATA_RAHASIA' +
+          '\n\nLog webhook terakhir:' + (r.log.length ? '\n' + r.log.map(function (x) { return x.waktu + ' | ' + x.phone + ' | ' + x.isi + ' -> ' + x.hasil; }).join('\n') : '\n(KOSONG: belum ada satu pun pesan masuk dari penyedia WA ke Apps Script. Periksa pengaturan webhook di Fonnte & Deploy versi baru.)');
+        pesan('hDiag', t, r.log.length ? 'info' : 'warning');
+      }).catch(function () { pesan('hDiag', 'Gagal terhubung ke server.', 'danger'); });
+    };
     $('daftarStatus').addEventListener('click', function (e) {
       var t = e.target.getAttribute('data-tandai'), p = e.target.getAttribute('data-p');
       if (t) { TMC.api('terminateChatTandai', { phone: p, status: t }).then(function (r) { if (r.status === 'success') muatStatus(); else alert(r.message); }); return; }
