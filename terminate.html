@@ -50,6 +50,16 @@
       </div>
 
       <div id="blokSN">
+        <div class="mb-2 p-2 border border-info rounded">
+          <label class="form-label small text-info fw-bold mb-1">✨ FOTO LABEL SN &amp; P-SN (isi otomatis dengan AI)</label>
+          <div>
+            <button type="button" id="btnLabel" class="btn btn-primary btn-sm fw-bold">📷 Foto Label (Kamera)</button>
+            <label class="btn btn-outline-info btn-sm fw-bold mb-0">🖼️ Dari Galeri<input type="file" id="fileLabel" accept="image/*" hidden></label>
+            <span id="lblMsg" class="kecil ms-1"></span>
+          </div>
+          <img id="prevLabel" class="img-fluid rounded mt-2 d-none" style="max-height:140px;object-fit:cover" alt="Foto label">
+          <div class="kecil">Utamakan kamera. Jika AI tidak bisa membaca, isi manual atau pakai tombol Scan di bawah.</div>
+        </div>
         <div class="row g-2 mb-1">
           <div class="col-12 col-md-6">
             <label class="form-label small text-secondary fw-bold mb-1">SN *</label>
@@ -162,6 +172,37 @@
       }).catch(function (e) { if (e.message !== 'dibatalkan') alert(e.message); });
     };
 
+    // Foto label -> AI membaca SN & P-SN. Gagal/kosong = isi manual (kolom tidak diubah).
+    function bacaLabel(dataUrl) {
+      var m = $('lblMsg'); $('prevLabel').src = dataUrl; $('prevLabel').classList.remove('d-none');
+      m.textContent = 'AI membaca SN / P-SN...'; $('btnLabel').disabled = true;
+      TMC.api('terminateAiFoto', { foto: dataUrl }).then(function (r) {
+        if (!r || r.status !== 'success') { m.textContent = ((r && r.message) || 'AI gagal.') + ' Isi manual.'; return; }
+        var d = r.data || {};
+        if (d.sn) $('sn').value = d.sn;
+        if (d.psn) $('psn').value = d.psn;
+        m.textContent = d.sn && d.psn ? 'SN dan P-SN terisi. Periksa lagi sebelum simpan.'
+          : d.sn || d.psn ? (d.sn ? 'SN' : 'P-SN') + ' terisi; ' + (d.sn ? 'P-SN' : 'SN') + ' tidak terbaca, isi manual / Scan.'
+          : 'Tidak terbaca. Foto ulang lebih dekat dan terang, atau isi manual.';
+        if (d.sn || d.psn) cek();
+      }).catch(function () { m.textContent = 'Gagal terhubung. Isi manual.'; }).finally(function () { $('btnLabel').disabled = false; });
+    }
+    $('btnLabel').onclick = function () {
+      TMC.openCamera('SN/P-SN ' + S.user).then(bacaLabel).catch(function (e) { if (e.message !== 'dibatalkan') alert(e.message); });
+    };
+    $('fileLabel').onchange = function () {
+      var f = this.files[0]; this.value = ''; if (!f) return;
+      var img = new Image(), u = URL.createObjectURL(f);
+      img.onload = function () {
+        var r = Math.min(1, 1400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+        bacaLabel(c.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = function () { URL.revokeObjectURL(u); $('lblMsg').textContent = 'File bukan gambar yang valid.'; };
+      img.src = u;
+    };
+
     var tCek = null;
     function cek() {
       var sn = $('sn').value.trim(), psn = $('psn').value.trim();
@@ -217,6 +258,7 @@
           foto = ''; $('prev').classList.add('d-none'); $('btnFoto').textContent = '📷 Ambil Foto (Kamera)';
           ['sn', 'psn', 'nama', 'cid'].forEach(function (id) { $(id).value = ''; });
           $('info').textContent = ''; $('ket').value = KET[j]; ketAuto = KET[j];
+          $('prevLabel').classList.add('d-none'); $('lblMsg').textContent = '';
         } else {
           hasil.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + TMC.esc(res.message || 'Gagal menyimpan.') + '</div>';
         }

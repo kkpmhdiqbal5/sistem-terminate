@@ -54,7 +54,7 @@ function terminateRoute_(d) {
   if (!d || String(d.action || '').indexOf('terminate') !== 0) return null;
   try {
     if (d.action === 'terminateLogin') return tmJson_(tmLogin_(d));
-    if (['terminateAiIsi', 'terminateAiMassal', 'terminateAiImpor', 'terminateAiAktif'].indexOf(d.action) >= 0) {          // AI Lapangan/Massal/Impor/Aktif: akun yang login (izin dicek di ChatClient.gs)
+    if (['terminateAiIsi', 'terminateAiFoto', 'terminateAiMassal', 'terminateAiImpor', 'terminateAiAktif'].indexOf(d.action) >= 0) {          // AI Lapangan/Massal/Impor/Aktif: akun yang login (izin dicek di ChatClient.gs)
       const tk = tmCheckToken_(d.token), ak = tk && tmAkun_(tk.user);
       if (!ak || typeof chatRoute_ !== 'function') return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
       return tmJson_(chatRoute_(d, { user: tk.user, role: ak.role, izin: ak.izin }));
