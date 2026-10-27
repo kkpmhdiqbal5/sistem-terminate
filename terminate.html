@@ -97,8 +97,11 @@
         <textarea id="ket" class="form-control form-control-dark" rows="3"></textarea>
       </div>
       <div class="mb-3">
-        <label class="form-label small text-secondary fw-bold mb-1">Anggota Tim (pisahkan dengan koma)</label>
-        <input id="tim" class="form-control form-control-dark" placeholder="Contoh: Raffy, Adri">
+        <label class="form-label small text-secondary fw-bold mb-1">Nama Lengkap *</label>
+        <input id="namaLengkap" class="form-control form-control-dark mb-2" placeholder="Nama lengkap Anda" autocomplete="name">
+        <label class="form-label small text-secondary fw-bold mb-1">Teman / anggota tim lain <span class="kecil">(opsional)</span></label>
+        <div id="temanBox"></div>
+        <button type="button" id="btnTeman" class="btn btn-outline-info btn-sm">+ Tambah teman</button>
       </div>
 
       <button id="btnSimpan" class="btn btn-success w-100 fw-bold py-2">✔ Verif & Simpan</button>
@@ -116,6 +119,26 @@
     };
     var LBL = { TERMINATE: 'Foto Perangkat *', KUNJUNGAN: 'Foto Rumah *', LANJUT: 'Foto Bukti (CID & nama) *' };
     var foto = '', opts = {}, ketAuto = '';
+
+    // Nama lengkap + teman: diingat di perangkat ini, dikirim sebagai daftar nama (dipisah koma) ke kolom TIM
+    function lsGet(k) { try { return localStorage.getItem('tm_' + k) || ''; } catch (e) { return ''; } }
+    function lsPut(k, v) { try { localStorage.setItem('tm_' + k, v); } catch (e) {} }
+    $('namaLengkap').value = lsGet('nl_' + S.user) || S.nama || S.user || '';
+    function tambahTeman(v) {
+      var r = document.createElement('div'); r.className = 'd-flex gap-1 mb-1';
+      r.innerHTML = '<input class="form-control form-control-dark" data-teman placeholder="Nama teman">' +
+        '<button type="button" class="btn btn-outline-danger btn-sm" aria-label="Hapus teman">✕</button>';
+      r.querySelector('input').value = v || '';
+      r.querySelector('button').onclick = function () { r.remove(); };
+      $('temanBox').appendChild(r);
+    }
+    $('btnTeman').onclick = function () { tambahTeman(''); };
+    try { JSON.parse(lsGet('teman_' + S.user) || '[]').slice(0, 10).forEach(tambahTeman); } catch (e) {}
+    function daftarTim() {
+      var t = [$('namaLengkap').value.trim()];
+      Array.prototype.forEach.call(document.querySelectorAll('[data-teman]'), function (e) { t.push(e.value.trim()); });
+      return t.filter(Boolean);
+    }
 
     function ubahJenis() {
       var j = $('jenis').value;
@@ -238,6 +261,8 @@
       var j = $('jenis').value, pop = $('pop').value, odp = nilaiOdp();
       var sn = $('sn').value.trim(), psn = $('psn').value.trim(), nama = $('nama').value.trim(), cid = $('cid').value.trim();
       if (!foto) { alert(j === 'TERMINATE' ? 'Foto perangkat wajib diambil (kamera / galeri).' : 'Foto wajib diambil dengan kamera.'); return; }
+      var tim = daftarTim();
+      if (!$('namaLengkap').value.trim()) { alert('Nama lengkap wajib diisi.'); return; }
       if (!pop) { alert('POP wajib dipilih.'); return; }
       if (!odp) { alert('ODP wajib dipilih/diisi.'); return; }
       if (j === 'TERMINATE') { if (!sn || !psn) { alert('SN dan P-SN wajib diisi keduanya.'); return; } if (sn.toUpperCase().replace(/\s+/g,'') === psn.toUpperCase().replace(/\s+/g,'')) { alert('SN dan P-SN tidak boleh sama. Scan ulang salah satunya.'); return; } }
@@ -247,7 +272,7 @@
       btn.disabled = true; btn.textContent = 'Memproses...'; hasil.innerHTML = '';
       TMC.api('terminateSimpan', {
         jenis: j, pop: pop, odp: odp, sn: sn, psn: psn, nama: nama, cid: cid,
-        ket: $('ket').value.trim() || KET[j], tim: $('tim').value.trim() || S.user, foto: foto
+        ket: $('ket').value.trim() || KET[j], tim: tim.join(', '), foto: foto
       }).then(function (res) {
         if (res.status === 'success') {
           var d = res.data || {};
@@ -256,6 +281,7 @@
             (d.sn ? '<br>SN: ' + TMC.esc(d.sn) + ' | P-SN: ' + TMC.esc(d.psn) : '') +
             (d.verif ? '<br>Verif: ' + TMC.esc(d.verif) : '') +
             ((j === 'TERMINATE' && (!d.nama || !d.cid)) ? '<br><b>Nama/CID belum terisi, lengkapi lewat menu Edit.</b>' : '') + '</div>';
+          lsPut('nl_' + S.user, $('namaLengkap').value.trim()); lsPut('teman_' + S.user, JSON.stringify(tim.slice(1)));
           foto = ''; $('prev').classList.add('d-none'); $('btnFoto').textContent = '📷 Ambil Foto (Kamera)';
           ['sn', 'psn', 'nama', 'cid'].forEach(function (id) { $(id).value = ''; });
           $('info').textContent = ''; $('ket').value = KET[j]; ketAuto = KET[j];
