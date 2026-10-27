@@ -25,7 +25,7 @@
         <button type="button" id="aiBtn" class="btn btn-sm btn-info fw-bold mt-2">Isi kolom otomatis</button> <span id="aiMsg" class="kecil"></span>
       </div>
 
-      <div class="mb-3">
+      <div class="mb-3" id="blokFoto">
         <label id="lblFoto" class="form-label small text-info fw-bold">Foto Perangkat *</label>
         <div><button type="button" id="btnFoto" class="btn btn-primary btn-sm fw-bold">📷 Ambil Foto (Kamera)</button>
           <span class="kecil ms-2">Foto langsung dari kamera, galeri tidak bisa dipakai.</span></div>
@@ -51,14 +51,14 @@
 
       <div id="blokSN">
         <div class="mb-2 p-2 border border-info rounded">
-          <label class="form-label small text-info fw-bold mb-1">✨ FOTO LABEL SN &amp; P-SN (isi otomatis dengan AI)</label>
+          <label class="form-label small text-info fw-bold mb-1">✨ FOTO PERANGKAT (SN &amp; P-SN terisi otomatis dengan AI)</label>
           <div>
-            <button type="button" id="btnLabel" class="btn btn-primary btn-sm fw-bold">📷 Foto Label (Kamera)</button>
+            <button type="button" id="btnLabel" class="btn btn-primary btn-sm fw-bold">📷 Foto Perangkat (Kamera)</button>
             <label class="btn btn-outline-info btn-sm fw-bold mb-0">🖼️ Dari Galeri<input type="file" id="fileLabel" accept="image/*" hidden></label>
             <span id="lblMsg" class="kecil ms-1"></span>
           </div>
           <img id="prevLabel" class="img-fluid rounded mt-2 d-none" style="max-height:140px;object-fit:cover" alt="Foto label">
-          <div class="kecil">Utamakan kamera. Jika AI tidak bisa membaca, isi manual atau pakai tombol Scan di bawah.</div>
+          <div class="kecil">Foto label SN/P-SN terlihat jelas. Utamakan kamera. Jika AI tidak bisa membaca, isi manual atau pakai tombol Scan di bawah.</div>
         </div>
         <div class="row g-2 mb-1">
           <div class="col-12 col-md-6">
@@ -120,6 +120,7 @@
     function ubahJenis() {
       var j = $('jenis').value;
       $('blokSN').classList.toggle('d-none', j !== 'TERMINATE');
+      $('blokFoto').classList.toggle('d-none', j === 'TERMINATE'); // Terminate: satu foto saja, dari kotak AI
       $('lblFoto').textContent = LBL[j];
       $('infoNC').textContent = j === 'TERMINATE'
         ? 'Nama dan CID boleh diisi jika sudah diketahui. Jika kosong, terisi otomatis dari data SN/P-SN atau dilengkapi lewat menu Edit.'
@@ -174,7 +175,7 @@
 
     // Foto label -> AI membaca SN & P-SN. Gagal/kosong = isi manual (kolom tidak diubah).
     function bacaLabel(dataUrl) {
-      var m = $('lblMsg'); $('prevLabel').src = dataUrl; $('prevLabel').classList.remove('d-none');
+      var m = $('lblMsg'); foto = dataUrl; $('prevLabel').src = dataUrl; $('prevLabel').classList.remove('d-none');
       m.textContent = 'AI membaca SN / P-SN...'; $('btnLabel').disabled = true;
       TMC.api('terminateAiFoto', { foto: dataUrl }).then(function (r) {
         if (!r || r.status !== 'success') { m.textContent = ((r && r.message) || 'AI gagal.') + ' Isi manual.'; return; }
@@ -236,7 +237,7 @@
     $('btnSimpan').onclick = function () {
       var j = $('jenis').value, pop = $('pop').value, odp = nilaiOdp();
       var sn = $('sn').value.trim(), psn = $('psn').value.trim(), nama = $('nama').value.trim(), cid = $('cid').value.trim();
-      if (!foto) { alert('Foto wajib diambil dengan kamera.'); return; }
+      if (!foto) { alert(j === 'TERMINATE' ? 'Foto perangkat wajib diambil (kamera / galeri).' : 'Foto wajib diambil dengan kamera.'); return; }
       if (!pop) { alert('POP wajib dipilih.'); return; }
       if (!odp) { alert('ODP wajib dipilih/diisi.'); return; }
       if (j === 'TERMINATE') { if (!sn || !psn) { alert('SN dan P-SN wajib diisi keduanya.'); return; } if (sn.toUpperCase().replace(/\s+/g,'') === psn.toUpperCase().replace(/\s+/g,'')) { alert('SN dan P-SN tidak boleh sama. Scan ulang salah satunya.'); return; } }
