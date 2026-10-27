@@ -37,7 +37,7 @@
   }
   function thumb(url, w) {
     var id = driveId(url);
-    return id ? "https://drive.google.com/thumbnail?id=" + id + "&sz=w" + (w || 300) : "";
+    return id ? "https://drive.google.com/thumbnail?id=" + id + "&sz=w" + (w || 300) : (/^https:\/\//.test(url || "") ? url : "");
   }
 
   var CSS = "body{background:#0b132b;color:#e0e6ed;font-family:'Segoe UI',sans-serif;padding-bottom:85px;margin:0}" +

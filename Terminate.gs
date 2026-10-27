@@ -182,18 +182,28 @@ function tmUpdateRows_(name, pred, obj) {
   }
   return n;
 }
+// Foto -> Drive (utama). Jika izin Drive belum diberikan, otomatis dicoba lewat imgbb (uploadToImgbb di Kode.gs).
+// Keduanya gagal -> error jelas supaya data TIDAK tersimpan tanpa foto (foto wajib).
 function tmSimpanFoto_(dataUrl, prefix) {
   if (!dataUrl) return '';
   const koma = String(dataUrl).indexOf(',');
   if (koma < 0) return '';
   const mime = dataUrl.substring(5, dataUrl.indexOf(';')) || 'image/jpeg';
   const nama = prefix.replace(/[^A-Za-z0-9_-]/g, '') + '_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg';
-  const blob = Utilities.newBlob(Utilities.base64Decode(dataUrl.substring(koma + 1)), mime, nama);
-  const it = DriveApp.getFoldersByName(TM.FOLDER_FOTO);
-  const folder = it.hasNext() ? it.next() : DriveApp.createFolder(TM.FOLDER_FOTO);
-  const f = folder.createFile(blob);
-  f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return f.getUrl();
+  let errDrive = '';
+  try {
+    const blob = Utilities.newBlob(Utilities.base64Decode(dataUrl.substring(koma + 1)), mime, nama);
+    const it = DriveApp.getFoldersByName(TM.FOLDER_FOTO);
+    const folder = it.hasNext() ? it.next() : DriveApp.createFolder(TM.FOLDER_FOTO);
+    const f = folder.createFile(blob);
+    f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return f.getUrl();
+  } catch (e) { errDrive = String(e.message || e); Logger.log('Drive gagal: ' + errDrive); }
+  if (typeof uploadToImgbb === 'function') {
+    const u = uploadToImgbb(dataUrl);
+    if (u && u !== '-') return u;
+  }
+  throw new Error('Foto gagal disimpan (Drive: ' + errDrive.slice(0, 120) + '). Admin: jalankan fungsi izinkan di Apps Script lalu Deploy > New version.');
 }
 
 /* ===================== LOGIN & SESI (12 JAM) ===================== */
@@ -944,7 +954,8 @@ function tmBersihkan_() {
 
 /* ===================== PASANG SEKALI ===================== */
 function izinkan() {
-  DriveApp.getRootFolder();
+  DriveApp.getFoldersByName(TM.FOLDER_FOTO);   // meminta izin Drive
+  UrlFetchApp.fetch('https://www.google.com', { muteHttpExceptions: true });   // meminta izin akses eksternal (AI, imgbb)
   tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS);
   tmSecret_();
   Logger.log('Izin OK. Sheet LOG TERMINATE siap.');
