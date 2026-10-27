@@ -127,7 +127,15 @@
             b2 = document.createElement('a'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim WhatsApp';
             b2.target = '_blank'; b2.rel = 'noopener'; b2.href = 'https://wa.me/?text=' + encodeURIComponent(l.teks);
           }
-          row.appendChild(b1); row.appendChild(b2); c.appendChild(h); c.appendChild(ta); c.appendChild(row); $('hasil').appendChild(c);
+          row.appendChild(b1); row.appendChild(b2); c.appendChild(h); c.appendChild(ta); c.appendChild(row);
+          // Laporan per data + foto: tiap data punya foto & teks sendiri (salin / kirim satu per satu)
+          var dh = document.createElement('div'); dh.className = 'small text-info fw-bold mt-3 mb-2'; dh.textContent = 'Per data + foto (' + (l.data || []).length + ')'; c.appendChild(dh);
+          (l.data || []).forEach(function (x) {
+            var k = document.createElement('div'); k.innerHTML = kartu(x, '<button type="button" class="btn btn-outline-info btn-sm mt-1" data-salin="1">Salin laporan data ini</button>');
+            var tb = k.querySelector('[data-salin]'); tb.onclick = function () { salin(x.teks).then(function () { tb.textContent = 'Tersalin ✔'; }); };
+            c.appendChild(k.firstChild);
+          });
+          $('hasil').appendChild(c);
         });
       }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
     };

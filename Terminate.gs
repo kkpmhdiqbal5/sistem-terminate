@@ -531,7 +531,7 @@ function tmListHariIni_(au, d) {
 
 function tmNamaTim_(r, fallback) {
   const t0 = String(r.TIM || '').trim();
-  const a = String((t0 && !tmSame_(t0, r.ADMIN)) ? t0 : tmNamaLengkap_(fallback || r.ADMIN)).split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+  const a = String((t0 && !tmSame_(t0, r.ADMIN)) ? t0 : (fallback || r.ADMIN)).split(/[,\n]/).map(x => x.trim()).filter(Boolean);
   return a.length ? a : [String(fallback || '-')];
 }
 function tmBlok_(r, i, jenis) {
@@ -563,7 +563,8 @@ function tmRekap_(d, au) {
     if (lan.length) bagian.push('*CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR*\n\n' + lan.map((r, i) => tmBlok_(r, i, 'LANJUT')).join('\n\n'));
     if (kun.length) bagian.push('*CLIENT TIDAK ADA DIRUMAH*\n\n' + kun.map((r, i) => tmBlok_(r, i, 'KUNJUNGAN')).join('\n\n'));
     bagian.push('LANJUT.');
-    laporan.push({ pop: pop, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
+    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE ' + pop, tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
+    laporan.push({ pop: pop, data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
   });
   if (!laporan.length) return tmErr_('Belum ada data hari ini untuk laporan ini.');
   return { status: 'success', tanggal: tmTglUpper_(iso), laporan: laporan };
