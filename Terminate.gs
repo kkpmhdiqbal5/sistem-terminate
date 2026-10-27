@@ -438,10 +438,11 @@ function tmSimpan_(d, au) {
   const jenis = String(d.jenis || '').toUpperCase();
   if (['TERMINATE', 'KUNJUNGAN', 'LANJUT'].indexOf(jenis) < 0) return tmErr_('Jenis laporan tidak dikenal.');
   const s = k => String(d[k] == null ? '' : d[k]).trim();
-  const pop = tmPop_(s('pop'));
-  if (!pop) return tmErr_('POP wajib dipilih (PERBAUNGAN atau PANTAI CERMIN).');
-  const odp = s('odp').toUpperCase();
-  if (!odp) return tmErr_('ODP wajib diisi.');
+  // POP & ODP hanya untuk Terminate; Kunjungan / Lanjut tidak memakainya
+  const pop = jenis === 'TERMINATE' ? tmPop_(s('pop')) : '';
+  if (jenis === 'TERMINATE' && !pop) return tmErr_('POP wajib dipilih (PERBAUNGAN atau PANTAI CERMIN).');
+  const odp = jenis === 'TERMINATE' ? s('odp').toUpperCase() : '';
+  if (jenis === 'TERMINATE' && !odp) return tmErr_('ODP wajib diisi.');
   if (!d.foto) return tmErr_('Foto wajib diambil dengan kamera.');
 
   const now = new Date();
@@ -559,19 +560,19 @@ function tmRekap_(d, au) {
   rows.sort(tmByWaktuDesc_).reverse();
 
   const laporan = [];
-  TM.POPS.forEach(pop => {
+  TM.POPS.concat(['']).forEach(pop => {          // '' = data tanpa POP (Kunjungan / Lanjut)
     const per = rows.filter(r => tmPop_(r.POP) === pop);
     if (!per.length) return;
     const ter = per.filter(r => r.JENIS === 'TERMINATE'), lan = per.filter(r => r.JENIS === 'LANJUT'), kun = per.filter(r => r.JENIS === 'KUNJUNGAN');
     const tim = [];
     per.forEach(r => tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman).forEach(n => { if (tim.indexOf(n.toUpperCase()) < 0) tim.push(n.toUpperCase()); }));
-    const bagian = ['LAPORAN HARIAN TERMINATE ' + pop, tmTglUpper_(iso), 'TIM :\n' + tim.join('\n')];
+    const bagian = ['LAPORAN HARIAN TERMINATE' + (pop ? ' ' + pop : ''), tmTglUpper_(iso), 'TIM :\n' + tim.join('\n')];
     if (ter.length) bagian.push('*CLIENT YANG BERHENTI BERLANGGANAN DAN PERANGKAT SUDAH DIAMBIL.*\n\n' + ter.map((r, i) => tmBlok_(r, i, 'TERMINATE', teman)).join('\n\n'));
     if (lan.length) bagian.push('*CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR*\n\n' + lan.map((r, i) => tmBlok_(r, i, 'LANJUT', teman)).join('\n\n'));
     if (kun.length) bagian.push('*CLIENT TIDAK ADA DIRUMAH*\n\n' + kun.map((r, i) => tmBlok_(r, i, 'KUNJUNGAN', teman)).join('\n\n'));
     bagian.push('LANJUT.');
-    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE ' + pop, tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS, teman), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
-    laporan.push({ pop: pop, data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
+    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE' + (pop ? ' ' + pop : ''), tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS, teman), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
+    laporan.push({ pop: pop || 'TANPA POP', data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
   });
   if (!laporan.length) return tmErr_('Belum ada data pada tanggal ini untuk laporan ini.');
   return { status: 'success', tanggal: tmTglUpper_(iso), laporan: laporan };

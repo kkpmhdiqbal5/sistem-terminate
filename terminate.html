@@ -36,7 +36,7 @@
         <div id="hintFoto" class="kecil"></div>
       </div>
 
-      <div class="row g-2 mb-2">
+      <div class="row g-2 mb-2" id="blokPop">
         <div class="col-12 col-md-6">
           <label class="form-label small text-secondary fw-bold mb-1">POP *</label>
           <select id="pop" class="form-select form-select-dark">
@@ -112,6 +112,7 @@
     function ubahJenis() {
       var j = $('jenis').value;
       $('blokSN').classList.toggle('d-none', j !== 'TERMINATE');
+      $('blokPop').classList.toggle('d-none', j !== 'TERMINATE');   // POP & ODP hanya untuk Terminate
       $('judulFoto').textContent = JUDUL[j]; $('hintFoto').textContent = HINT[j];
       $('infoNC').textContent = j === 'TERMINATE'
         ? 'Nama dan CID boleh diisi jika sudah diketahui. Jika kosong, terisi otomatis dari data SN/P-SN atau dilengkapi lewat menu Edit.'
@@ -230,21 +231,21 @@
       var j = $('jenis').value, pop = $('pop').value, odp = nilaiOdp();
       var sn = $('sn').value.trim(), psn = $('psn').value.trim(), nama = $('nama').value.trim(), cid = $('cid').value.trim();
       if (!foto) { alert(j === 'TERMINATE' ? 'Foto perangkat wajib diambil (kamera / galeri).' : 'Foto wajib diambil dengan kamera.'); return; }
-      if (!pop) { alert('POP wajib dipilih.'); return; }
-      if (!odp) { alert('ODP wajib dipilih/diisi.'); return; }
+      if (j === 'TERMINATE' && !pop) { alert('POP wajib dipilih.'); return; }
+      if (j === 'TERMINATE' && !odp) { alert('ODP wajib dipilih/diisi.'); return; }
       if (j === 'TERMINATE') { if (!sn || !psn) { alert('SN dan P-SN wajib diisi keduanya.'); return; } if (sn.toUpperCase().replace(/\s+/g,'') === psn.toUpperCase().replace(/\s+/g,'')) { alert('SN dan P-SN tidak boleh sama. Scan ulang salah satunya.'); return; } }
       else if (!nama || !cid) { alert('Nama dan CID wajib diisi.'); return; }
 
       var btn = $('btnSimpan'), hasil = $('hasil');
       btn.disabled = true; btn.textContent = 'Memproses...'; hasil.innerHTML = '';
       TMC.api('terminateSimpan', {
-        jenis: j, pop: pop, odp: odp, sn: sn, psn: psn, nama: nama, cid: cid,
+        jenis: j, pop: j === 'TERMINATE' ? pop : '', odp: j === 'TERMINATE' ? odp : '', sn: sn, psn: psn, nama: nama, cid: cid,
         ket: $('ket').value.trim() || KET[j], tim: '', foto: foto
       }).then(function (res) {
         if (res.status === 'success') {
           var d = res.data || {};
           hasil.innerHTML = '<div class="alert alert-success py-2 mb-0">Tersimpan.<br>Nama: ' + TMC.esc(d.nama || '-') + ' | CID: ' + TMC.esc(d.cid || '-') +
-            '<br>POP: ' + TMC.esc(d.pop) + ' | ODP: ' + TMC.esc(d.odp) +
+            (d.pop ? '<br>POP: ' + TMC.esc(d.pop) + ' | ODP: ' + TMC.esc(d.odp) : '') +
             (d.sn ? '<br>SN: ' + TMC.esc(d.sn) + ' | P-SN: ' + TMC.esc(d.psn) : '') +
             (d.verif ? '<br>Verif: ' + TMC.esc(d.verif) : '') +
             ((j === 'TERMINATE' && (!d.nama || !d.cid)) ? '<br><b>Nama/CID belum terisi, lengkapi lewat menu Edit.</b>' : '') + '</div>';

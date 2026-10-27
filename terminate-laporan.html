@@ -39,7 +39,7 @@
       return '<div class="card-custom p-3 mb-2"><div class="d-flex gap-3">' + foto(x) + '<div class="small flex-grow-1">' +
         '<div class="kecil">' + TMC.esc(x.waktu) + ' | <b class="text-info">' + TMC.esc(x.admin) + '</b> | ' + TMC.esc(x.jenis) + '</div>' +
         '<div><b>' + TMC.esc(x.nama || '(nama belum diisi)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
-        '<div>POP: ' + TMC.esc(x.pop) + ' | ODP: ' + TMC.esc(x.odp) + '</div>' +
+        (x.pop || x.odp ? '<div>POP: ' + TMC.esc(x.pop) + ' | ODP: ' + TMC.esc(x.odp) + '</div>' : '') +
         (x.sn || x.psn ? '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + '</div>' : '') +
         '<div class="kecil">Verif: ' + TMC.esc(x.verif || '-') + '</div>' + (extra || '') + '</div></div></div>';
     }
@@ -127,7 +127,7 @@
         function perData(label, arr, btn) { dialogKirim({ pop: label, teksList: arr.map(function (x) { return x.teks; }), fotoList: arr.map(function (x) { return x.foto || ''; }) }, btn); }
         if (r.laporan.length >= 1) {          // gabungan: PERBAUNGAN + PANTAI CERMIN pada tanggal terpilih
           var gt = r.laporan.map(function (l) { return l.teks; }).join('\n\n━━━━━━━━━━\n\n'), g = document.createElement('div'); g.className = 'card-custom p-3 mb-3';
-          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan PERBAUNGAN + PANTAI CERMIN, ' + esc2(r.tanggal) + ' (' + semua.length + ' data)</div>';
+          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan semua POP, ' + esc2(r.tanggal) + ' (' + semua.length + ' data)</div>';
           var gr = document.createElement('div'); gr.className = 'd-flex gap-2';
           var g1 = document.createElement('button'); g1.className = 'btn btn-info btn-sm fw-bold flex-fill'; g1.textContent = 'Salin gabungan';
           g1.onclick = function () { salin(gt).then(function () { g1.textContent = 'Tersalin ✔'; }); };
