@@ -549,7 +549,7 @@ function tmBlok_(r, i, jenis, teman) {
 }
 // Laporan hari ini, dipisah per POP. scope: "saya" / "gabungan" (admin) / nama sub admin (admin)
 function tmRekap_(d, au) {
-  const iso = tmIso_(new Date());
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(d.tanggal || '')) ? String(d.tanggal) : tmIso_(new Date());   // tanggal laporan (bawaan: hari ini)
   let scope = String(d.scope || 'saya');
   if (au.role !== 'ADMIN') scope = 'saya';
   const teman = (Array.isArray(d.teman) ? d.teman : String(d.teman || '').split(/[,\n]/)).map(x => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 10);
@@ -573,7 +573,7 @@ function tmRekap_(d, au) {
     const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE ' + pop, tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS, teman), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
     laporan.push({ pop: pop, data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
   });
-  if (!laporan.length) return tmErr_('Belum ada data hari ini untuk laporan ini.');
+  if (!laporan.length) return tmErr_('Belum ada data pada tanggal ini untuk laporan ini.');
   return { status: 'success', tanggal: tmTglUpper_(iso), laporan: laporan };
 }
 

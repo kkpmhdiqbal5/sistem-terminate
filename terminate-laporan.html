@@ -12,8 +12,10 @@
 <body>
   <div class="container px-3 pt-3">
     <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-1">📋 Laporan Harian Terminate (hari ini)</div>
+      <div class="fw-bold text-white mb-1">📋 Laporan Harian Terminate </div>
       <div class="kecil mb-2">Dipisah per POP: PERBAUNGAN dan PANTAI CERMIN.</div>
+      <label class="form-label small text-secondary fw-bold mb-1">Tanggal laporan</label>
+      <input type="date" id="tglLap" class="form-control form-control-dark mb-2">
       <select id="scope" class="form-select form-select-dark mb-2"><option value="saya">Laporan saya</option></select>
       <label class="form-label small text-secondary fw-bold mb-1">Teman / anggota tim lain hari ini <span class="kecil">(opsional, masuk ke TIM dan TS)</span></label>
       <div id="temanBox"></div>
@@ -27,6 +29,7 @@
     var S = TMC.init({ active: 'laporan', title: '📋 Laporan' });
 
     var $ = function (id) { return document.getElementById(id); };
+    (function () { var d = new Date(); $('tglLap').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })();
     function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
     function foto(x) {
       var t = TMC.thumb(x.foto, 200);
@@ -57,7 +60,7 @@
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
       ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">' +
-        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan ' + esc2(l.pop) + '</div><div class="kecil mb-3">Lewat WhatsApp API. Isi 1 sampai 10 nama TS dan 1 sampai 10 nomor tujuan.</div>' +
+        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan ' + esc2(l.pop) + '</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '') + 'Lewat WhatsApp API. Isi 1 sampai 10 nama TS dan 1 sampai 10 nomor tujuan.</div>' +
         '<label class="form-label small text-secondary fw-bold mb-1">Nama TS *</label><div id="dTs"></div><button class="btn btn-outline-info btn-sm mb-3" id="dTsT">+ Tambah TS</button>' +
         '<label class="form-label small text-secondary fw-bold mb-1">Nomor tujuan * <span class="fw-normal">(08xx / 628xx / ID grup @g.us)</span></label><div id="dNo"></div><button class="btn btn-outline-info btn-sm mb-2" id="dNoT">+ Tambah nomor</button>' +
         '<div id="dMsg"></div>' +
@@ -85,7 +88,7 @@
         if (!t.length) return m('Nama TS wajib diisi (minimal 1).', 'warning');
         if (!n.length) return m('Nomor tujuan wajib diisi (minimal 1).', 'warning');
         var bt = ov.querySelector('#dKirim'); bt.disabled = true; bt.textContent = 'Mengirim...'; m('', '');
-        TMC.api('terminateKirimLaporan', { teks: l.teks, ts: t, nomor: n }).then(function (r) {
+        TMC.api('terminateKirimLaporan', { teks: l.teksList || l.teks, foto: l.fotoList || [], ts: t, nomor: n }).then(function (r) {
           if (r.status === 'success') { lsSet('tsl', JSON.stringify(t)); lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (r.hasil && r.hasil.gagal.length) alert(r.message); }
           else { m(r.message, 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; }
         }).catch(function () { m('Gagal terhubung ke server.', 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; });
@@ -117,18 +120,22 @@
     try { JSON.parse(localStorage.getItem('tm_teman_' + S.user) || '[]').slice(0, 10).forEach(tambahTeman); } catch (e) {}
     $('btnBuat').onclick = function () {
       var b = $('btnBuat'); b.disabled = true; pesan('Menyusun laporan...', 'secondary'); $('hasil').innerHTML = '';
-      TMC.api('terminateRekap', { scope: $('scope').value, teman: daftarTeman() }).then(function (r) {
+      TMC.api('terminateRekap', { scope: $('scope').value, tanggal: $('tglLap').value, teman: daftarTeman() }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'warning'); return; }
         pesan('', '');
-        if (r.laporan.length > 1) {          // gabungan: semua POP dalam 1 pesan (tiap kartu di bawah = 1 pesan per POP)
+        var semua = []; r.laporan.forEach(function (l) { (l.data || []).forEach(function (x) { semua.push(x); }); });
+        function perData(label, arr, btn) { dialogKirim({ pop: label, teksList: arr.map(function (x) { return x.teks; }), fotoList: arr.map(function (x) { return x.foto || ''; }) }, btn); }
+        if (r.laporan.length >= 1) {          // gabungan: PERBAUNGAN + PANTAI CERMIN pada tanggal terpilih
           var gt = r.laporan.map(function (l) { return l.teks; }).join('\n\n━━━━━━━━━━\n\n'), g = document.createElement('div'); g.className = 'card-custom p-3 mb-3';
-          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan semua POP (1 pesan)</div>';
+          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan PERBAUNGAN + PANTAI CERMIN, ' + esc2(r.tanggal) + ' (' + semua.length + ' data)</div>';
           var gr = document.createElement('div'); gr.className = 'd-flex gap-2';
           var g1 = document.createElement('button'); g1.className = 'btn btn-info btn-sm fw-bold flex-fill'; g1.textContent = 'Salin gabungan';
           g1.onclick = function () { salin(gt).then(function () { g1.textContent = 'Tersalin ✔'; }); };
           var g2 = Auth.can('TCHAT') ? document.createElement('button') : document.createElement('a'); g2.className = 'btn btn-success btn-sm fw-bold flex-fill'; g2.textContent = Auth.can('TCHAT') ? 'Kirim gabungan via WA API' : 'Kirim gabungan WhatsApp';
           if (Auth.can('TCHAT')) g2.onclick = function () { dialogKirim({ pop: 'GABUNGAN', teks: gt }, g2); }; else { g2.target = '_blank'; g2.rel = 'noopener'; g2.href = 'https://wa.me/?text=' + encodeURIComponent(gt); }
-          gr.appendChild(g1); gr.appendChild(g2); g.appendChild(gr); $('hasil').appendChild(g);
+          gr.appendChild(g1); gr.appendChild(g2);
+          if (Auth.can('TCHAT')) { var g3 = document.createElement('button'); g3.className = 'btn btn-warning btn-sm fw-bold flex-fill'; g3.textContent = 'Kirim 1 data 1 pesan + foto (' + semua.length + ')'; g3.onclick = function () { perData('GABUNGAN', semua, g3); }; gr.appendChild(g3); }
+          g.appendChild(gr); $('hasil').appendChild(g);
         }
         r.laporan.forEach(function (l) {
           var c = document.createElement('div'); c.className = 'card-custom p-3 mb-3';
@@ -146,7 +153,9 @@
             b2 = document.createElement('a'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim WhatsApp';
             b2.target = '_blank'; b2.rel = 'noopener'; b2.href = 'https://wa.me/?text=' + encodeURIComponent(l.teks);
           }
-          row.appendChild(b1); row.appendChild(b2); c.appendChild(h); c.appendChild(ta); c.appendChild(row);
+          row.appendChild(b1); row.appendChild(b2);
+          if (Auth.can('TCHAT')) { var b3 = document.createElement('button'); b3.className = 'btn btn-warning btn-sm fw-bold flex-fill'; b3.textContent = '1 data 1 pesan + foto'; b3.onclick = function () { perData(l.pop, l.data || [], b3); }; row.appendChild(b3); }
+          c.appendChild(h); c.appendChild(ta); c.appendChild(row);
           // Laporan per data + foto: tiap data punya foto & teks sendiri (salin / kirim satu per satu)
           var dh = document.createElement('div'); dh.className = 'small text-info fw-bold mt-3 mb-2'; dh.textContent = 'Per data + foto (' + (l.data || []).length + ')'; c.appendChild(dh);
           (l.data || []).forEach(function (x) {

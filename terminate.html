@@ -25,11 +25,15 @@
         <button type="button" id="aiBtn" class="btn btn-sm btn-info fw-bold mt-2">Isi kolom otomatis</button> <span id="aiMsg" class="kecil"></span>
       </div>
 
-      <div class="mb-3" id="blokFoto">
-        <label id="lblFoto" class="form-label small text-info fw-bold">Foto Perangkat *</label>
-        <div><button type="button" id="btnFoto" class="btn btn-primary btn-sm fw-bold">📷 Ambil Foto (Kamera)</button>
-          <span class="kecil ms-2">Foto langsung dari kamera, galeri tidak bisa dipakai.</span></div>
-        <img id="prev" class="img-fluid rounded mt-2 d-none" style="max-height:220px;object-fit:cover" alt="Foto">
+      <div class="mb-3 p-2 border border-info rounded" id="fotoBox">
+        <label id="judulFoto" class="form-label small text-info fw-bold mb-1"></label>
+        <div>
+          <button type="button" id="btnLabel" class="btn btn-primary btn-sm fw-bold">📷 Ambil Foto (Kamera)</button>
+          <label class="btn btn-outline-info btn-sm fw-bold mb-0">🖼️ Dari Galeri<input type="file" id="fileLabel" accept="image/*" hidden></label>
+          <span id="lblMsg" class="kecil ms-1"></span>
+        </div>
+        <img id="prevLabel" class="img-fluid rounded mt-2 d-none" style="max-height:160px;object-fit:cover" alt="Foto">
+        <div id="hintFoto" class="kecil"></div>
       </div>
 
       <div class="row g-2 mb-2">
@@ -50,16 +54,6 @@
       </div>
 
       <div id="blokSN">
-        <div class="mb-2 p-2 border border-info rounded">
-          <label class="form-label small text-info fw-bold mb-1">✨ FOTO PERANGKAT (SN &amp; P-SN terisi otomatis dengan AI)</label>
-          <div>
-            <button type="button" id="btnLabel" class="btn btn-primary btn-sm fw-bold">📷 Foto Perangkat (Kamera)</button>
-            <label class="btn btn-outline-info btn-sm fw-bold mb-0">🖼️ Dari Galeri<input type="file" id="fileLabel" accept="image/*" hidden></label>
-            <span id="lblMsg" class="kecil ms-1"></span>
-          </div>
-          <img id="prevLabel" class="img-fluid rounded mt-2 d-none" style="max-height:140px;object-fit:cover" alt="Foto label">
-          <div class="kecil">Foto label SN/P-SN terlihat jelas. Utamakan kamera. Jika AI tidak bisa membaca, isi manual atau pakai tombol Scan di bawah.</div>
-        </div>
         <div class="row g-2 mb-1">
           <div class="col-12 col-md-6">
             <label class="form-label small text-secondary fw-bold mb-1">SN *</label>
@@ -109,14 +103,16 @@
       KUNJUNGAN: 'Client tidak ada dirumah',
       LANJUT: 'Client masih mau lanjut berlangganan'
     };
-    var LBL = { TERMINATE: 'Foto Perangkat *', KUNJUNGAN: 'Foto Rumah *', LANJUT: 'Foto Bukti (CID & nama) *' };
+    var JUDUL = { TERMINATE: '✨ FOTO PERANGKAT * (SN & P-SN terisi otomatis dengan AI)', KUNJUNGAN: '✨ FOTO RUMAH * (AI membaca Nama & CID jika terlihat)', LANJUT: '✨ FOTO BUKTI * (Nama & CID terisi otomatis dengan AI)' };
+    var HINT = { TERMINATE: 'Pastikan label SN/P-SN terlihat jelas. Utamakan kamera. Jika AI tidak bisa membaca, isi manual atau pakai tombol Scan di bawah.',
+                 KUNJUNGAN: 'Utamakan kamera. Jika nama/CID tidak terbaca dari foto, isi manual.',
+                 LANJUT: 'Foto bukti dengan CID & nama terlihat. Utamakan kamera. Jika AI tidak bisa membaca, isi manual.' };
     var foto = '', opts = {}, ketAuto = '';
 
     function ubahJenis() {
       var j = $('jenis').value;
       $('blokSN').classList.toggle('d-none', j !== 'TERMINATE');
-      $('blokFoto').classList.toggle('d-none', j === 'TERMINATE'); // Terminate: satu foto saja, dari kotak AI
-      $('lblFoto').textContent = LBL[j];
+      $('judulFoto').textContent = JUDUL[j]; $('hintFoto').textContent = HINT[j];
       $('infoNC').textContent = j === 'TERMINATE'
         ? 'Nama dan CID boleh diisi jika sudah diketahui. Jika kosong, terisi otomatis dari data SN/P-SN atau dilengkapi lewat menu Edit.'
         : 'Nama dan CID wajib diisi.';
@@ -162,19 +158,20 @@
       if (r && r.status === 'success') { opts = r.odp || {}; isiOdp(); }
     });
 
-    $('btnFoto').onclick = function () {
-      TMC.openCamera(S.user).then(function (d) {
-        foto = d; $('prev').src = d; $('prev').classList.remove('d-none'); $('btnFoto').textContent = '📷 Ulangi Foto';
-      }).catch(function (e) { if (e.message !== 'dibatalkan') alert(e.message); });
-    };
-
-    // Foto label -> AI membaca SN & P-SN. Gagal/kosong = isi manual (kolom tidak diubah).
+    // Satu foto untuk semua jenis: AI membaca SN & P-SN (Terminate) atau Nama & CID (Kunjungan/Lanjut). Gagal/kosong = isi manual (kolom tidak diubah).
     function bacaLabel(dataUrl) {
       var m = $('lblMsg'); foto = dataUrl; $('prevLabel').src = dataUrl; $('prevLabel').classList.remove('d-none');
-      m.textContent = 'AI membaca SN / P-SN...'; $('btnLabel').disabled = true;
-      TMC.api('terminateAiFoto', { foto: dataUrl }).then(function (r) {
+      m.textContent = 'AI membaca foto...'; $('btnLabel').disabled = true;
+      var j = $('jenis').value;
+      TMC.api('terminateAiFoto', { foto: dataUrl, jenis: j }).then(function (r) {
         if (!r || r.status !== 'success') { m.textContent = ((r && r.message) || 'AI gagal.') + ' Isi manual.'; return; }
         var d = r.data || {};
+        if (j !== 'TERMINATE') {
+          if (d.nama && !$('nama').value.trim()) $('nama').value = d.nama;
+          if (d.cid && !$('cid').value.trim()) $('cid').value = d.cid;
+          m.textContent = d.nama || d.cid ? (d.nama && d.cid ? 'Nama dan CID' : d.nama ? 'Nama' : 'CID') + ' terisi. Periksa lagi sebelum simpan.' : 'Nama/CID tidak terbaca dari foto. Isi manual.';
+          return;
+        }
         if (d.sn) $('sn').value = d.sn;
         if (d.psn) $('psn').value = d.psn;
         m.textContent = d.sn && d.psn ? 'SN dan P-SN terisi. Periksa lagi sebelum simpan.'
@@ -184,7 +181,7 @@
       }).catch(function () { m.textContent = 'Gagal terhubung. Isi manual.'; }).finally(function () { $('btnLabel').disabled = false; });
     }
     $('btnLabel').onclick = function () {
-      TMC.openCamera('SN/P-SN ' + S.user).then(bacaLabel).catch(function (e) { if (e.message !== 'dibatalkan') alert(e.message); });
+      TMC.openCamera(($('jenis').value === 'TERMINATE' ? 'SN/P-SN ' : '') + S.user).then(bacaLabel).catch(function (e) { if (e.message !== 'dibatalkan') alert(e.message); });
     };
     $('fileLabel').onchange = function () {
       var f = this.files[0]; this.value = ''; if (!f) return;
@@ -251,7 +248,7 @@
             (d.sn ? '<br>SN: ' + TMC.esc(d.sn) + ' | P-SN: ' + TMC.esc(d.psn) : '') +
             (d.verif ? '<br>Verif: ' + TMC.esc(d.verif) : '') +
             ((j === 'TERMINATE' && (!d.nama || !d.cid)) ? '<br><b>Nama/CID belum terisi, lengkapi lewat menu Edit.</b>' : '') + '</div>';
-          foto = ''; $('prev').classList.add('d-none'); $('btnFoto').textContent = '📷 Ambil Foto (Kamera)';
+          foto = '';
           ['sn', 'psn', 'nama', 'cid'].forEach(function (id) { $(id).value = ''; });
           $('info').textContent = ''; $('ket').value = KET[j]; ketAuto = KET[j];
           $('prevLabel').classList.add('d-none'); $('lblMsg').textContent = '';
