@@ -17,6 +17,8 @@
       <div class="fw-bold text-white mb-1">💬 Impor Data dari WhatsApp <span class="badge bg-warning text-dark">Khusus Admin</span></div>
       <div class="kecil mb-3">Di WhatsApp: buka grup → ⋮ → Lainnya → <b>Ekspor chat</b> → <b>Tanpa media</b>. Pilih file <b>.zip</b> atau <b>.txt</b> hasil ekspor di bawah. Foto tidak diambil, hanya teks.</div>
       <input id="berkas" type="file" accept=".zip,.txt" class="form-control form-control-dark mb-2">
+      <label class="kecil">Atau tempel laporan manual (format UPDATE LAPORAN teknisi). Jika file dipilih, file yang dipakai.</label>
+      <textarea id="teksManual" rows="6" class="form-control form-control-dark mb-2" placeholder="*UPDATE LAPORAN*&#10;Hari/tanggal : Senin,26/10/2026&#10;...&#10;*INSTALASI*&#10;1.A/N : ...&#10;CID : ..."></textarea>
       <div class="row g-2 mb-2">
         <div class="col-6"><label class="kecil">Grup ini berisi</label>
           <select id="mode" class="form-select form-select-dark">
@@ -69,10 +71,10 @@
       return file.text();
     }
     $('btnBaca').onclick = function () {
-      var f = $('berkas').files[0];
-      if (!f) { pesan('Pilih file ekspor chat dulu.', 'warning'); return; }
-      pesan('Membaca file...', 'secondary');
-      bacaTeks(f).then(function (txt) {
+      var f = $('berkas').files[0], tm = $('teksManual').value.trim();
+      if (!f && !tm) { pesan('Pilih file ekspor chat atau tempel laporan manual dulu.', 'warning'); return; }
+      pesan('Membaca...', 'secondary');
+      (f ? bacaTeks(f) : Promise.resolve(tm)).then(function (txt) {
         var r = WAParser.ekstrak(txt, { mode: $('mode').value, ragu: $('ragu').value, mtHanyaGanti: $('mtGanti').checked });
         var dari = $('dari').value, sampai = $('sampai').value;
         baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
