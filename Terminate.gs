@@ -445,6 +445,7 @@ function tmSimpan_(d, au) {
   if (jenis === 'TERMINATE' && !odp) return tmErr_('ODP wajib diisi.');
   if (!d.foto) return tmErr_('Foto wajib diambil dengan kamera.');
 
+  let bersih = 0;                       // jumlah baris dobel / antrian yang dibersihkan
   const now = new Date();
   const rec = {
     ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: now, TANGGAL: tmTglIndo_(tmIso_(now)),
@@ -479,32 +480,37 @@ function tmSimpan_(d, au) {
       rec.STATUS = 'TERMINATE';
       rec.FOTO = tmSimpanFoto_(d.foto, 'TERMINATE_' + rec.SN);
       // Berhasil diambil: hapus otomatis dari Full Data & target, lalu catat siapa yang mengambil di "sudah diambil"
-      try { const n = tmHapusAntrian_(rec); if (n) rec.VERIF += ' | DIHAPUS DARI FULL DATA/TARGET (' + n + ')'; } catch (e) { rec.VERIF += ' | GAGAL HAPUS FULL DATA/TARGET'; }
+      try { const n = tmHapusAntrian_(rec); bersih += n; if (n) rec.VERIF += ' | DIHAPUS DARI FULL DATA/TARGET (' + n + ')'; } catch (e) { rec.VERIF += ' | GAGAL HAPUS FULL DATA/TARGET'; }
+      try { bersih += tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID) + tmHapusCid_(TM.SH.LANJUT, rec.CID); } catch (e) { /* abaikan */ }   // sudah diambil: keluar dari kunjungan / lanjut
       try { tmTandaiDiambil_([rec]); } catch (e) { rec.VERIF += ' | GAGAL TULIS SUDAH DIAMBIL'; }
       if (cari.found && cari.sheet === TM.SH.B1) {
         try { pindah = tmPindahB1_(rec.SN, rec.PSN, rec); } catch (e) { rec.VERIF += ' | GAGAL PINDAH KE BARIS 2'; }
         if (pindah) rec.VERIF += ' | DIPINDAH KE BARIS 2';
       }
+      try { bersih += tmHapusCid_(TM.SH.B1, rec.CID); } catch (e) { /* abaikan */ }   // sisa CID dobel di Baris 1
     } else {
       if (!rec.NAMA || !rec.CID) return tmErr_('Nama dan CID wajib diisi.');
       rec.KET = rec.KET || TM.KET[jenis];
       rec.STATUS = jenis === 'KUNJUNGAN' ? 'TIDAK ADA DIRUMAH' : 'LANJUT';
       rec.FOTO = tmSimpanFoto_(d.foto, jenis + '_' + rec.CID);
+      // masuk laporan -> keluar dari antrian pengambilan (Full Data, target) dan CID dobel dihapus
+      try {
+        bersih += tmHapusAntrian_(rec);
+        if (jenis === 'LANJUT') bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID);   // lanjut: tidak perlu diambil lagi
+      } catch (e) { rec.VERIF = ((rec.VERIF ? rec.VERIF + ' | ' : '') + 'GAGAL BERSIHKAN ANTRIAN'); }
     }
 
     const kerja = Object.assign({}, rec); delete kerja.JENIS;
-    if (jenis === 'TERMINATE') {
-      tmAppendObj_(tmSheetEnsure_(TM.SH.TERMINATE, TM_LOG_KEYS), kerja);
-    } else if (jenis === 'KUNJUNGAN') {
-      tmAppendObj_(tmSheetEnsure_(TM.SH.KUNJUNGAN, TM_LOG_KEYS), kerja);
-    } else {
-      tmAppendObj_(tmSheetEnsure_(TM.SH.LANJUT, TM_LOG_KEYS), kerja);
-      tmAppendObj_(tmSheetEnsure_(TM.SH.TERMINATE, TM_LOG_KEYS), kerja);
-    }
+    // sheet tujuan sesuai jenis; CID dobel di sheet tujuan dihapus dulu supaya satu CID satu baris
+    const tujuan = jenis === 'TERMINATE' ? [TM.SH.TERMINATE] : jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
+    tujuan.forEach(nm => {
+      try { bersih += tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ }
+      tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja);
+    });
     tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
 
     return { status: 'success', message: 'Tersimpan.',
-             data: { nama: rec.NAMA, cid: rec.CID, odp: rec.ODP, pop: rec.POP, sn: rec.SN, psn: rec.PSN, verif: rec.VERIF, pindah: pindah } };
+             data: { nama: rec.NAMA, cid: rec.CID, odp: rec.ODP, pop: rec.POP, sn: rec.SN, psn: rec.PSN, verif: rec.VERIF, pindah: pindah, bersih: bersih } };
   } finally {
     lock.releaseLock();
   }
@@ -657,6 +663,25 @@ function tmHapusAntrian_(rec) {
     }
   });
   return total;
+}
+
+// Hapus SEMUA baris ber-CID sama dari satu sheet (CID dobel). Mengembalikan jumlah baris yang dihapus.
+function tmHapusCid_(nama, cid) {
+  const c = tmNorm_(cid); if (!c) return 0;
+  const sh = tmSheet_(nama); if (!sh || sh.getLastRow() < 2) return 0;
+  const v = sh.getDataRange().getValues(), iC = v[0].map(tmCanon_).indexOf('CID'); if (iC < 0) return 0;
+  let n = 0;
+  for (let r = v.length - 1; r >= 1; r--) if (tmNorm_(v[r][iC]) === c) { sh.deleteRow(r + 1); n++; }
+  return n;
+}
+// Rapikan satu sheet: CID dobel dihapus, baris pertama dipertahankan.
+function tmDedupCid_(nama) {
+  const sh = tmSheet_(nama); if (!sh || sh.getLastRow() < 3) return 0;
+  const v = sh.getDataRange().getValues(), iC = v[0].map(tmCanon_).indexOf('CID'); if (iC < 0) return 0;
+  const seen = {}, hapus = [];
+  for (let r = 1; r < v.length; r++) { const c = tmNorm_(v[r][iC]); if (!c) continue; if (seen[c]) hapus.push(r + 1); else seen[c] = 1; }
+  hapus.reverse().forEach(r => sh.deleteRow(r));
+  return hapus.length;
 }
 
 /* ===================== IMPOR DARI WHATSAPP (admin) ===================== */
@@ -938,6 +963,7 @@ function tmTandaiDiambil_(recs) {
                          TANGGAL: tmTglIndo_(tmIso_(rec.WAKTU)), ADMIN: rec.ADMIN, FOTO: rec.FOTO });
     }
   });
+  try { tmDedupCid_(TM.SH.DIAMBIL); } catch (e) { Logger.log('rapikan sudah diambil gagal: ' + e.message); }   // satu CID satu baris
 }
 // Hapus baris kerja buatan halaman ini yang sudah lewat JAM_HAPUS. LOG TIDAK pernah dihapus.
 function tmBersihkan_() {

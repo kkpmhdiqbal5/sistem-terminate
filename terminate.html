@@ -248,6 +248,7 @@
             (d.pop ? '<br>POP: ' + TMC.esc(d.pop) + ' | ODP: ' + TMC.esc(d.odp) : '') +
             (d.sn ? '<br>SN: ' + TMC.esc(d.sn) + ' | P-SN: ' + TMC.esc(d.psn) : '') +
             (d.verif ? '<br>Verif: ' + TMC.esc(d.verif) : '') +
+            (d.bersih ? '<br>Dibersihkan dari antrian / CID dobel: ' + d.bersih + ' baris' : '') +
             ((j === 'TERMINATE' && (!d.nama || !d.cid)) ? '<br><b>Nama/CID belum terisi, lengkapi lewat menu Edit.</b>' : '') + '</div>';
           foto = '';
           ['sn', 'psn', 'nama', 'cid'].forEach(function (id) { $(id).value = ''; });
