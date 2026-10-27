@@ -15,6 +15,9 @@
       <div class="fw-bold text-white mb-1">📋 Laporan Harian Terminate (hari ini)</div>
       <div class="kecil mb-2">Dipisah per POP: PERBAUNGAN dan PANTAI CERMIN.</div>
       <select id="scope" class="form-select form-select-dark mb-2"><option value="saya">Laporan saya</option></select>
+      <label class="form-label small text-secondary fw-bold mb-1">Teman / anggota tim lain hari ini <span class="kecil">(opsional, masuk ke TIM dan TS)</span></label>
+      <div id="temanBox"></div>
+      <button type="button" id="btnTeman" class="btn btn-outline-info btn-sm mb-3">+ Tambah teman</button>
       <button id="btnBuat" class="btn btn-success w-100 fw-bold py-2">Buat Laporan</button>
       <div id="pesan" class="mt-2"></div>
     </div>
@@ -96,9 +99,25 @@
         (r.users || []).forEach(function (u) { var x = document.createElement('option'); x.value = u; x.textContent = 'Laporan: ' + u; $('scope').appendChild(x); });
       });
     }
+    // Teman diisi saat membuat laporan; diingat di perangkat ini supaya tidak mengetik ulang
+    function tambahTeman(v) {
+      var r = document.createElement('div'); r.className = 'd-flex gap-1 mb-1';
+      r.innerHTML = '<input class="form-control form-control-dark" data-teman placeholder="Nama teman">' +
+        '<button type="button" class="btn btn-outline-danger btn-sm" aria-label="Hapus teman">✕</button>';
+      r.querySelector('input').value = v || '';
+      r.querySelector('button').onclick = function () { r.remove(); };
+      $('temanBox').appendChild(r);
+    }
+    function daftarTeman() {
+      var a = []; Array.prototype.forEach.call(document.querySelectorAll('[data-teman]'), function (e) { if (e.value.trim()) a.push(e.value.trim()); });
+      try { localStorage.setItem('tm_teman_' + S.user, JSON.stringify(a)); } catch (e) {}
+      return a;
+    }
+    $('btnTeman').onclick = function () { tambahTeman(''); };
+    try { JSON.parse(localStorage.getItem('tm_teman_' + S.user) || '[]').slice(0, 10).forEach(tambahTeman); } catch (e) {}
     $('btnBuat').onclick = function () {
       var b = $('btnBuat'); b.disabled = true; pesan('Menyusun laporan...', 'secondary'); $('hasil').innerHTML = '';
-      TMC.api('terminateRekap', { scope: $('scope').value }).then(function (r) {
+      TMC.api('terminateRekap', { scope: $('scope').value, teman: daftarTeman() }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'warning'); return; }
         pesan('', '');
         if (r.laporan.length > 1) {          // gabungan: semua POP dalam 1 pesan (tiap kartu di bawah = 1 pesan per POP)

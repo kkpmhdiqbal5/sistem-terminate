@@ -531,14 +531,20 @@ function tmListHariIni_(au, d) {
 
 function tmNamaTim_(r, fallback) {
   const t0 = String(r.TIM || '').trim();
-  const a = String((t0 && !tmSame_(t0, r.ADMIN)) ? t0 : (fallback || r.ADMIN)).split(/[,\n]/).map(x => x.trim()).filter(Boolean);
+  const a = String((t0 && !tmSame_(t0, r.ADMIN)) ? t0 : tmNamaLengkap_(fallback || r.ADMIN)).split(/[,\n]/).map(x => x.trim()).filter(Boolean);
   return a.length ? a : [String(fallback || '-')];
 }
-function tmBlok_(r, i, jenis) {
+// gabung nama tim + teman yang diisi saat membuat laporan (tanpa dobel)
+function tmGabungTim_(nama, teman) {
+  const out = nama.slice();
+  (teman || []).forEach(n => { if (!out.some(x => tmSame_(x, n))) out.push(n); });
+  return out;
+}
+function tmBlok_(r, i, jenis, teman) {
   let t = (i + 1) + '.Nama : ' + (r.NAMA || '-') + '\nCID : ' + (r.CID || '-') + '\nODP : ' + (r.ODP || '-');
   if (jenis === 'TERMINATE') t += '\nSN : ' + (r.SN || '-') + '\nP-SN : ' + (r.PSN || '-');
   t += '\nKet : ' + (r.KET || '-');
-  if (jenis !== 'LANJUT') t += '\nTS :\n' + tmNamaTim_(r, r.ADMIN).join('\n');
+  if (jenis !== 'LANJUT') t += '\nTS :\n' + tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman).join('\n');
   return t;
 }
 // Laporan hari ini, dipisah per POP. scope: "saya" / "gabungan" (admin) / nama sub admin (admin)
@@ -546,6 +552,7 @@ function tmRekap_(d, au) {
   const iso = tmIso_(new Date());
   let scope = String(d.scope || 'saya');
   if (au.role !== 'ADMIN') scope = 'saya';
+  const teman = (Array.isArray(d.teman) ? d.teman : String(d.teman || '').split(/[,\n]/)).map(x => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 10);
   let rows = tmRead_(TM.SH.LOG).filter(r => tmIso_(r.WAKTU) === iso);
   if (scope === 'saya') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   else if (scope !== 'gabungan') rows = rows.filter(r => tmSame_(r.ADMIN, scope));
@@ -557,13 +564,13 @@ function tmRekap_(d, au) {
     if (!per.length) return;
     const ter = per.filter(r => r.JENIS === 'TERMINATE'), lan = per.filter(r => r.JENIS === 'LANJUT'), kun = per.filter(r => r.JENIS === 'KUNJUNGAN');
     const tim = [];
-    per.forEach(r => tmNamaTim_(r, r.ADMIN).forEach(n => { if (tim.indexOf(n.toUpperCase()) < 0) tim.push(n.toUpperCase()); }));
+    per.forEach(r => tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman).forEach(n => { if (tim.indexOf(n.toUpperCase()) < 0) tim.push(n.toUpperCase()); }));
     const bagian = ['LAPORAN HARIAN TERMINATE ' + pop, tmTglUpper_(iso), 'TIM :\n' + tim.join('\n')];
-    if (ter.length) bagian.push('*CLIENT YANG BERHENTI BERLANGGANAN DAN PERANGKAT SUDAH DIAMBIL.*\n\n' + ter.map((r, i) => tmBlok_(r, i, 'TERMINATE')).join('\n\n'));
-    if (lan.length) bagian.push('*CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR*\n\n' + lan.map((r, i) => tmBlok_(r, i, 'LANJUT')).join('\n\n'));
-    if (kun.length) bagian.push('*CLIENT TIDAK ADA DIRUMAH*\n\n' + kun.map((r, i) => tmBlok_(r, i, 'KUNJUNGAN')).join('\n\n'));
+    if (ter.length) bagian.push('*CLIENT YANG BERHENTI BERLANGGANAN DAN PERANGKAT SUDAH DIAMBIL.*\n\n' + ter.map((r, i) => tmBlok_(r, i, 'TERMINATE', teman)).join('\n\n'));
+    if (lan.length) bagian.push('*CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR*\n\n' + lan.map((r, i) => tmBlok_(r, i, 'LANJUT', teman)).join('\n\n'));
+    if (kun.length) bagian.push('*CLIENT TIDAK ADA DIRUMAH*\n\n' + kun.map((r, i) => tmBlok_(r, i, 'KUNJUNGAN', teman)).join('\n\n'));
     bagian.push('LANJUT.');
-    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE ' + pop, tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
+    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE ' + pop, tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS, teman), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
     laporan.push({ pop: pop, data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
   });
   if (!laporan.length) return tmErr_('Belum ada data hari ini untuk laporan ini.');
