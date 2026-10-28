@@ -38,7 +38,7 @@ const TM_LABEL = {
   ODP: 'ODP', POP: 'POP', SN: 'SN', PSN: 'P-SN', KET: 'KET', VERIF: 'VERIF', STATUS: 'STATUS', FOTO: 'FOTO',
   SUMBER: 'SUMBER', ARSIP: 'ARSIP', DIEDITOLEH: 'DIEDIT OLEH', DIEDITWAKTU: 'DIEDIT WAKTU',
   PHONE: 'PHONE', WAKTUKIRIM: 'WAKTU KIRIM', WAKTUBALAS: 'WAKTU BALAS', PESANTERAKHIR: 'PESAN TERAKHIR', FOTORUMAH: 'FOTO RUMAH', ARAH: 'ARAH', ISI: 'ISI', DIKIRIMOLEH: 'DIKIRIM OLEH',
-  SHERLOCK: 'SHERLOCK', FOTOBUKTI: 'FOTO BUKTI', JMLINGAT: 'JML INGAT', WAKTUINGAT: 'WAKTU INGAT'
+  SHERLOCK: 'SHERLOCK', FOTOBUKTI: 'FOTO BUKTI', JMLINGAT: 'JML INGAT', WAKTUINGAT: 'WAKTU INGAT', VERIFSTOP: 'VERIF STOP', VERIFAMBIL: 'VERIF AMBIL'
 };
 const TM_LOG_KEYS = ['ID', 'WAKTU', 'TANGGAL', 'ADMIN', 'TIM', 'JENIS', 'NAMA', 'CID', 'ODP', 'POP', 'SN', 'PSN', 'KET', 'VERIF', 'FOTO', 'DIEDITOLEH', 'DIEDITWAKTU', 'ARSIP'];
 // Judul kolom lain yang dianggap sama (setelah huruf besar & tanda baca dibuang)
@@ -65,7 +65,7 @@ function terminateRoute_(d) {
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
-                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
+                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
     const perlu = BUTUH[d.action];

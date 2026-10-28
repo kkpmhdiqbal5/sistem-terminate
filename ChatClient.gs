@@ -24,7 +24,7 @@ const CC = {
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Kami ingin memastikan: apakah Bapak/Ibu MASIH INGIN LANJUT berlangganan internet? ' +
              'Balas *LANJUT* jika masih berlangganan, atau *TIDAK* jika ingin berhenti. Terima kasih 🙏'
 };
-const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH', 'SHERLOCK', 'FOTOBUKTI', 'JMLINGAT', 'WAKTUINGAT'];
+const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH', 'SHERLOCK', 'FOTOBUKTI', 'JMLINGAT', 'WAKTUINGAT', 'VERIFSTOP', 'VERIFAMBIL'];
 const CC_KEYS_LOG = ['WAKTU', 'PHONE', 'CID', 'ARAH', 'ISI'];
 
 /* ---------- pengaturan ---------- */
@@ -782,6 +782,9 @@ function chatRoute_(d, au) {
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();
+    case 'terminateVerifInfo': return ccVerifInfo_(d);
+    case 'terminateVerifBerhenti': return ccVerifBerhenti_(d, au);
+    case 'terminateVerifAmbil': return ccVerifAmbil_(d, au);
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
     case 'terminateKirimTeks': return ccKirimTeks_(d, au);
     case 'terminateApiBaca': return ccApiBaca_();

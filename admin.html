@@ -98,11 +98,13 @@
               <th>FOTO ALAT</th>
               <th>LOKASI</th>
               <th>KET</th>
+              <th class="text-info">VERIF 1 (BERHENTI)</th>
+              <th class="text-info">VERIF 2 (AMBIL)</th>
               <th class="text-warning">AKSI</th>
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="13" class="text-center py-4 text-muted">Silakan tunggu...</td></tr>
+            <tr><td colspan="15" class="text-center py-4 text-muted">Silakan tunggu...</td></tr>
           </tbody>
         </table>
       </div>
@@ -196,7 +198,7 @@
 
     function fetchData() {
       const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-white">Memuat data dari sheet '${modeSheetAktif}'...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="15" class="text-center py-4 text-white">Memuat data dari sheet '${modeSheetAktif}'...</td></tr>`;
       document.getElementById('checkAll').checked = false;
       
       fetch(SCRIPT_URL + "?action=getInfoPerangkat&sheetName=" + encodeURIComponent(modeSheetAktif))
@@ -205,12 +207,13 @@
           if (res.status === "success") {
             globalDataList = res.data;
             renderTable(globalDataList);
+            muatVerif();
           } else {
             alert("Gagal memuat: " + res.message);
           }
         })
         .catch(err => {
-          tbody.innerHTML = `<tr><td colspan="13" class="text-center text-danger py-4">Koneksi Error</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="15" class="text-center text-danger py-4">Koneksi Error</td></tr>`;
         });
     }
 
@@ -220,7 +223,7 @@
       tbody.innerHTML = "";
 
       if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-4 text-white">Tidak ada data ditemukan</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="15" class="text-center py-4 text-white">Tidak ada data ditemukan</td></tr>`;
         return;
       }
 
@@ -250,6 +253,8 @@
           <td>${linkAlat}</td>
           <td>${linkMaps}</td>
           <td>${row.keterangan || "-"}</td>
+          <td id="v1-${index}" class="small">...</td>
+          <td id="v2-${index}" class="small">...</td>
           <td style="min-width: 80px;">${btnVerif}${btnWA1}</td>
         `;
         tbody.appendChild(tr);
@@ -260,6 +265,38 @@
     // LOGIKA POP-UP (MODAL) DENGAN SCANNER
     // ============================================
 
+    // ===== Verifikasi 2 tahap (data dari Chat Client & laporan tim terminate), memakai sesi login yang sama =====
+    let verifInfo = {};
+    function apiTm(action, payload) {
+      let s = {}; try { s = JSON.parse(localStorage.getItem("user_session") || "{}"); } catch (e) {}
+      return fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(Object.assign({ action: action, token: s.token }, payload || {})) }).then(r => r.json());
+    }
+    function muatVerif() {
+      const cids = globalDataList.map(r => String(r.cid_lama || "")).filter(Boolean);
+      apiTm("terminateVerifInfo", { cids: cids }).then(res => {
+        if (res.status !== "success") { globalDataList.forEach((r, i) => { ["v1-", "v2-"].forEach(p => { const e = document.getElementById(p + i); if (e) e.textContent = "-"; }); }); return; }
+        verifInfo = res.data || {}; gambarVerif();
+      }).catch(() => {});
+    }
+    function gambarVerif() {
+      globalDataList.forEach((r, i) => {
+        const v = verifInfo[String(r.cid_lama || "").replace(/\D/g, "")] || {}, e1 = document.getElementById("v1-" + i), e2 = document.getElementById("v2-" + i);
+        if (!e1 || !e2) return;
+        e1.innerHTML = v.v1 ? `<span class="text-success">✔ ${v.v1}</span>` : (v.chat ? `<button class="btn btn-outline-info btn-sm py-0" onclick="verifTahap1(${i})">Verif berhenti</button>` : "-");
+        e2.innerHTML = v.v2 ? `<span class="text-success">✔ ${v.v2}</span>` : (v.ambil ? `<button class="btn btn-outline-warning btn-sm py-0" onclick="verifTahap2(${i})">Verif ambil</button>` : `<span class="text-secondary">belum dilaporkan</span>`);
+      });
+    }
+    function verifTahap1(i) {
+      const r = globalDataList[i], v = verifInfo[String(r.cid_lama).replace(/\D/g, "")] || {};
+      const ok = confirm("TAHAP 1 - Verifikasi keputusan berhenti\n" + (r.nama_lama || "") + " (CID " + r.cid_lama + ")\nStatus chat: " + v.chat + "\nBalasan terakhir: " + (v.balasan || "-") + "\nFoto rumah: " + (v.foto ? "ada" : "belum") + " | Lokasi: " + (v.sherlock ? "ada" : "belum") + "\n\nOK = benar berhenti. Batal = lihat opsi tolak.");
+      if (ok) return apiTm("terminateVerifBerhenti", { cid: r.cid_lama }).then(x => { if (x.status !== "success") alert(x.message); muatVerif(); });
+      if (confirm("Tandai client ini PERLU DITINJAU (keputusan berhenti tidak valid)?")) apiTm("terminateVerifBerhenti", { cid: r.cid_lama, tolak: true }).then(x => { alert(x.message); muatVerif(); });
+    }
+    function verifTahap2(i) {
+      const r = globalDataList[i], v = verifInfo[String(r.cid_lama).replace(/\D/g, "")] || {}, a = v.ambil || {};
+      if (!confirm("TAHAP 2 - Verifikasi hasil pengambilan\n" + (r.nama_lama || "") + " (CID " + r.cid_lama + ")\nDiambil oleh: " + (a.oleh || "-") + " pada " + (a.waktu || "-") + "\nSN: " + (a.sn || "-") + " | P-SN: " + (a.psn || "-") + "\nFoto alat: " + (a.foto || "-") + "\n\nOK = hasil pengambilan benar.")) return;
+      apiTm("terminateVerifAmbil", { cid: r.cid_lama }).then(x => { if (x.status !== "success") alert(x.message); muatVerif(); });
+    }
     function bukaModalVerif(index) {
       currentVerifIndex = index;
       let row = globalDataList[index];

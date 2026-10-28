@@ -180,3 +180,44 @@ function ccIngatkan_(d, au) {
   }
   return { status: 'success', terkirim: terkirim, dilewati: lewat, message: 'Pengingat terkirim ' + terkirim + ' dari ' + items.length + '.' + (lewat.length ? ' Dilewati: ' + lewat.slice(0, 8).join('; ') : '') };
 }
+
+/* ---------- Dashboard: verifikasi 2 tahap per client berhenti ---------- */
+// Tahap 1 = verifikasi keputusan berhenti (bukti dari chat client). Tahap 2 = verifikasi hasil pengambilan (data tim terminate).
+function ccJejakVerif_(au) { return au.user + ' | ' + Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm'); }
+function ccVerifInfo_(d) {
+  const cids = (Array.isArray(d.cids) ? d.cids : []).map(tmCidDigit_).filter(Boolean).slice(0, 500);
+  const chat = {}; tmRead_(CC.SH.CHAT).forEach(r => { const c = tmCidDigit_(r.CID); if (c) chat[c] = r; });
+  const ambil = {};
+  tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE').forEach(r => { ambil[tmCidDigit_(r.CID)] = r; });
+  const out = {};
+  cids.forEach(c => {
+    const r = chat[c] || {}, a = ambil[c];
+    out[c] = { chat: String(r.STATUS || ''), foto: String(r.FOTORUMAH || ''), sherlock: String(r.SHERLOCK || ''), balasan: String(r.PESANTERAKHIR || ''),
+      v1: String(r.VERIFSTOP || ''), v2: String(r.VERIFAMBIL || ''),
+      ambil: a ? { sn: String(a.SN || ''), psn: String(a.PSN || ''), foto: String(a.FOTO || ''), waktu: tmWaktuTxt_(a.WAKTU), oleh: String(a.ADMIN || '') } : null };
+  });
+  return { status: 'success', data: out };
+}
+function ccVerifSet_(cid, kolom, nilai) {
+  const sh = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT); tmEnsureCols_(sh, CC_KEYS_CHAT);
+  const n = tmUpdateRows_(CC.SH.CHAT, r => tmCidDigit_(r.CID) === cid, Object.fromEntries([[kolom, nilai]]));
+  try { const X = tmBacaCid_(TM.SH.B1), hit = X.list.filter(x => x.cid === cid); if (hit.length) { const col = tmColByLabel_(X.sh, kolom === 'VERIFSTOP' ? 'VERIF BERHENTI' : 'VERIF AMBIL'); hit.forEach(x => X.sh.getRange(x.row, col).setValue(nilai)); } } catch (e) { /* Baris 1 tidak ada / tanpa CID */ }
+  return n;
+}
+function ccVerifBerhenti_(d, au) {
+  const cid = tmCidDigit_(d.cid); if (!cid) return tmErr_('CID kosong.');
+  const r = tmRead_(CC.SH.CHAT).filter(x => tmCidDigit_(x.CID) === cid).pop();
+  if (!r) return tmErr_('Client ini belum punya riwayat chat. Tahap 1 butuh bukti dari chat client.');
+  if (['LANJUT', 'MINTA_BUKTI', 'BUKTI_DITERIMA'].indexOf(String(r.STATUS)) >= 0) return tmErr_('Client ini berstatus lanjut, bukan berhenti.');
+  if (d.tolak) { tmUpdateRows_(CC.SH.CHAT, x => tmCidDigit_(x.CID) === cid, { STATUS: 'PERLU_ADMIN' }); tmLogChat_(String(r.PHONE), cid, 'OUT', '[verif berhenti DITOLAK oleh ' + au.user + ']'); return { status: 'success', message: 'Ditandai perlu ditinjau admin.' }; }
+  ccVerifSet_(cid, 'VERIFSTOP', ccJejakVerif_(au));
+  tmLogChat_(String(r.PHONE), cid, 'OUT', '[verif berhenti oleh ' + au.user + ']');
+  return { status: 'success', message: 'Tahap 1 terverifikasi.' };
+}
+function ccVerifAmbil_(d, au) {
+  const cid = tmCidDigit_(d.cid); if (!cid) return tmErr_('CID kosong.');
+  const a = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' && tmCidDigit_(r.CID) === cid).pop();
+  if (!a) return tmErr_('Belum ada laporan pengambilan dari tim terminate untuk CID ini.');
+  ccVerifSet_(cid, 'VERIFAMBIL', ccJejakVerif_(au));
+  return { status: 'success', message: 'Tahap 2 terverifikasi.' };
+}
