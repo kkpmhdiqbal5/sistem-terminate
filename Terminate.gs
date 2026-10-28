@@ -583,11 +583,14 @@ function tmBlok_(r, jenis) {
 }
 // Laporan SATU daftar (tanpa dikelompokkan per POP). Halaman memilih data lewat kotak centang lalu menyusun teks gabungan.
 function tmRekap_(d, au) {
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(d.tanggal || '')) ? String(d.tanggal) : tmIso_(new Date());
+  const ok = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+  let dari = ok(d.dari) ? String(d.dari) : (ok(d.tanggal) ? String(d.tanggal) : tmIso_(new Date()));
+  let sampai = ok(d.sampai) ? String(d.sampai) : dari;
+  if (sampai < dari) { const t = dari; dari = sampai; sampai = t; }
   let scope = String(d.scope || 'saya');
   if (au.role !== 'ADMIN') scope = 'saya';
   const teman = (Array.isArray(d.teman) ? d.teman : String(d.teman || '').split(/[,\n]/)).map(x => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 10);
-  let rows = tmRead_(TM.SH.LOG).filter(r => tmIso_(r.WAKTU) === iso);
+  let rows = tmRead_(TM.SH.LOG).filter(r => { const t = tmIso_(r.WAKTU); return t >= dari && t <= sampai; });
   if (scope === 'saya') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   else if (scope !== 'gabungan') rows = rows.filter(r => tmSame_(r.ADMIN, scope));
   rows.sort(tmByWaktuDesc_).reverse();
@@ -599,7 +602,7 @@ function tmRekap_(d, au) {
     const caption = blok + '\n' + (r.JENIS === 'TERMINATE' ? 'TS :\n' + tim.join('\n') : 'TIM :\n' + tim.join('\n').toUpperCase());
     return Object.assign(tmOut_(r), { blok: blok, caption: caption, timList: tim });
   });
-  return { status: 'success', tanggal: tmTglUpper_(iso), data: data };
+  return { status: 'success', tanggal: dari === sampai ? tmTglUpper_(dari) : tmTglUpper_(dari) + ' - ' + tmTglUpper_(sampai), data: data };
 }
 
 /* ===================== EDIT NAMA & CID ===================== */

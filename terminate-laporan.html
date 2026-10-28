@@ -14,8 +14,8 @@
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">📋 Laporan Harian Terminate </div>
       <div class="kecil mb-2">Satu laporan semua data pada tanggal itu. Centang data yang mau dimasukkan.</div>
-      <label class="form-label small text-secondary fw-bold mb-1">Tanggal laporan</label>
-      <input type="date" id="tglLap" class="form-control form-control-dark mb-2">
+      <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small text-secondary mb-1">Dari</label><input type="date" id="tglLap" class="form-control form-control-dark"></div>
+      <div class="col-6"><label class="form-label small text-secondary mb-1">Sampai</label><input type="date" id="tglSd" class="form-control form-control-dark"></div></div>
       <select id="scope" class="form-select form-select-dark mb-2"><option value="saya">Laporan saya</option></select>
       <label class="form-label small text-secondary fw-bold mb-1">Teman / anggota tim lain hari ini <span class="kecil">(opsional, masuk ke TIM dan TS)</span></label>
       <div id="temanBox"></div>
@@ -29,7 +29,7 @@
     var S = TMC.init({ active: 'laporan', title: '📋 Laporan' });
 
     var $ = function (id) { return document.getElementById(id); };
-    (function () { var d = new Date(); $('tglLap').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })();
+    (function () { var d = new Date(); $('tglLap').value = $('tglSd').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })();
     function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
     function foto(x) {
       var t = TMC.thumb(x.foto, 200);
@@ -137,7 +137,7 @@
     }
     $('btnBuat').onclick = function () {
       var b = $('btnBuat'); b.disabled = true; pesan('Menyusun laporan...', 'secondary'); $('hasil').innerHTML = '';
-      TMC.api('terminateRekap', { scope: $('scope').value, tanggal: $('tglLap').value, teman: daftarTeman() }).then(function (r) {
+      TMC.api('terminateRekap', { scope: $('scope').value, dari: $('tglLap').value, sampai: $('tglSd').value || $('tglLap').value, teman: daftarTeman() }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'warning'); return; }
         pesan('', ''); DATA = r.data || []; TGL = r.tanggal;
         var adm = Auth.can('TCHAT');

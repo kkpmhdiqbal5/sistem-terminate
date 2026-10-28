@@ -81,8 +81,8 @@
         <div class="d-flex gap-2"><button id="btnDiag" class="btn btn-outline-warning btn-sm">Cek koneksi balasan</button>
         <button id="btnMuat" class="btn btn-outline-info btn-sm">Muat ulang</button></div>
       </div>
-      <div class="d-flex gap-2 align-items-center mb-2 flex-wrap"><label class="small text-secondary mb-0">Tanggal (kirim/balas)</label>
-        <input type="date" id="tglS" class="form-control form-control-dark" style="max-width:170px"><button id="tglX" class="btn btn-outline-light btn-sm">Semua tanggal</button></div>
+      <div class="d-flex gap-2 align-items-center mb-2 flex-wrap"><label class="small text-secondary mb-0">Dari</label><input type="date" id="tglS" class="form-control form-control-dark" style="max-width:170px">
+        <label class="small text-secondary mb-0">Sampai</label><input type="date" id="tglS2" class="form-control form-control-dark" style="max-width:170px"><button id="tglX" class="btn btn-outline-light btn-sm">Semua tanggal</button></div>
       <div id="grupStatus" class="d-flex gap-1 flex-wrap mb-2"></div>
       <div class="card-custom p-2 mb-2 d-flex gap-2 flex-wrap align-items-center">
         <label class="small mb-0"><input type="checkbox" id="cekSemuaS"> Pilih semua</label>
@@ -234,13 +234,13 @@
       if (x.status === 'STOP') return 'stop';
       return 'menunggu';
     }
+    function isoDari(s) { var m = /^(\d\d)\/(\d\d)\/(\d{4})/.exec(String(s || '')); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
     function cocokTgl(x) {
-      var t = $('tglS').value; if (!t) return true;
-      var p = t.split('-'), f = p[2] + '/' + p[1] + '/' + p[0];
-      return String(x.kirim || '').indexOf(f) === 0 || String(x.balas || '').indexOf(f) === 0;
+      var a = $('tglS').value, b = $('tglS2').value || a; if (!a) return true;
+      return [isoDari(x.kirim), isoDari(x.balas)].some(function (t) { return t && t >= a && t <= b; });
     }
-    $('tglS').onchange = function () { gambarStatus(); };
-    $('tglX').onclick = function () { $('tglS').value = ''; gambarStatus(); };
+    $('tglS').onchange = $('tglS2').onchange = function () { gambarStatus(); };
+    $('tglX').onclick = function () { $('tglS').value = ''; $('tglS2').value = ''; gambarStatus(); };
     function gambarStatus() {
       var hit = {}; statusData.forEach(function (x) { var g = grupDari(x); hit[g] = (hit[g] || 0) + 1; });
       $('grupStatus').innerHTML = GRUP.map(function (g) {
