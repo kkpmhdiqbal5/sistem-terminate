@@ -62,7 +62,7 @@
 
       <div class="card-custom p-3 mb-3">
         <div class="fw-bold text-white mb-1">② Chat client (WhatsApp API saja, dibalas bot AI) <span id="badgeAI"></span></div>
-        <div class="kecil mb-2">Bot membalas otomatis. Client yang berhenti diminta share lokasi (Sherlock) dan foto rumah; bila keduanya lengkap, otomatis masuk <b>Baris 1</b> untuk diambil tim terminate. Client yang lanjut dipisah di tab Balasan Client sampai dilaporkan tim terminate. Maks <span id="maksKirim">30</span> client sekali kirim, ada jeda otomatis antar pesan.</div>
+        <div class="kecil mb-2">Bot membalas otomatis. Client yang berhenti diminta share lokasi (Sherlock) dan foto rumah; bila keduanya lengkap, otomatis masuk <b>Baris 1</b> untuk diambil tim terminate. Client yang lanjut dipisah di tab Balasan Client sampai dilaporkan tim terminate. Maks <b><span id="maksKirim">30</span></b> client sekali kirim dan maks <span id="maxHari">30</span> pesan per hari (sisa hari ini: <b id="sisaHari">-</b>), ada jeda otomatis antar pesan.</div>
         <textarea id="pesan" rows="5" class="form-control form-control-dark mb-2"></textarea>
         <div class="kecil mb-2">Isian otomatis: <code>{nama}</code> <code>{cid}</code> <code>{odp}</code></div>
         <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="paksa"> <span class="form-check-label small">Kirim ulang walau masih menunggu balasan</span></label>
@@ -108,7 +108,7 @@
     // ----- konfigurasi & data
     TMC.api('terminateChatKonfig').then(function (k) {
       konfig = k; if (k.status !== 'success') { pesan('info', k.message, 'danger'); return; }
-      $('pesan').value = k.teksAwal; $('maksKirim').textContent = k.maxKirim;
+      $('pesan').value = k.teksAwal; $('maksKirim').textContent = k.maxKirim; $('sisaHari').textContent = k.sisaHari; $('maxHari').textContent = k.maxHari;
       $('badgeAI').innerHTML = k.ai ? '<span class="badge bg-success">Bot AI aktif</span>' : '<span class="badge bg-secondary">Bot kata kunci (AI belum diatur)</span>';
       var w = [];
       if (!k.wa) w.push('Belum ada API WhatsApp berfungsi "Chat client" (admin tertinggi: Profil > Pengaturan API).');
@@ -174,6 +174,7 @@
     // ----- chat client
     $('btnClient').onclick = function () {
       var c = Object.keys(pilih); if (!c.length) { alert('Pilih client dulu (kotak centang).'); return; }
+      if (konfig.sisaHari != null && c.length > konfig.sisaHari) { alert('Sisa kuota hari ini ' + konfig.sisaHari + ' pesan (batas ' + konfig.maxHari + ' per hari).'); return; }
       if (c.length > (konfig.maxKirim || 30)) { alert('Maksimal ' + (konfig.maxKirim || 30) + ' client sekali kirim. Kurangi pilihan Anda.'); return; }
       if (!confirm('Kirim chat WhatsApp ke ' + c.length + ' client? Proses butuh sekitar ' + Math.ceil(c.length * 4 / 60) + ' menit, jangan tutup halaman.')) return;
       var b = $('btnClient'); b.disabled = true; pesan('hClient', 'Mengirim, mohon tunggu...', 'secondary');

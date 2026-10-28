@@ -13,7 +13,7 @@
   <div class="container px-3 pt-3">
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">📋 Laporan Harian Terminate </div>
-      <div class="kecil mb-2">Dipisah per POP: PERBAUNGAN dan PANTAI CERMIN.</div>
+      <div class="kecil mb-2">Satu laporan semua data pada tanggal itu. Centang data yang mau dimasukkan.</div>
       <label class="form-label small text-secondary fw-bold mb-1">Tanggal laporan</label>
       <input type="date" id="tglLap" class="form-control form-control-dark mb-2">
       <select id="scope" class="form-select form-select-dark mb-2"><option value="saya">Laporan saya</option></select>
@@ -56,21 +56,20 @@
     function daftarLs(k, def) { try { var a = JSON.parse(ls(k) || '[]'); return a.length ? a : def; } catch (e) { return def; } }
     // pop-up: 1-10 nama TS dan 1-10 nomor tujuan (diingat di perangkat ini)
     function dialogKirim(l, tombol) {
-      var ts = daftarLs('tsl', [ls('ts')]), no = daftarLs('nol', [ls('no')]);
+      var no = daftarLs('nol', [ls('no')]);
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
       ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">' +
-        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan ' + esc2(l.pop) + '</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '') + 'Lewat WhatsApp API. Isi 1 sampai 10 nama TS dan 1 sampai 10 nomor tujuan.</div>' +
-        '<label class="form-label small text-secondary fw-bold mb-1">Nama TS *</label><div id="dTs"></div><button class="btn btn-outline-info btn-sm mb-3" id="dTsT">+ Tambah TS</button>' +
+        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '1 pesan laporan gabungan. ') + 'Lewat WhatsApp API. Isi 1 sampai 10 nomor tujuan.</div>' +
         '<label class="form-label small text-secondary fw-bold mb-1">Nomor tujuan * <span class="fw-normal">(08xx / 628xx / ID grup @g.us)</span></label><div id="dNo"></div><button class="btn btn-outline-info btn-sm mb-2" id="dNoT">+ Tambah nomor</button>' +
         '<div id="dMsg"></div>' +
         '<div class="d-flex gap-2"><button class="btn btn-outline-light fw-bold flex-fill" id="dBatal">Batal</button><button class="btn btn-success fw-bold flex-fill" id="dKirim">Kirim</button></div></div>';
       document.body.appendChild(ov);
       var m = function (t, j) { ov.querySelector('#dMsg').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc2(t) + '</div>' : ''; };
-      function ambil() { [['#dTs', ts], ['#dNo', no]].forEach(function (p) { Array.prototype.forEach.call(ov.querySelectorAll(p[0] + ' input'), function (e) { p[1][e.getAttribute('data-i')] = e.value; }); }); }
+      function ambil() { [['#dNo', no]].forEach(function (p) { Array.prototype.forEach.call(ov.querySelectorAll(p[0] + ' input'), function (e) { p[1][e.getAttribute('data-i')] = e.value; }); }); }
       function gambar() {
         ambil();
-        [['#dTs', ts, 'Nama TS', 'text'], ['#dNo', no, '08xx… atau 1203…@g.us', 'tel']].forEach(function (p) {
+        [['#dNo', no, '08xx… atau 1203…@g.us', 'tel']].forEach(function (p) {
           ov.querySelector(p[0]).innerHTML = p[1].map(function (v, i) {
             return '<div class="d-flex gap-1 mb-1"><input class="form-control form-control-dark" data-i="' + i + '" inputmode="' + p[3] + '" placeholder="' + p[2] + '" value="' + esc2(v) + '">' +
               (p[1].length > 1 ? '<button class="btn btn-outline-danger btn-sm" data-x="' + i + '" data-l="' + p[0] + '">✕</button>' : '') + '</div>';
@@ -78,18 +77,16 @@
         });
       }
       gambar();
-      ov.querySelector('#dTsT').onclick = function () { ambil(); if (ts.length < 10) ts.push(''); gambar(); };
       ov.querySelector('#dNoT').onclick = function () { ambil(); if (no.length < 10) no.push(''); gambar(); };
-      ov.addEventListener('click', function (e) { var x = e.target.getAttribute && e.target.getAttribute('data-x'); if (x == null) return; ambil(); (e.target.getAttribute('data-l') === '#dTs' ? ts : no).splice(+x, 1); gambar(); });
+      ov.addEventListener('click', function (e) { var x = e.target.getAttribute && e.target.getAttribute('data-x'); if (x == null) return; ambil(); no.splice(+x, 1); gambar(); });
       ov.querySelector('#dBatal').onclick = function () { ov.remove(); };
       ov.querySelector('#dKirim').onclick = function () {
         ambil();
-        var t = ts.map(function (v) { return v.trim(); }).filter(Boolean), n = no.map(function (v) { return v.trim(); }).filter(Boolean);
-        if (!t.length) return m('Nama TS wajib diisi (minimal 1).', 'warning');
+        var n = no.map(function (v) { return v.trim(); }).filter(Boolean);
         if (!n.length) return m('Nomor tujuan wajib diisi (minimal 1).', 'warning');
         var bt = ov.querySelector('#dKirim'); bt.disabled = true; bt.textContent = 'Mengirim...'; m('', '');
-        TMC.api('terminateKirimLaporan', { teks: l.teksList || l.teks, foto: l.fotoList || [], ts: t, nomor: n }).then(function (r) {
-          if (r.status === 'success') { lsSet('tsl', JSON.stringify(t)); lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (r.hasil && r.hasil.gagal.length) alert(r.message); }
+        TMC.api('terminateKirimLaporan', { teks: l.teksList || l.teks, foto: l.fotoList || [], nomor: n }).then(function (r) {
+          if (r.status === 'success') { lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (r.hasil && r.hasil.gagal.length) alert(r.message); }
           else { m(r.message, 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; }
         }).catch(function () { m('Gagal terhubung ke server.', 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; });
       };
@@ -118,53 +115,54 @@
     }
     $('btnTeman').onclick = function () { tambahTeman(''); };
     try { JSON.parse(localStorage.getItem('tm_teman_' + S.user) || '[]').slice(0, 10).forEach(tambahTeman); } catch (e) {}
+    var DATA = [], TGL = '';
+    var JUDUL = { TERMINATE: 'CLIENT YANG BERHENTI BERLANGGANAN DAN PERANGKAT SUDAH DIAMBIL.', LANJUT: 'CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR', KUNJUNGAN: 'CLIENT TIDAK ADA DIRUMAH' };
+    function terpilih() { var a = []; Array.prototype.forEach.call(document.querySelectorAll('[data-pilih]:checked'), function (e) { a.push(DATA[+e.getAttribute('data-pilih')]); }); return a; }
+    // satu laporan gabungan dari data yang dicentang
+    function susun(arr) {
+      if (!arr.length) return '';
+      var tim = []; arr.forEach(function (x) { (x.timList || []).forEach(function (n) { n = n.toUpperCase(); if (tim.indexOf(n) < 0) tim.push(n); }); });
+      var p = ['LAPORAN HARIAN TERMINATE', TGL, 'TIM :\n' + tim.join('\n')];
+      ['TERMINATE', 'LANJUT', 'KUNJUNGAN'].forEach(function (j) {
+        var g = arr.filter(function (x) { return x.jenis === j; });
+        if (g.length) p.push('*' + JUDUL[j] + '*\n\n' + g.map(function (x, i) { return (i + 1) + '.' + x.blok; }).join('\n\n'));
+      });
+      p.push('LANJUT.'); return p.join('\n\n');
+    }
+    function segarkan() {
+      var a = terpilih(), t = susun(a);
+      $('lapTeks').value = t; $('jml').textContent = a.length + ' dari ' + DATA.length + ' data dipilih';
+      $('cekSemua').checked = a.length === DATA.length && a.length > 0;
+      ['bSalin', 'bGab', 'bPer', 'bWa'].forEach(function (i) { if ($(i)) $(i).disabled = !a.length; });
+    }
     $('btnBuat').onclick = function () {
       var b = $('btnBuat'); b.disabled = true; pesan('Menyusun laporan...', 'secondary'); $('hasil').innerHTML = '';
       TMC.api('terminateRekap', { scope: $('scope').value, tanggal: $('tglLap').value, teman: daftarTeman() }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'warning'); return; }
-        pesan('', '');
-        var semua = []; r.laporan.forEach(function (l) { (l.data || []).forEach(function (x) { semua.push(x); }); });
-        function perData(label, arr, btn) { dialogKirim({ pop: label, teksList: arr.map(function (x) { return x.teks; }), fotoList: arr.map(function (x) { return x.foto || ''; }) }, btn); }
-        if (r.laporan.length >= 1) {          // gabungan: PERBAUNGAN + PANTAI CERMIN pada tanggal terpilih
-          var gt = r.laporan.map(function (l) { return l.teks; }).join('\n\n━━━━━━━━━━\n\n'), g = document.createElement('div'); g.className = 'card-custom p-3 mb-3';
-          g.innerHTML = '<div class="small text-info fw-bold mb-2">Gabungan semua POP, ' + esc2(r.tanggal) + ' (' + semua.length + ' data)</div>';
-          var gr = document.createElement('div'); gr.className = 'd-flex gap-2';
-          var g1 = document.createElement('button'); g1.className = 'btn btn-info btn-sm fw-bold flex-fill'; g1.textContent = 'Salin gabungan';
-          g1.onclick = function () { salin(gt).then(function () { g1.textContent = 'Tersalin ✔'; }); };
-          var g2 = Auth.can('TCHAT') ? document.createElement('button') : document.createElement('a'); g2.className = 'btn btn-success btn-sm fw-bold flex-fill'; g2.textContent = Auth.can('TCHAT') ? 'Kirim gabungan via WA API' : 'Kirim gabungan WhatsApp';
-          if (Auth.can('TCHAT')) g2.onclick = function () { dialogKirim({ pop: 'GABUNGAN', teks: gt }, g2); }; else { g2.target = '_blank'; g2.rel = 'noopener'; g2.href = 'https://wa.me/?text=' + encodeURIComponent(gt); }
-          gr.appendChild(g1); gr.appendChild(g2);
-          if (Auth.can('TCHAT')) { var g3 = document.createElement('button'); g3.className = 'btn btn-warning btn-sm fw-bold flex-fill'; g3.textContent = 'Kirim 1 data 1 pesan + foto (' + semua.length + ')'; g3.onclick = function () { perData('GABUNGAN', semua, g3); }; gr.appendChild(g3); }
-          g.appendChild(gr); $('hasil').appendChild(g);
-        }
-        r.laporan.forEach(function (l) {
-          var c = document.createElement('div'); c.className = 'card-custom p-3 mb-3';
-          var h = document.createElement('div'); h.className = 'small text-info fw-bold mb-2';
-          h.textContent = l.pop + ' - ' + l.jumlah.terminate + ' diambil, ' + l.jumlah.lanjut + ' lanjut, ' + l.jumlah.kunjungan + ' tidak ada di rumah';
-          var ta = document.createElement('textarea'); ta.className = 'form-control form-control-dark'; ta.rows = 14; ta.readOnly = true; ta.value = l.teks;
-          var row = document.createElement('div'); row.className = 'd-flex gap-2 mt-2';
-          var b1 = document.createElement('button'); b1.className = 'btn btn-info btn-sm fw-bold flex-fill'; b1.textContent = 'Salin';
-          b1.onclick = function () { salin(l.teks).then(function () { b1.textContent = 'Tersalin ✔'; }); };
-          var b2;
-          if (Auth.can('TCHAT')) {          // admin: laporan dikirim lewat WhatsApp API (tujuan diatur di sistem)
-            b2 = document.createElement('button'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim via WA API';
-            b2.onclick = function () { dialogKirim(l, b2); };
-          } else {
-            b2 = document.createElement('a'); b2.className = 'btn btn-success btn-sm fw-bold flex-fill'; b2.textContent = 'Kirim WhatsApp';
-            b2.target = '_blank'; b2.rel = 'noopener'; b2.href = 'https://wa.me/?text=' + encodeURIComponent(l.teks);
-          }
-          row.appendChild(b1); row.appendChild(b2);
-          if (Auth.can('TCHAT')) { var b3 = document.createElement('button'); b3.className = 'btn btn-warning btn-sm fw-bold flex-fill'; b3.textContent = '1 data 1 pesan + foto'; b3.onclick = function () { perData(l.pop, l.data || [], b3); }; row.appendChild(b3); }
-          c.appendChild(h); c.appendChild(ta); c.appendChild(row);
-          // Laporan per data + foto: tiap data punya foto & teks sendiri (salin / kirim satu per satu)
-          var dh = document.createElement('div'); dh.className = 'small text-info fw-bold mt-3 mb-2'; dh.textContent = 'Per data + foto (' + (l.data || []).length + ')'; c.appendChild(dh);
-          (l.data || []).forEach(function (x) {
-            var k = document.createElement('div'); k.innerHTML = kartu(x, '<button type="button" class="btn btn-outline-info btn-sm mt-1" data-salin="1">Salin laporan data ini</button>');
-            var tb = k.querySelector('[data-salin]'); tb.onclick = function () { salin(x.teks).then(function () { tb.textContent = 'Tersalin ✔'; }); };
-            c.appendChild(k.firstChild);
-          });
-          $('hasil').appendChild(c);
+        pesan('', ''); DATA = r.data || []; TGL = r.tanggal;
+        var adm = Auth.can('TCHAT');
+        var c = document.createElement('div'); c.className = 'card-custom p-3 mb-3';
+        c.innerHTML = '<div class="d-flex justify-content-between align-items-center mb-2"><div class="small text-info fw-bold">Laporan ' + esc2(TGL) + '</div><label class="small"><input type="checkbox" id="cekSemua" checked> Pilih semua</label></div>' +
+          '<div id="jml" class="kecil mb-2"></div><div id="daftar"></div>' +
+          '<textarea id="lapTeks" class="form-control form-control-dark mt-2" rows="14" readonly></textarea>' +
+          '<div class="d-flex gap-2 mt-2 flex-wrap"><button id="bSalin" class="btn btn-info btn-sm fw-bold flex-fill">Salin laporan</button>' +
+          (adm ? '<button id="bGab" class="btn btn-success btn-sm fw-bold flex-fill">Kirim via WA API (1 pesan)</button><button id="bPer" class="btn btn-warning btn-sm fw-bold flex-fill">1 data 1 pesan + foto</button>' : '<a id="bWa" class="btn btn-success btn-sm fw-bold flex-fill" target="_blank" rel="noopener">Kirim WhatsApp</a>') + '</div>';
+        $('hasil').appendChild(c);
+        DATA.forEach(function (x, i) {
+          var k = document.createElement('div'); k.innerHTML = kartu(x, '<button type="button" class="btn btn-outline-info btn-sm mt-1" data-salin="1">Salin data ini</button>');
+          var card = k.firstChild, tb = card.querySelector('[data-salin]');
+          tb.onclick = function () { salin(x.caption).then(function () { tb.textContent = 'Tersalin ✔'; }); };
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.setAttribute('data-pilih', i); cb.style.cssText = 'width:20px;height:20px;margin-top:4px';
+          cb.onchange = segarkan; card.querySelector('.d-flex').insertBefore(cb, card.querySelector('.d-flex').firstChild);
+          $('daftar').appendChild(card);
         });
+        $('cekSemua').onchange = function () { var v = this.checked; Array.prototype.forEach.call(document.querySelectorAll('[data-pilih]'), function (e) { e.checked = v; }); segarkan(); };
+        $('bSalin').onclick = function () { salin($('lapTeks').value).then(function () { $('bSalin').textContent = 'Tersalin ✔'; }); };
+        if (adm) {
+          $('bGab').onclick = function () { dialogKirim({ teks: $('lapTeks').value }, $('bGab')); };
+          $('bPer').onclick = function () { var a = terpilih(); dialogKirim({ teksList: a.map(function (x) { return x.caption; }), fotoList: a.map(function (x) { return x.foto || ''; }) }, $('bPer')); };
+        } else $('bWa').onclick = function () { $('bWa').href = 'https://wa.me/?text=' + encodeURIComponent($('lapTeks').value); };
+        segarkan();
       }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
     };
   </script>

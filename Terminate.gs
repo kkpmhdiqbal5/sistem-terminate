@@ -547,16 +547,16 @@ function tmGabungTim_(nama, teman) {
   (teman || []).forEach(n => { if (!out.some(x => tmSame_(x, n))) out.push(n); });
   return out;
 }
-function tmBlok_(r, i, jenis, teman) {
-  let t = (i + 1) + '.Nama : ' + (r.NAMA || '-') + '\nCID : ' + (r.CID || '-') + '\nODP : ' + (r.ODP || '-');
-  if (jenis === 'TERMINATE') t += '\nSN : ' + (r.SN || '-') + '\nP-SN : ' + (r.PSN || '-');
-  t += '\nKet : ' + (r.KET || '-');
-  if (jenis !== 'LANJUT') t += '\nTS :\n' + tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman).join('\n');
-  return t;
+// isi 1 data (tanpa nomor urut & tanpa TS); dipakai untuk laporan gabungan dan caption foto
+function tmBlok_(r, jenis) {
+  let t = 'Nama : ' + (r.NAMA || '-') + '\nCID : ' + (r.CID || '-');
+  if (jenis === 'TERMINATE') t += '\nODP : ' + (r.ODP || '-') + '\nSN : ' + (r.SN || '-') + '\nP-SN : ' + (r.PSN || '-');
+  else t += '\nODP : -';
+  return t + '\nKet : ' + (r.KET || '-');
 }
-// Laporan hari ini, dipisah per POP. scope: "saya" / "gabungan" (admin) / nama sub admin (admin)
+// Laporan SATU daftar (tanpa dikelompokkan per POP). Halaman memilih data lewat kotak centang lalu menyusun teks gabungan.
 function tmRekap_(d, au) {
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(d.tanggal || '')) ? String(d.tanggal) : tmIso_(new Date());   // tanggal laporan (bawaan: hari ini)
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(d.tanggal || '')) ? String(d.tanggal) : tmIso_(new Date());
   let scope = String(d.scope || 'saya');
   if (au.role !== 'ADMIN') scope = 'saya';
   const teman = (Array.isArray(d.teman) ? d.teman : String(d.teman || '').split(/[,\n]/)).map(x => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 10);
@@ -564,24 +564,15 @@ function tmRekap_(d, au) {
   if (scope === 'saya') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   else if (scope !== 'gabungan') rows = rows.filter(r => tmSame_(r.ADMIN, scope));
   rows.sort(tmByWaktuDesc_).reverse();
-
-  const laporan = [];
-  TM.POPS.concat(['']).forEach(pop => {          // '' = data tanpa POP (Kunjungan / Lanjut)
-    const per = rows.filter(r => tmPop_(r.POP) === pop);
-    if (!per.length) return;
-    const ter = per.filter(r => r.JENIS === 'TERMINATE'), lan = per.filter(r => r.JENIS === 'LANJUT'), kun = per.filter(r => r.JENIS === 'KUNJUNGAN');
-    const tim = [];
-    per.forEach(r => tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman).forEach(n => { if (tim.indexOf(n.toUpperCase()) < 0) tim.push(n.toUpperCase()); }));
-    const bagian = ['LAPORAN HARIAN TERMINATE' + (pop ? ' ' + pop : ''), tmTglUpper_(iso), 'TIM :\n' + tim.join('\n')];
-    if (ter.length) bagian.push('*CLIENT YANG BERHENTI BERLANGGANAN DAN PERANGKAT SUDAH DIAMBIL.*\n\n' + ter.map((r, i) => tmBlok_(r, i, 'TERMINATE', teman)).join('\n\n'));
-    if (lan.length) bagian.push('*CLIENT YANG MASIH LANJUT BERLANGGANAN DAN SUDAH BAYAR*\n\n' + lan.map((r, i) => tmBlok_(r, i, 'LANJUT', teman)).join('\n\n'));
-    if (kun.length) bagian.push('*CLIENT TIDAK ADA DIRUMAH*\n\n' + kun.map((r, i) => tmBlok_(r, i, 'KUNJUNGAN', teman)).join('\n\n'));
-    bagian.push('LANJUT.');
-    const data = per.map(r => Object.assign(tmOut_(r), { teks: ['LAPORAN TERMINATE' + (pop ? ' ' + pop : ''), tmTglUpper_(iso), tmBlok_(r, 0, r.JENIS, teman), r.FOTO ? 'Foto : ' + r.FOTO : ''].filter(Boolean).join('\n\n') }));
-    laporan.push({ pop: pop || 'TANPA POP', data: data, teks: bagian.join('\n\n'), jumlah: { terminate: ter.length, lanjut: lan.length, kunjungan: kun.length } });
+  if (!rows.length) return tmErr_('Belum ada data pada tanggal ini untuk laporan ini.');
+  const data = rows.map(r => {
+    const tim = tmGabungTim_(tmNamaTim_(r, r.ADMIN), teman);
+    const blok = tmBlok_(r, r.JENIS);
+    // caption foto gaya tim lapangan: Terminate pakai "TS :", lainnya "TIM :"
+    const caption = blok + '\n' + (r.JENIS === 'TERMINATE' ? 'TS :\n' + tim.join('\n') : 'TIM :\n' + tim.join('\n').toUpperCase());
+    return Object.assign(tmOut_(r), { blok: blok, caption: caption, timList: tim });
   });
-  if (!laporan.length) return tmErr_('Belum ada data pada tanggal ini untuk laporan ini.');
-  return { status: 'success', tanggal: tmTglUpper_(iso), laporan: laporan };
+  return { status: 'success', tanggal: tmTglUpper_(iso), data: data };
 }
 
 /* ===================== EDIT NAMA & CID ===================== */

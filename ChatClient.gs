@@ -18,6 +18,7 @@ const CC = {
   FOLDER_RUMAH: 'Foto Rumah Client',
   MODEL: 'claude-haiku-5-5',
   MAX_KIRIM: 30,
+  MAX_HARI: 30,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
   MAKS_DETIK: 270,                 // batas waktu satu permintaan kirim massal
   AKTIF: ['MENUNGGU_BALASAN', 'MINTA_FOTO'],
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Kami ingin memastikan: apakah Bapak/Ibu MASIH INGIN LANJUT berlangganan internet? ' +
@@ -43,7 +44,7 @@ function cekChat() {
 function ccKonfig_() {
   return { status: 'success', wa: !!ccApiPilih_('CHAT_CLIENT', 'WA'), ai: ccAiAktif_('chat'), telegram: ccTgSiap_(),
            waTeknisi: !!ccApiPilih_('TEKNISI', 'WA'), waLaporan: !!ccApiPilih_('LAPORAN', 'WA'),
-           teknisi: ccTujuan_('TEKNISI'), laporan: ccTujuan_('LAPORAN'), teksAwal: CC.TEKS_AWAL, maxKirim: CC.MAX_KIRIM };
+           teknisi: ccTujuan_('TEKNISI'), laporan: ccTujuan_('LAPORAN'), teksAwal: CC.TEKS_AWAL, maxKirim: CC.MAX_KIRIM, maxHari: CC.MAX_HARI, sisaHari: ccSisaHari_() };
 }
 
 /* ---------- REGISTRI API: tiap token punya JENIS & FUNGSI yang dipilih admin (Profil > Pengaturan API) ---------- */
@@ -220,7 +221,6 @@ function ccKirimLaporan_(d, au) {
   if (!teksList.length) return tmErr_('Teks laporan kosong.');
   if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
   const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 10);
-  if (!ts.length) return tmErr_('Nama TS wajib diisi.');
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
@@ -231,17 +231,17 @@ function ccKirimLaporan_(d, au) {
     let ok = 0;
     teksList.forEach((t, i) => {
       if (n++) Utilities.sleep(700);
-      const foto = ccFotoUrl_(fotoList[i]), kop = '👷 TS: ' + ts.join(', ') + '\n\n';
-      let r = waKirim_(tujuan, (kop + (foto ? t.replace(/\n*Foto : \S+\s*$/, '') : t)).slice(0, 6000), 'LAPORAN', foto);
-      // gambar ditolak -> kirim ulang sebagai teks saja (tautan foto tetap ada di teks)
-      if (!r.ok && foto) { r = waKirim_(tujuan, (kop + t).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
+      const foto = ccFotoUrl_(fotoList[i]);
+      let r = waKirim_(tujuan, t.slice(0, 6000), 'LAPORAN', foto);
+      // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
+      if (!r.ok && foto) { r = waKirim_(tujuan, (t + '\nFoto : ' + foto).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
       if (r.ok) ok++; else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
     });
     if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
   });
-  tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA laporan, TS ' + ts.join(', ') + ', ' + teksList.length + ' pesan, oleh ' + au.user + ']');
+  tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA laporan, ' + teksList.length + ' pesan, oleh ' + au.user + ']');
   return { status: hasil.terkirim.length ? 'success' : 'error', hasil: hasil,
-    message: teksList.length + ' pesan dikirim ke ' + hasil.terkirim.length + ' tujuan (TS: ' + ts.join(', ') + ')' + (hasil.tanpaFoto ? '. ' + hasil.tanpaFoto + ' pesan terkirim tanpa gambar (tautan foto ada di teks)' : '') + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
+    message: teksList.length + ' pesan dikirim ke ' + hasil.terkirim.length + ' tujuan' + (hasil.tanpaFoto ? '. ' + hasil.tanpaFoto + ' pesan terkirim tanpa gambar (tautan foto ada di teks)' : '') + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
 }
 
 /* ---------- PENGATURAN API (admin tertinggi, dari Profil > Pengaturan API) ---------- */
@@ -516,11 +516,19 @@ function ccBarisChat_(phone, cid) {          // baris CHAT CLIENT terbaru untuk 
   return hit;
 }
 
+/* ---------- kuota harian: jumlah pesan ke client hari ini (kirim awal + pengingat) ---------- */
+function ccSisaHari_() {
+  const hari = tmIso_(new Date());
+  const n = tmRead_(CC.SH.CHAT).filter(r => r.WAKTUKIRIM instanceof Date && tmIso_(r.WAKTUKIRIM) === hari).length;
+  return Math.max(0, CC.MAX_HARI - n);
+}
 /* ---------- kirim chat ke CLIENT (WhatsApp API saja) ---------- */
 function ccKirimClient_(d, au) {
   const items = ccBykid_(d.cids);
   if (!items.length) return tmErr_('Tidak ada client yang dipilih.');
   if (items.length > CC.MAX_KIRIM) return tmErr_('Maksimal ' + CC.MAX_KIRIM + ' client sekali kirim (agar nomor WA aman dari pemblokiran). Kirim bertahap.');
+  const sisa = ccSisaHari_();
+  if (items.length > sisa) return tmErr_('Batas ' + CC.MAX_HARI + ' pesan ke client per hari. Sisa kuota hari ini: ' + sisa + '. Kurangi pilihan atau lanjutkan besok.');
   let tpl = String(d.pesan || '').trim() || CC.TEKS_AWAL;
   if (tpl.length > 900) return tmErr_('Pesan terlalu panjang (maks 900 huruf).');
   if (!ccApiPilih_('CHAT_CLIENT', 'WA')) return tmErr_('Belum ada API WhatsApp berfungsi "Chat client". Atur di Profil > Pengaturan API.');
