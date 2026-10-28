@@ -221,3 +221,23 @@ function ccVerifAmbil_(d, au) {
   ccVerifSet_(cid, 'VERIFAMBIL', ccJejakVerif_(au));
   return { status: 'success', message: 'Tahap 2 terverifikasi.' };
 }
+
+/* ---------- daftar tujuan WhatsApp bernama (dipakai semua akun) ---------- */
+function ccTujuanList_() { try { const a = JSON.parse(ccProp_('TUJUAN_LIST') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function ccTujuanSimpan_(d) {
+  const nama = String(d.nama || '').trim().slice(0, 40), mentah = String(d.nomor || '').trim();
+  const nomor = /@g\.us$/i.test(mentah) ? mentah : ccNoHp_(mentah);
+  if (!nama) return tmErr_('Nama wajib diisi.');
+  if (!nomor) return tmErr_('Nomor / ID grup tidak valid.');
+  const a = ccTujuanList_().filter(x => String(x.nama).toLowerCase() !== nama.toLowerCase());
+  a.push({ nama: nama, nomor: nomor });
+  if (a.length > 50) return tmErr_('Maksimal 50 tujuan tersimpan. Hapus yang tidak dipakai.');
+  PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
+  return { status: 'success', data: a, message: 'Tersimpan: ' + nama };
+}
+function ccTujuanHapus_(d) {
+  const nama = String(d.nama || '').toLowerCase();
+  const a = ccTujuanList_().filter(x => String(x.nama).toLowerCase() !== nama);
+  PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
+  return { status: 'success', data: a };
+}

@@ -84,7 +84,16 @@ function ccNoHp_(v) {
 function ccFotoUrl_(u) {
   u = String(u || '').trim();
   const m = /\/d\/([^/?]+)/.exec(u) || /[?&]id=([^&]+)/.exec(u);
-  if (m && /drive\.google\.com/.test(u)) return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  if (m && /drive\.google\.com/.test(u)) {
+    // Tautan Drive bukan file langsung (WA/Fonnte tidak bisa mengambilnya) -> unggah salinan ke imgbb, hasilnya tautan gambar langsung
+    const id = m[1], cache = CacheService.getScriptCache(), hit = cache.get('fotoimg_' + id);
+    if (hit) return hit;
+    try {
+      const url = uploadToImgbb(Utilities.base64Encode(DriveApp.getFileById(id).getBlob().getBytes()));
+      if (url && url !== '-') { cache.put('fotoimg_' + id, url, 21600); return url; }
+    } catch (e) { Logger.log('foto->imgbb gagal: ' + e.message); }
+    return 'https://drive.google.com/uc?export=download&id=' + id;
+  }
   return /^https:\/\//.test(u) ? u : '';
 }
 function ccWaKirimE_(e, target, pesan, foto) {
@@ -232,7 +241,7 @@ function ccKirimLaporan_(d, au) {
     teksList.forEach((t, i) => {
       if (n++) Utilities.sleep(700);
       const foto = ccFotoUrl_(fotoList[i]);
-      let r = waKirim_(tujuan, t.slice(0, 6000), 'LAPORAN', foto);
+      let r = waKirim_(tujuan, (d.tautan && foto ? t + '\nFoto : ' + foto : t).slice(0, 6000), 'LAPORAN', foto);
       // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
       if (!r.ok && foto) { r = waKirim_(tujuan, (t + '\nFoto : ' + foto).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
       if (r.ok) ok++; else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
@@ -782,6 +791,9 @@ function chatRoute_(d, au) {
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();
+    case 'terminateTujuanBaca': return { status: 'success', data: ccTujuanList_() };
+    case 'terminateTujuanSimpan': return ccTujuanSimpan_(d);
+    case 'terminateTujuanHapus': return ccTujuanHapus_(d);
     case 'terminateVerifInfo': return ccVerifInfo_(d);
     case 'terminateVerifBerhenti': return ccVerifBerhenti_(d, au);
     case 'terminateVerifAmbil': return ccVerifAmbil_(d, au);
