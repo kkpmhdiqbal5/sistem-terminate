@@ -21,6 +21,7 @@ const SHEET_DILARANG_INPUT = ["USERS", "LOG TERMINATE", "LOG HAPUS BERSIH", "CHA
 // =======================================================
 function doGet(e) {
   try {
+    if (e.parameter && e.parameter.hook !== undefined && typeof waHookRoute_ === "function") { const w = waHookRoute_(e); if (w) return w; }   // tes webhook: ?hook=RAHASIA&cek=1
     const action = e.parameter ? e.parameter.action : null;
     let response = { status: "error", message: "Action tidak dikenali" };
 

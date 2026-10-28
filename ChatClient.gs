@@ -20,11 +20,11 @@ const CC = {
   MAX_KIRIM: 30,
   MAX_HARI: 30,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
   MAKS_DETIK: 270,                 // batas waktu satu permintaan kirim massal
-  AKTIF: ['MENUNGGU_BALASAN', 'MINTA_FOTO'],
+  AKTIF: ['MENUNGGU_BALASAN', 'MINTA_FOTO', 'MINTA_BUKTI'],
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Kami ingin memastikan: apakah Bapak/Ibu MASIH INGIN LANJUT berlangganan internet? ' +
              'Balas *LANJUT* jika masih berlangganan, atau *TIDAK* jika ingin berhenti. Terima kasih 🙏'
 };
-const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH'];
+const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH', 'SHERLOCK', 'FOTOBUKTI', 'JMLINGAT', 'WAKTUINGAT'];
 const CC_KEYS_LOG = ['WAKTU', 'PHONE', 'CID', 'ARAH', 'ISI'];
 
 /* ---------- pengaturan ---------- */
@@ -516,12 +516,6 @@ function ccBarisChat_(phone, cid) {          // baris CHAT CLIENT terbaru untuk 
   return hit;
 }
 
-/* ---------- kuota harian: jumlah pesan ke client hari ini (kirim awal + pengingat) ---------- */
-function ccSisaHari_() {
-  const hari = tmIso_(new Date());
-  const n = tmRead_(CC.SH.CHAT).filter(r => r.WAKTUKIRIM instanceof Date && tmIso_(r.WAKTUKIRIM) === hari).length;
-  return Math.max(0, CC.MAX_HARI - n);
-}
 /* ---------- kirim chat ke CLIENT (WhatsApp API saja) ---------- */
 function ccKirimClient_(d, au) {
   const items = ccBykid_(d.cids);
@@ -551,6 +545,7 @@ function ccKirimClient_(d, au) {
     if (lama) tmUpdateRows_(CC.SH.CHAT, r2 => String(r2.PHONE) === x.hp && tmCidDigit_(r2.CID) === x.cid, baru);
     else tmAppendObj_(chatSh, baru);
     tmLogChat_(x.hp, x.cid, 'OUT', pesan);
+    ccPakaiKuota_(1);
     hasil.terkirim++;
     if (i < items.length - 1) Utilities.sleep(2500 + Math.floor(Math.random() * 3500));   // jeda acak, meniru manusia
   }
@@ -563,8 +558,10 @@ function ccStatus_(d) {
     const rows = tmRead_(CC.SH.LOG).filter(r => c ? tmCidDigit_(r.CID) === c : String(r.PHONE) === ph).slice(-30).map(r => ({ waktu: tmWaktuTxt_(r.WAKTU), arah: String(r.ARAH), isi: String(r.ISI || '') }));
     return { status: 'success', riwayat: rows };
   }
+  const kumpul = (nm, f) => { const o = {}; try { (f ? tmRead_(nm).filter(f) : tmRead_(nm)).forEach(r => { const c = tmCidDigit_(r.CID); if (c) o[c] = 1; }); } catch (e) { /* sheet belum ada */ } return o; };
+  const b1 = kumpul(TM.SH.B1), dm = kumpul(TM.SH.DIAMBIL), lp = kumpul(TM.SH.LOG, r => r.JENIS === 'LANJUT');
   const rows = tmRead_(CC.SH.CHAT).map(r => ({ phone: String(r.PHONE || ''), cid: tmCidDigit_(r.CID), nama: String(r.NAMA || ''), odp: String(r.ODP || ''), pop: String(r.POP || ''), status: String(r.STATUS || ''),
-    kirim: tmWaktuTxt_(r.WAKTUKIRIM), balas: tmWaktuTxt_(r.WAKTUBALAS), terakhir: String(r.PESANTERAKHIR || ''), foto: String(r.FOTORUMAH || ''), ts: r.WAKTUBALAS instanceof Date ? r.WAKTUBALAS.getTime() : (r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0) }));
+    kirim: tmWaktuTxt_(r.WAKTUKIRIM), balas: tmWaktuTxt_(r.WAKTUBALAS), terakhir: String(r.PESANTERAKHIR || ''), foto: String(r.FOTORUMAH || ''), sherlock: String(r.SHERLOCK || ''), bukti: String(r.FOTOBUKTI || ''), ingat: Number(r.JMLINGAT) || 0, baris1: b1[tmCidDigit_(r.CID)] ? 'ya' : '', diambil: !!dm[tmCidDigit_(r.CID)], lapor: !!lp[tmCidDigit_(r.CID)], ts: r.WAKTUBALAS instanceof Date ? r.WAKTUBALAS.getTime() : (r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0) }));
   rows.sort((a, b) => b.ts - a.ts);
   return { status: 'success', data: rows.slice(0, 400) };
 }
@@ -575,22 +572,24 @@ function waHookRoute_(e) {
   if (!e || !e.parameter || e.parameter.hook === undefined) return null;
   const out = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
   const rahasia = ccProp_('WA_HOOK_SECRET');
-  if (!rahasia || e.parameter.hook !== rahasia) return out({ status: 'error', message: 'hook tidak valid' });
+  if (!rahasia || e.parameter.hook !== rahasia) { ccHookLog_('', 'hook=' + String(e.parameter.hook).slice(0, 4) + '...', 'DITOLAK: kata rahasia salah / belum diatur'); return out({ status: 'error', message: 'hook tidak valid' }); }
+  if (e.parameter.cek) return out({ status: 'ok', message: 'Webhook aktif' });
   try {
     let b = {}; try { b = JSON.parse((e.postData && e.postData.contents) || '{}'); } catch (x) { b = {}; }
     const g = k => String(b[k] != null ? b[k] : (e.parameter[k] != null ? e.parameter[k] : '')).trim();
     const sender = g('sender');
-    if (!sender || g('member') || /@g\.us|-/.test(sender)) return out({ status: 'ok', abaikan: 'grup' });
     const pesan = g('message') || g('text');
-    const media = g('url');
+    const media = g('url'), lokasi = g('location');
+    if (!sender || g('member') || /@g\.us|-/.test(sender)) { ccHookLog_(sender, pesan, 'diabaikan (grup / tanpa pengirim)'); return out({ status: 'ok', abaikan: 'grup' }); }
     const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media)).slice(0, 16);
     const cache = CacheService.getScriptCache();
-    if (cache.get(kunci)) return out({ status: 'ok', abaikan: 'dobel' });
+    if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
     cache.put(kunci, '1', 30);
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
-    try { ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
+    try { ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
+    ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
     return out({ status: 'ok' });
-  } catch (err) { Logger.log('webhook gagal: ' + err.message); return out({ status: 'error', message: String(err.message) }); }
+  } catch (err) { ccHookLog_('', '', 'ERROR: ' + err.message); Logger.log('webhook gagal: ' + err.message); return out({ status: 'error', message: String(err.message) }); }
 }
 const CC_STOP = /\b(stop|berhenti\s+(?:chat|hubungi|kirim)|jangan\s+(?:chat|hubungi|kirim|wa)|unsub)\b/i;
 const CC_PASANG = /(pasang|daftar|registrasi|berlangganan|langganan)\s*(baru\s*)?(wifi|wi-fi|internet|indihome|fiber)|(wifi|wi-fi|internet|fiber).{0,25}(pasang|daftar|baru|berlangganan)|\b(mau|ingin|pengen|pingin|minat|tertarik)\b.{0,25}(wifi|wi-fi|internet|berlangganan|pasang)|\b(info|harga|biaya)\b.{0,15}(paket|wifi|pasang|internet)|\bpasang\s+(baru|wifi|internet)\b/i;
@@ -645,15 +644,27 @@ function ccTerima_(m) {
     Object.assign({ STATUS: st, WAKTUBALAS: lagi, PESANTERAKHIR: String(m.pesan || (m.media ? '[foto]' : '')).slice(0, 120) }, extra || {}));
   const balas = teks => { if (!teks) return; const r = waKirim_(m.phone, teks); if (r.ok) tmLogChat_(m.phone, cid, 'OUT', teks); };
 
+  // 0) client membagikan LOKASI (Sherlock)
+  const lok = ccLokasi_(m);
+  if (lok) return ccTerimaLokasi_(m, row, lok, setS, balas, cid);
+
   // 1) client mengirim FOTO
   if (m.media && /^(jpe?g|png|webp|heic)$/i.test(m.ext || 'jpg')) {
     tmLogChat_(m.phone, cid, 'IN', (m.pesan ? m.pesan + ' ' : '') + '[foto]');
+    if (status === 'MINTA_BUKTI' || status === 'BUKTI_DITERIMA') {
+      const bukti = ccSimpanFotoRumah_(m.media, 'BUKTI_' + cid, row.NAMA);
+      if (bukti) { setS('BUKTI_DITERIMA', { FOTOBUKTI: bukti }); balas('Terima kasih, foto bukti sudah kami terima. 🙏'); return; }
+      balas('Maaf, foto belum bisa kami simpan. Mohon kirim ulang ya.'); return;
+    }
     if (status === 'MINTA_FOTO' || status === 'FOTO_DITERIMA' || status === 'BERHENTI') {
       const link = ccSimpanFotoRumah_(m.media, cid, row.NAMA);
       if (link) {
         ccTulisFotoRumah_(cid, link);
         setS('FOTO_DITERIMA', { FOTORUMAH: link });
-        balas('Terima kasih, foto rumah sudah kami terima. Teknisi kami akan menghubungi/datang untuk pengambilan perangkat. 🙏');
+        const siap = ccCekSiapB1_(cid);
+        balas(siap ? 'Terima kasih, foto rumah dan lokasi sudah lengkap. Teknisi kami akan menghubungi/datang untuk pengambilan perangkat. 🙏'
+          : row.SHERLOCK ? 'Terima kasih, foto rumah sudah kami terima. 🙏'
+          : 'Terima kasih, foto rumah sudah kami terima. Mohon share juga *lokasi (Sherlock)* rumah Bapak/Ibu lewat WhatsApp (ikon + lalu Lokasi). 🙏');
         return;
       }
       balas('Maaf, foto belum bisa kami simpan. Mohon kirim ulang foto rumahnya ya.');
@@ -768,6 +779,9 @@ function chatRoute_(d, au) {
     case 'terminateKirimTeknisi': return ccKirimTeknisi_(d, au);
     case 'terminateChatKirim': return ccKirimClient_(d, au);
     case 'terminateChatStatus': return ccStatus_(d);
+    case 'terminateChatUbah': return ccUbahStatus_(d, au);
+    case 'terminateChatIngatkan': return ccIngatkan_(d, au);
+    case 'terminateChatDiag': return ccDiag_();
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
     case 'terminateKirimTeks': return ccKirimTeks_(d, au);
     case 'terminateApiBaca': return ccApiBaca_();
