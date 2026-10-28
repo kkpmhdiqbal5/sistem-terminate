@@ -13,7 +13,8 @@
   <div class="container px-3 pt-3">
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">📦 Perangkat Sudah Diambil</div>
-      <div class="kecil mb-2" id="tgl">Hanya data hari ini.</div>
+      <div class="kecil mb-2" id="tgl">Bawaan hari ini; pilih Dari/Sampai untuk tanggal lain.</div>
+      <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small text-secondary mb-1">Dari</label><input type="date" id="tDari" class="form-control form-control-dark"></div><div class="col-6"><label class="form-label small text-secondary mb-1">Sampai</label><input type="date" id="tSd" class="form-control form-control-dark"></div></div>
       <div class="row g-2 align-items-end">
         <div class="col-8" id="kolFilter" style="display:none">
           <label class="form-label small text-secondary fw-bold mb-1">Sub admin</label>
@@ -67,9 +68,9 @@
     });
     function muat() {
       var b = $('btnMuat'); b.disabled = true; pesan('Memuat...', 'secondary');
-      TMC.api('terminateList', { admin: $('fAdmin').value }).then(function (r) {
+      TMC.api('terminateList', { admin: $('fAdmin').value, dari: $('tDari').value, sampai: $('tSd').value }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'danger'); data = []; render(); return; }
-        pesan('', ''); data = r.data; $('tgl').textContent = 'Hari ini: ' + r.tanggal;
+        pesan('', ''); data = r.data; $('tgl').textContent = ($('tDari').value ? 'Tanggal: ' : 'Hari ini: ') + r.tanggal;
         if (r.role === 'ADMIN') {
           $('kolFilter').style.display = '';
           if (!adaFilter) {
@@ -80,7 +81,7 @@
         render();
       }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
     }
-    $('btnMuat').onclick = muat; $('fAdmin').onchange = muat; muat();
+    $('btnMuat').onclick = muat; $('fAdmin').onchange = muat; $('tDari').onchange = $('tSd').onchange = muat; muat();
   </script>
 </body>
 </html>

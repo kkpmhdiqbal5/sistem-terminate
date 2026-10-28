@@ -12,7 +12,8 @@
 <body>
   <div class="container px-3 pt-3">
     <div class="card-custom p-3 mb-3">
-      <div class="fw-bold text-white mb-2">✏️ Edit Nama & CID <span class="kecil">(3 hari terakhir)</span></div>
+      <div class="fw-bold text-white mb-2">✏️ Edit Nama & CID <span class="kecil">(bawaan 3 hari terakhir)</span></div>
+      <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small text-secondary mb-1">Dari</label><input type="date" id="tDari" class="form-control form-control-dark"></div><div class="col-6"><label class="form-label small text-secondary mb-1">Sampai</label><input type="date" id="tSd" class="form-control form-control-dark"></div></div>
       <div class="row g-2 align-items-end">
         <div class="col-8"><select id="filter" class="form-select form-select-dark">
           <option value="belum">Belum lengkap (Nama/CID kosong)</option><option value="semua">Semua data</option></select></div>
@@ -71,12 +72,12 @@
     }
     function muat() {
       var b = $('btnMuat'); b.disabled = true; pesan('Memuat...', 'secondary');
-      TMC.api('terminateEditList').then(function (r) {
+      TMC.api('terminateEditList', { dari: $('tDari').value, sampai: $('tSd').value }).then(function (r) {
         if (r.status !== 'success') { pesan(r.message, 'danger'); return; }
         pesan('', ''); semua = r.data; render();
       }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; });
     }
-    $('btnMuat').onclick = muat; $('filter').onchange = render; muat();
+    $('btnMuat').onclick = muat; $('filter').onchange = render; $('tDari').onchange = $('tSd').onchange = muat; muat();
   </script>
 </body>
 </html>

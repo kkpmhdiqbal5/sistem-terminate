@@ -78,7 +78,7 @@ function terminateRoute_(d) {
       case 'terminateSimpan': return tmJson_(tmSimpan_(d, au));
       case 'terminateList': return tmJson_(tmListHariIni_(au, d));
       case 'terminateRekap': return tmJson_(tmRekap_(d, au));
-      case 'terminateEditList': return tmJson_(tmEditList_(au));
+      case 'terminateEditList': return tmJson_(tmEditList_(au, d));
       case 'terminateEditSimpan': return tmJson_(tmEditSimpan_(d, au));
       case 'terminateFull': return tmJson_(tmFull_(d));
       case 'terminateImporWA': return tmJson_(tmImporWA_(d, au));
@@ -553,14 +553,22 @@ function tmOut_(r) {
 function tmByWaktuDesc_(a, b) { return (b.WAKTU instanceof Date ? b.WAKTU.getTime() : 0) - (a.WAKTU instanceof Date ? a.WAKTU.getTime() : 0); }
 
 // Perangkat sudah diambil HARI INI. Sub admin: miliknya saja. Admin: semua (dengan nama sub admin).
+// Rentang tanggal opsional: d.dari / d.sampai (yyyy-MM-dd). Kosong = hari ini.
+function tmRentang_(d) {
+  const ok = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+  let a = ok(d && d.dari) ? String(d.dari) : '', b = ok(d && d.sampai) ? String(d.sampai) : '';
+  if (!a && !b) return null;
+  a = a || b; b = b || a;
+  return a <= b ? { dari: a, sampai: b } : { dari: b, sampai: a };
+}
 function tmListHariIni_(au, d) {
-  const iso = tmIso_(new Date());
-  let rows = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' && tmIso_(r.WAKTU) === iso);
+  const iso = tmIso_(new Date()), rg = tmRentang_(d);
+  let rows = tmRead_(TM.SH.LOG).filter(r => { if (r.JENIS !== 'TERMINATE') return false; const t = tmIso_(r.WAKTU); return rg ? (t >= rg.dari && t <= rg.sampai) : t === iso; });
   const admins = []; rows.forEach(r => { const a = String(r.ADMIN || '').trim(); if (a && admins.indexOf(a) < 0) admins.push(a); });
   if (au.role !== 'ADMIN') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   else if (d && String(d.admin || '').trim()) rows = rows.filter(r => tmSame_(r.ADMIN, d.admin));
   rows.sort(tmByWaktuDesc_);
-  return { status: 'success', tanggal: tmTglIndo_(iso), role: au.role, admins: au.role === 'ADMIN' ? admins.sort() : [], data: rows.map(tmOut_) };
+  return { status: 'success', tanggal: rg ? (rg.dari === rg.sampai ? tmTglIndo_(rg.dari) : tmTglIndo_(rg.dari) + ' s/d ' + tmTglIndo_(rg.sampai)) : tmTglIndo_(iso), role: au.role, admins: au.role === 'ADMIN' ? admins.sort() : [], data: rows.map(tmOut_) };
 }
 
 function tmNamaTim_(r, fallback) {
@@ -606,12 +614,12 @@ function tmRekap_(d, au) {
 }
 
 /* ===================== EDIT NAMA & CID ===================== */
-function tmEditList_(au) {
-  const batas = Date.now() - 3 * 24 * 3600 * 1000;
-  let rows = tmRead_(TM.SH.LOG).filter(r => r.WAKTU instanceof Date && r.WAKTU.getTime() >= batas);
+function tmEditList_(au, d) {
+  const batas = Date.now() - 3 * 24 * 3600 * 1000, rg = tmRentang_(d);
+  let rows = tmRead_(TM.SH.LOG).filter(r => r.WAKTU instanceof Date && (rg ? (tmIso_(r.WAKTU) >= rg.dari && tmIso_(r.WAKTU) <= rg.sampai) : r.WAKTU.getTime() >= batas));
   if (au.role !== 'ADMIN') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   rows.sort(tmByWaktuDesc_);
-  return { status: 'success', role: au.role, data: rows.slice(0, 300).map(tmOut_) };
+  return { status: 'success', role: au.role, data: rows.slice(0, 500).map(tmOut_) };
 }
 function tmEditSimpan_(d, au) {
   const id = String(d.id || '').trim(), nama = String(d.nama || '').trim(), cid = String(d.cid || '').replace(/\s+/g, '');
