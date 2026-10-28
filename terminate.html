@@ -70,7 +70,7 @@
             </div>
           </div>
         </div>
-        <div class="kecil mb-2">SN dan P-SN wajib diisi keduanya.</div>
+        <div class="kecil mb-2" id="snWajib">SN dan P-SN wajib diisi keduanya.</div>
       </div>
 
       <div class="row g-2 mb-1">
@@ -84,6 +84,7 @@
         </div>
       </div>
       <div id="infoNC" class="kecil mb-2"></div>
+      <button type="button" id="btnCek" class="btn btn-outline-info btn-sm mb-2">🔎 Cek data</button>
       <div id="info" class="small text-info mb-2"></div>
 
       <div class="mb-2">
@@ -111,7 +112,7 @@
 
     function ubahJenis() {
       var j = $('jenis').value;
-      $('blokSN').classList.toggle('d-none', j !== 'TERMINATE');
+      $('snWajib').textContent = j === 'TERMINATE' ? 'SN dan P-SN wajib diisi keduanya.' : 'SN / P-SN opsional, dipakai untuk mencari data (prioritas SN, lalu P-SN, CID, Nama).';
       $('blokPop').classList.toggle('d-none', j !== 'TERMINATE');   // POP & ODP hanya untuk Terminate
       $('judulFoto').textContent = JUDUL[j]; $('hintFoto').textContent = HINT[j];
       $('infoNC').textContent = j === 'TERMINATE'
@@ -198,23 +199,40 @@
     };
 
     var tCek = null;
-    function cek() {
-      var sn = $('sn').value.trim(), psn = $('psn').value.trim();
-      if (!sn && !psn) return;
-      $('info').textContent = 'Mencari data di Baris 1 / Baris 2 / Instalasi / MT...';
-      TMC.api('terminateLookup', { sn: sn, psn: psn }).then(function (r) {
-        if (!r || r.status !== 'success') { $('info').textContent = ''; return; }
-        if (!r.found) { $('info').textContent = 'SN/P-SN belum ditemukan di data. Tetap bisa disimpan; Nama dan CID dilengkapi lewat menu Edit.'; return; }
-        if (!$('nama').value && r.nama) $('nama').value = r.nama;
-        if (!$('cid').value && r.cid) $('cid').value = r.cid;
-        if (!$('pop').value && r.pop) { $('pop').value = r.pop; isiOdp(r.odp); }
-        else if (!nilaiOdp() && r.odp) setOdp(r.odp);
-        var tInfo = 'Ditemukan di sheet ' + r.sheet + (r.nama ? ': ' + r.nama : '') + (r.sheet === 'Baris 1' ? ' (akan dipindah ke Baris 2 saat disimpan)' : '');
-        if (r.fotoRumah) {
-          $('info').innerHTML = TMC.esc(tInfo) + '<div class="mt-2"><a href="' + TMC.esc(r.fotoRumah) + '" target="_blank"><img src="' + TMC.esc(TMC.thumb(r.fotoRumah, 300)) + '" alt="foto rumah" style="max-width:220px;border-radius:8px;border:1px solid #3a506b"></a><div class="kecil">Foto rumah dari client (klik untuk memperbesar)</div></div>';
-        } else $('info').textContent = tInfo;
-      });
+    function terapkan(x, by, sheet, fotoRumah, manual) {
+      if (x.nama && (manual || !$('nama').value)) $('nama').value = x.nama;
+      if (x.cid && (manual || !$('cid').value)) $('cid').value = x.cid;
+      if ($('jenis').value === 'TERMINATE') {
+        if (x.pop && !$('pop').value) { $('pop').value = x.pop; isiOdp(x.odp); } else if (!nilaiOdp() && x.odp) setOdp(x.odp);
+        if (x.sn && !$('sn').value) $('sn').value = x.sn;
+        if (x.psn && !$('psn').value) $('psn').value = x.psn;
+      }
+      var tInfo = 'Ditemukan (cocok ' + by + ') di sheet ' + sheet + (x.nama ? ': ' + x.nama : '') + (sheet === 'Baris 1' ? ' (akan dipindah ke Baris 2 saat disimpan)' : '');
+      if (fotoRumah) $('info').innerHTML = TMC.esc(tInfo) + '<div class="mt-2"><a href="' + TMC.esc(fotoRumah) + '" target="_blank"><img src="' + TMC.esc(TMC.thumb(fotoRumah, 300)) + '" alt="foto rumah" style="max-width:220px;border-radius:8px;border:1px solid #3a506b"></a><div class="kecil">Foto rumah dari client (klik untuk memperbesar)</div></div>';
+      else $('info').textContent = tInfo;
     }
+    // manual = tombol Cek ditekan (boleh menimpa Nama/CID); otomatis (ketik SN/P-SN) hanya mengisi yang kosong
+    function cek(manual) {
+      var sn = $('sn').value.trim(), psn = $('psn').value.trim(), nama = $('nama').value.trim(), cid = $('cid').value.trim();
+      if (!sn && !psn && !cid && !nama) { if (manual === true) $('info').textContent = 'Isi SN, P-SN, CID atau Nama dulu agar data bisa ditemukan.'; return; }
+      if (manual !== true && !sn && !psn) return;
+      $('info').textContent = 'Mencari data (SN, lalu P-SN, CID, Nama)...';
+      TMC.api('terminateCek', { sn: sn, psn: psn, cid: cid, nama: nama }).then(function (r) {
+        if (!r || r.status !== 'success') { $('info').textContent = (r && r.message) || 'Cek gagal.'; return; }
+        if (!r.found) { $('info').textContent = (sn || psn) && !cid && !nama ? 'SN/P-SN belum ditemukan. Isi kolom CID atau Nama agar data bisa ditemukan.' : (r.message || 'Data tidak ditemukan.'); return; }
+        terapkan(r.data, r.by, r.sheet, r.fotoRumah, manual === true);
+        if (r.kandidat && r.kandidat.length) {
+          var w = document.createElement('div'); w.className = 'mt-2'; w.innerHTML = '<div class="kecil">Ada ' + r.kandidat.length + ' data mirip, pilih yang benar:</div>';
+          r.kandidat.forEach(function (k) {
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-outline-light btn-sm me-1 mb-1';
+            b.textContent = (k.nama || '-') + ' | ' + (k.cid || '-') + ' (' + k.sheet + ')';
+            b.onclick = function () { terapkan(k, r.by, k.sheet, '', true); }; w.appendChild(b);
+          });
+          $('info').appendChild(w);
+        }
+      }).catch(function () { $('info').textContent = 'Gagal terhubung ke server.'; });
+    }
+    $('btnCek').onclick = function () { cek(true); };
     ['sn', 'psn'].forEach(function (id) {
       $(id).addEventListener('input', function () { clearTimeout(tCek); tCek = setTimeout(cek, 900); });
     });

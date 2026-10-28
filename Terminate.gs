@@ -62,7 +62,7 @@ function terminateRoute_(d) {
     const au = tmAuth_(d);
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
-    const BUTUH = { terminateLookup: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
+    const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
@@ -73,6 +73,7 @@ function terminateRoute_(d) {
     switch (d.action) {
       case 'terminateOptions': return tmJson_(tmOptions_(au));
       case 'terminateLookup': return tmJson_(tmLookupApi_(d));
+      case 'terminateCek': return tmJson_(tmCari_(d));
       case 'terminateSimpan': return tmJson_(tmSimpan_(d, au));
       case 'terminateList': return tmJson_(tmListHariIni_(au, d));
       case 'terminateRekap': return tmJson_(tmRekap_(d, au));
@@ -406,6 +407,30 @@ function tmLookupApi_(d) {
                     fotoRumah: (typeof ccFotoRumah_ === 'function') ? ccFotoRumah_(r.CID) : '' }
                  : { status: 'success', found: false };
 }
+// Tombol Cek: cari data dengan prioritas SN, lalu P-SN, lalu CID, lalu Nama di semua sheet data
+function tmCari_(d) {
+  const nsn = tmNorm_(d.sn), npsn = tmNorm_(d.psn), cid = tmCidDigit_(d.cid), nm = tmNorm_(d.nama);
+  if (!nsn && !npsn && !cid && !nm) return { status: 'success', kosong: true, message: 'Isi SN, P-SN, CID atau Nama dulu agar data bisa ditemukan.' };
+  const order = [TM.SH.B1, TM.SH.B2, TM.SH.INSTALASI, TM.SH.MT, TM.SH.FULL, TM.SH.TARGET], cache = {};
+  const baca = n => cache[n] || (cache[n] = (function () { try { return tmRead_(n); } catch (e) { return []; } })());
+  const uji = [
+    ['SN', nsn, r => { const a = tmNorm_(r.SN), b = tmNorm_(r.PSN); return a === nsn || b === nsn; }],
+    ['P-SN', npsn, r => { const a = tmNorm_(r.SN), b = tmNorm_(r.PSN); return a === npsn || b === npsn; }],
+    ['CID', cid, r => tmCidDigit_(r.CID) === cid],
+    ['NAMA', nm.length >= 3 ? nm : '', r => { const x = tmNorm_(r.NAMA); return x && (x === nm || x.indexOf(nm) >= 0); }]
+  ];
+  for (let u = 0; u < uji.length; u++) {
+    if (!uji[u][1]) continue;
+    const hits = [];
+    order.forEach(sh => baca(sh).forEach(r => { if (hits.length < 8 && uji[u][2](r)) hits.push({ sheet: sh, nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPop_(r.POP), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() }); }));
+    if (!hits.length) continue;
+    const uniq = []; hits.forEach(h => { if (!uniq.some(x => tmCidDigit_(x.cid) === tmCidDigit_(h.cid) && tmNorm_(x.nama) === tmNorm_(h.nama))) uniq.push(h); });
+    const h0 = uniq[0];
+    return { status: 'success', found: true, by: uji[u][0], sheet: h0.sheet, data: h0, kandidat: uniq.length > 1 ? uniq : [],
+             fotoRumah: (typeof ccFotoRumah_ === 'function' && h0.cid) ? ccFotoRumah_(h0.cid) : '' };
+  }
+  return { status: 'success', found: false, message: 'Data tidak ditemukan. Isi kolom CID atau Nama pelanggan agar data bisa ditemukan.' };
+}
 // Pindahkan baris dari "Baris 1" (akan diambil) ke "Baris 2" (sudah diambil & diverif tim terminate)
 function tmPindahB1_(sn, psn, rec) {
   const s1 = tmSheet_(TM.SH.B1);
@@ -490,6 +515,7 @@ function tmSimpan_(d, au) {
       try { bersih += tmHapusCid_(TM.SH.B1, rec.CID); } catch (e) { /* abaikan */ }   // sisa CID dobel di Baris 1
     } else {
       if (!rec.NAMA || !rec.CID) return tmErr_('Nama dan CID wajib diisi.');
+      rec.SN = tmCleanCode_(s('sn')); rec.PSN = tmCleanCode_(s('psn'));   // opsional, membantu mencocokkan antrian
       rec.KET = rec.KET || TM.KET[jenis];
       rec.STATUS = jenis === 'KUNJUNGAN' ? 'TIDAK ADA DIRUMAH' : 'LANJUT';
       rec.FOTO = tmSimpanFoto_(d.foto, jenis + '_' + rec.CID);
