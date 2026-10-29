@@ -599,8 +599,11 @@ function waHookRoute_(e) {
     const cache = CacheService.getScriptCache();
     if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
     cache.put(kunci, '1', 30);
-    const lock = LockService.getScriptLock(); lock.waitLock(20000);
-    try { if (grup) gmTerima_({ grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }); else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
+    if (grup) gmTerima_({ grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') });   // mengunci sendiri
+    else {
+      const lock = LockService.getScriptLock(); lock.waitLock(20000);
+      try { ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
+    }
     if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
     return out({ status: 'ok' });
   } catch (err) { ccHookLog_('', '', 'ERROR: ' + err.message); Logger.log('webhook gagal: ' + err.message); return out({ status: 'error', message: String(err.message) }); }

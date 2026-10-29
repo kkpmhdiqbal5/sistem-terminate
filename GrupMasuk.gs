@@ -49,7 +49,7 @@ function gmParse_(teks) {
   out.forEach(x => {                                                // jenis bila tidak ada judul bagian (caption foto)
     if (x.jenis) return;
     const k = x.ket.toLowerCase();
-    x.jenis = (x.sn || x.psn) ? 'TERMINATE' : /tidak ada/.test(k) ? 'KUNJUNGAN' : /lanjut/.test(k) ? 'LANJUT' : '';
+    x.jenis = (x.sn || x.psn) ? (/diambil|dicabut|port/.test(k) ? 'TERMINATE' : '') : /tidak ada ?di ?rumah/.test(k) ? 'KUNJUNGAN' : /lanjut/.test(k) ? 'LANJUT' : '';
   });
   return out.filter(x => x.jenis);
 }
@@ -91,7 +91,9 @@ function gmProses_(items, fotoUrl) {
     if (!x.cid && info.cid) x.cid = info.cid;
     if (!x.cid || (x.jenis !== 'TERMINATE' && !x.nama) || (x.jenis === 'TERMINATE' && !x.sn && !x.psn)) { h.tidakLengkap++; return; }
     const tgl = x.tanggal || tmIso_(new Date());
-    const dobel = tmRead_(TM.SH.LOG).some(r => r.JENIS === x.jenis && tmNorm_(r.CID) === tmNorm_(x.cid) && tmIso_(r.WAKTU) === tgl);
+    const dobel = tmRead_(TM.SH.LOG).some(r => r.JENIS === x.jenis && (x.jenis === 'TERMINATE'
+      ? (tmNorm_(r.CID) === tmNorm_(x.cid) || (x.sn && tmNorm_(r.SN) === tmNorm_(x.sn)) || (x.psn && tmNorm_(r.PSN) === tmNorm_(x.psn)))
+      : (tmNorm_(r.CID) === tmNorm_(x.cid) && tmIso_(r.WAKTU) === tgl)));
     if (dobel) { h.dobel++; return; }
     const sekarang = tgl === tmIso_(new Date()), waktu = sekarang ? new Date() : new Date(tgl + 'T12:00:00+07:00');
     const T = x.jenis === 'TERMINATE';
@@ -181,16 +183,31 @@ function gmTerima_(m) {
   if (m.media && (/^docx?$/i.test(m.ext || '') || /\.docx$/.test(nama))) {
     const d = gmDocx_(m.media, nama);
     if (d.err) { ccHookLog_(m.grup, '[docx] ' + nama, 'GAGAL: ' + d.err); return; }
-    const h = d.tabel.length ? gmMasukSheet_(d) : null;
+    const h = d.tabel.length ? gmKunci(() => gmMasukSheet_(d)) : null;
     if (h && !h.err) { ccHookLog_(m.grup, '[docx] ' + nama, h.sheet + ': ' + h.masuk + ' masuk, ' + h.dobel + ' dobel, ' + h.bukanPop + ' bukan POP, ' + h.tanpaCid + ' tanpa CID' + (h.batas ? ', ' + h.batas + ' DITUNDA (batas ' + GM_MAKS_HARI + '/hari)' : '')); return; }
-    const t = gmProses_(gmParse_(d.teks), ''); ccHookLog_(m.grup, '[docx teks] ' + nama, (h && h.err ? h.err + '; ' : 'tidak ada tabel; ') + gmRingkas_(t)); return;
+    const t = gmKunci(() => gmProses_(gmParse_(d.teks), '')); ccHookLog_(m.grup, '[docx teks] ' + nama, (h && h.err ? h.err + '; ' : 'tidak ada tabel; ') + gmRingkas_(t)); return;
   }
   const teks = String(m.pesan || '');
   const isiFoto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
+  const ringkas = teks.slice(0, 80);
+  const terminate = /LAPORAN HARIAN TERMINATE|BERHENTI BERLANGGANAN|MASIH LANJUT BERLANGGANAN|TIDAK ADA ?DI ?RUMAH|PERANGKAT SUDAH DIAMBIL/i.test(teks);
+  let hasil = [];
+  if (!terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks));          // laporan Instalasi / MT teknisi
   const items = gmParse_(teks);
-  if (!items.length) { ccHookLog_(m.grup, teks.slice(0, 80), 'grup: bukan format laporan, diabaikan'); return; }
-  ccHookLog_(m.grup, teks.slice(0, 80), 'laporan grup: ' + gmRingkas_(gmProses_(items, items.length === 1 ? isiFoto : '')));
+  if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
+  hasil = hasil.filter(Boolean);
+  ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
 }
+// Instalasi / MT: dibaca pembaca laporan teknisi (WaParser.gs) lalu diimpor dengan aturan anti-dobel yang sama dengan halaman Impor
+function gmInstMt_(teks) {
+  let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: true }); } catch (e) { return 'pembaca gagal: ' + e.message; }
+  const hariIni = tmIso_(new Date());
+  const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: r.tanggal || hariIni }));
+  if (!rows.length) return '';
+  const r = tmImporWA_({ rows: rows }, { user: 'GRUP WA' });
+  return r.status === 'success' ? 'Instalasi/MT: ' + r.message : 'Instalasi/MT gagal: ' + r.message;
+}
+function gmKunci(fn) { const lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { lock.releaseLock(); } }
 // uji manual dari halaman Impor: tempel teks laporan
 function gmUjiTeks_(d) {
   const items = gmParse_(String(d.teks || ''));
