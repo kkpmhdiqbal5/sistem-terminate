@@ -90,6 +90,9 @@
         <button id="bLanjut" class="btn btn-outline-success btn-sm">✔ Ubah ke LANJUT (minta foto bukti)</button>
         <button id="bBerhenti" class="btn btn-outline-danger btn-sm">✖ Ubah ke BERHENTI (minta foto rumah &amp; lokasi)</button>
         <button id="bIngat" class="btn btn-outline-warning btn-sm">🔔 Ingatkan lagi</button>
+        <button id="bLanjutL" class="btn btn-outline-success btn-sm">📋 Lanjut - sudah dilapor</button>
+        <button id="bBerhentiL" class="btn btn-outline-info btn-sm">📋 Berhenti - sudah dilapor</button>
+        <button id="bSalah" class="btn btn-outline-danger btn-sm">📵 Salah nomor</button>
       </div>
       <div id="hAksi" class="mb-2"></div>
       <div id="hDiag" class="mb-2"></div>
@@ -101,7 +104,7 @@
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
     var $ = function (id) { return document.getElementById(id); };
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
-    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary']};
+    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], LANJUT_DILAPOR: ['Lanjut - sudah dilapor', 'success'], BERHENTI_DILAPOR: ['Berhenti - sudah dilapor', 'info'], SALAH_NOMOR: ['Salah nomor', 'danger'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary']};
     function badge(st) { var l = LABEL[st] || [st || '-', 'secondary']; return '<span class="badge bg-' + l[1] + (l[1] === 'warning' || l[1] === 'info' ? ' text-dark' : '') + '">' + esc(l[0]) + '</span>'; }
     function pesan(el, t, j) { $(el).innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small" style="white-space:pre-line">' + esc(t) + '</div>' : ''; }
 
@@ -216,6 +219,9 @@
     }
     $('bLanjut').onclick = function () { aksi('terminateChatUbah', { status: 'LANJUT' }, 'Ubah {n} client menjadi LANJUT berlangganan dan minta foto bukti lewat WhatsApp?'); };
     $('bBerhenti').onclick = function () { aksi('terminateChatUbah', { status: 'BERHENTI' }, 'Ubah {n} client menjadi BERHENTI dan minta foto rumah + lokasi (Sherlock) lewat WhatsApp?'); };
+    $('bLanjutL').onclick = function () { aksi('terminateChatUbah', { status: 'LANJUT_DILAPOR' }, 'Tandai {n} client: LANJUT, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
+    $('bBerhentiL').onclick = function () { aksi('terminateChatUbah', { status: 'BERHENTI_DILAPOR' }, 'Tandai {n} client: BERHENTI, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
+    $('bSalah').onclick = function () { aksi('terminateChatUbah', { status: 'SALAH_NOMOR' }, 'Tandai {n} client sebagai SALAH NOMOR? Nomor ini tidak akan dichat lagi.'); };
     $('bIngat').onclick = function () { aksi('terminateChatIngatkan', {}, 'Kirim pengingat sopan ke {n} client? (maks 3x per client, jeda minimal 4 jam, hitung dalam batas 30 pesan per hari)'); };
     function muatStatus() {
       $('daftarStatus').innerHTML = '<div class="p-3 kecil">Memuat...</div>';
@@ -224,10 +230,13 @@
         statusData = r.data; gambarStatus();
       });
     }
-    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
     function grupDari(x) {
       if (!x.cid) return 'calon';
       if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
+      if (x.status === 'LANJUT_DILAPOR') return 'lanjut_sudah';
+      if (x.status === 'BERHENTI_DILAPOR') return 'berhenti_lapor';
+      if (x.status === 'SALAH_NOMOR') return 'salah';
       if (x.status === 'LANJUT' || x.status === 'MINTA_BUKTI' || x.status === 'BUKTI_DITERIMA') return x.lapor ? 'lanjut_sudah' : 'lanjut_belum';
       if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(x.status) >= 0) return 'berhenti';
       if (x.status === 'PERLU_ADMIN') return 'admin';

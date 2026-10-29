@@ -550,6 +550,7 @@ function ccKirimClient_(d, au) {
     const lama = ccBarisChat_(x.hp, x.cid);
     if (lama && CC.AKTIF.indexOf(String(lama.STATUS)) > -1 && !d.paksa) { skip('masih menunggu balasan (status ' + lama.STATUS + ')'); continue; }
     if (lama && String(lama.STATUS) === 'STOP') { skip('client minta tidak dihubungi lagi'); continue; }
+    if (lama && String(lama.STATUS) === 'SALAH_NOMOR') { skip('ditandai salah nomor'); continue; }
     const pesan = tpl.replace(/\{nama\}/g, x.nama || 'Pelanggan').replace(/\{cid\}/g, x.cid).replace(/\{odp\}/g, x.odp || '');
     const r = waKirim_(x.hp, pesan, 'CHAT_CLIENT');
     if (!r.ok) { skip('gagal kirim: ' + r.msg); if (/token|disconnect|device/i.test(r.msg)) break; continue; }

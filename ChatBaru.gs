@@ -95,6 +95,7 @@ function ccSalam_() { const h = Number(Utilities.formatDate(new Date(), TM.TZ, '
 function ccItems_(d) { return (Array.isArray(d.items) ? d.items : []).slice(0, CC.MAX_KIRIM).map(x => ({ phone: String(x.phone || '').trim(), cid: tmCidDigit_(x.cid) })).filter(x => x.phone); }
 function ccUbahStatus_(d, au) {
   const st = String(d.status || '').toUpperCase();
+  if (['LANJUT_DILAPOR', 'BERHENTI_DILAPOR', 'SALAH_NOMOR'].indexOf(st) >= 0) return ccTandaiManual_(d, au, st);
   if (['LANJUT', 'BERHENTI'].indexOf(st) < 0) return tmErr_('Status tidak dikenal.');
   const items = ccItems_(d); if (!items.length) return tmErr_('Pilih client dulu.');
   const kirim = d.kirim !== false, mulai = Date.now();
@@ -250,4 +251,16 @@ function ccTujuanSumber_(d) {
   if (!ada) return tmErr_('Tujuan tidak ditemukan.');
   PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
   return { status: 'success', data: a, message: d.nyala ? 'Grup ini sekarang dibaca otomatis.' : 'Grup ini tidak lagi dibaca.' };
+}
+
+// penanda manual tanpa mengirim pesan: sudah dilaporkan (lanjut / berhenti) atau salah nomor
+function ccTandaiManual_(d, au, st) {
+  const items = ccItems_(d); if (!items.length) return tmErr_('Pilih client dulu.');
+  const sh = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT); tmEnsureCols_(sh, CC_KEYS_CHAT);
+  let n = 0;
+  items.forEach(it => {
+    const sama = r => String(r.PHONE) === it.phone && tmCidDigit_(r.CID) === it.cid;
+    if (tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: st, WAKTUBALAS: new Date() })) { n++; tmLogChat_(it.phone, it.cid, 'OUT', '[admin ' + au.user + ' menandai: ' + st + ']'); }
+  });
+  return { status: 'success', diubah: n, message: n + ' client ditandai ' + st.replace('_', ' ').toLowerCase() + '.' };
 }
