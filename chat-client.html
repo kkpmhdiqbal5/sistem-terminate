@@ -80,6 +80,7 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="fw-bold text-white">Status balasan client</div>
         <div class="d-flex gap-2"><button id="btnDiag" class="btn btn-outline-warning btn-sm">Cek koneksi balasan</button>
+        <button id="btnSegar" class="btn btn-outline-success btn-sm" title="Baca balasan yang sudah tercatat dan perbarui status client (tanpa kirim pesan)">🔄 Segarkan dari balasan</button>
         <button id="btnMuat" class="btn btn-outline-info btn-sm">Muat ulang</button></div>
       </div>
       <input id="cariS" class="form-control form-control-dark mb-2" placeholder="Cari nama / CID / nomor HP / ODP / isi pesan...">
@@ -336,6 +337,12 @@
         if (r.status === 'success') { $('chatTeks').value = ''; $('chatMsg').innerHTML = ''; muatChat(); if (konfig) konfig.sisaHari = r.sisaHari; }
         else pesan('chatMsg', r.message, 'danger');
       }).catch(function () { pesan('chatMsg', 'Koneksi terputus.', 'danger'); }).finally(function () { b.disabled = false; });
+    };
+    $('btnSegar').onclick = function () {
+      if (!confirm('Baca semua balasan client yang sudah tercatat (termasuk kemarin) dan perbarui statusnya? Tidak ada pesan yang dikirim.')) return;
+      var b = this; b.disabled = true; pesan('hAksi', 'Membaca balasan...', 'secondary');
+      TMC.api('terminateChatSegarkan').then(function (r) { pesan('hAksi', r.message, r.status === 'success' ? 'success' : 'danger'); muatStatus(); })
+        .catch(function () { pesan('hAksi', 'Koneksi terputus. Muat ulang untuk melihat hasilnya.', 'danger'); }).finally(function () { b.disabled = false; });
     };
     $('btnMuat').onclick = muatStatus;
     muat();

@@ -800,6 +800,7 @@ function chatRoute_(d, au) {
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();
+    case 'terminateChatSegarkan': return ccSegarkan_(d, au);
     case 'terminateChatBalas': return ccBalas_(d, au);
     case 'terminateTujuanFonnte': return ccTujuanFonnte_();
     case 'terminateTujuanSumber': return ccTujuanSumber_(d);

@@ -281,3 +281,35 @@ function ccBalas_(d, au) {
   tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, { PESANTERAKHIR: teks.slice(0, 120), WAKTUKIRIM: new Date() });
   return { status: 'success', message: 'Terkirim.', sisaHari: ccSisaHari_() };
 }
+
+/* ---------- segarkan status dari balasan client yang sudah tercatat di CHAT LOG (tanpa mengirim pesan apa pun) ---------- */
+function ccSegarkan_(d, au) {
+  const log = {}; tmRead_(CC.SH.LOG).forEach(r => { const p = String(r.PHONE || ''); if (p) (log[p] = log[p] || []).push(r); });
+  const rows = tmRead_(CC.SH.CHAT).filter(r => tmCidDigit_(r.CID) && ['MENUNGGU_BALASAN', 'PERLU_ADMIN'].indexOf(String(r.STATUS)) >= 0);
+  const h = { dicek: 0, lanjut: 0, berhenti: 0, stop: 0, tanya: 0, tanpaBalasan: 0 };
+  const mulai = Date.now(); let ai = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (Date.now() - mulai > CC.MAKS_DETIK * 1000) break;
+    const r = rows[i], phone = String(r.PHONE), cid = tmCidDigit_(r.CID), kirim = r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0;
+    const masuk = (log[phone] || []).filter(x => x.ARAH === 'IN' && x.WAKTU instanceof Date && x.WAKTU.getTime() >= kirim && !/^\[foto\]$/.test(String(x.ISI || '').trim()));
+    if (!masuk.length) { h.tanpaBalasan++; continue; }
+    h.dicek++;
+    const teks = masuk.map(x => String(x.ISI || '')).join(' \n ').slice(0, 600);
+    const hasil = (ai++ < 40 ? ccAI_(ccRiwayat_(phone, 6), teks) : null) || ccRule_(teks);
+    const sama = x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, waktu = masuk[masuk.length - 1].WAKTU, ringkas = teks.slice(0, 120);
+    if (hasil.intent === 'LANJUT') {
+      tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'LANJUT', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas });
+      try { tmHapusCid_(TM.SH.LANJUT, cid); tmAppendObj_(tmSheetEnsure_(TM.SH.LANJUT, ['ID', 'WAKTU', 'TANGGAL', 'ADMIN', 'NAMA', 'CID', 'ODP', 'POP', 'KET']),
+        { ID: Utilities.getUuid(), WAKTU: waktu, TANGGAL: tmTglIndo_(tmIso_(waktu)), ADMIN: 'BOT WA', NAMA: r.NAMA, CID: cid, ODP: r.ODP, POP: tmPop_(r.POP), KET: 'Client masih mau lanjut berlangganan (via chat WA)' }); } catch (e) { /* abaikan */ }
+      h.lanjut++;
+    } else if (hasil.intent === 'BERHENTI') {
+      tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'MINTA_FOTO', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas }); h.berhenti++;   // foto & lokasi diminta admin lewat tombol "Ubah ke BERHENTI"
+    } else if (hasil.intent === 'STOP_CHAT') {
+      tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'STOP', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas }); h.stop++;
+    } else {
+      tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'PERLU_ADMIN', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas }); h.tanya++;
+    }
+  }
+  tmLogChat_('', '', 'OUT', '[admin ' + au.user + ' menyegarkan status dari balasan]');
+  return { status: 'success', hasil: h, message: h.dicek + ' client punya balasan tercatat: ' + h.lanjut + ' lanjut, ' + h.berhenti + ' berhenti, ' + h.stop + ' minta stop, ' + h.tanya + ' perlu dibaca admin. ' + h.tanpaBalasan + ' belum ada balasan tercatat. Tidak ada pesan yang dikirim.' };
+}
