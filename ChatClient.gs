@@ -229,7 +229,7 @@ function ccKirimLaporan_(d, au) {
   const fotoList = Array.isArray(d.foto) ? d.foto : [];            // fotoList[i] = foto untuk teksList[i] (opsional)
   if (!teksList.length) return tmErr_('Teks laporan kosong.');
   if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
-  const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 10);
+  const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 20);
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
@@ -589,14 +589,16 @@ function waHookRoute_(e) {
     const sender = g('sender');
     const pesan = g('message') || g('text');
     const media = g('url'), lokasi = g('location');
-    if (!sender || g('member') || /@g\.us|-/.test(sender)) { ccHookLog_(sender, pesan, 'diabaikan (grup / tanpa pengirim)'); return out({ status: 'ok', abaikan: 'grup' }); }
+    const grup = !!sender && (!!g('member') || /@g\.us|-/.test(sender));
+    if (!sender) { ccHookLog_(sender, pesan, 'diabaikan (tanpa pengirim)'); return out({ status: 'ok', abaikan: 'kosong' }); }
+    if (grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
     const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media)).slice(0, 16);
     const cache = CacheService.getScriptCache();
     if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
     cache.put(kunci, '1', 30);
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
-    try { ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
-    ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
+    try { if (grup) gmTerima_({ grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }); else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') }); } finally { lock.releaseLock(); }
+    if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
     return out({ status: 'ok' });
   } catch (err) { ccHookLog_('', '', 'ERROR: ' + err.message); Logger.log('webhook gagal: ' + err.message); return out({ status: 'error', message: String(err.message) }); }
 }
@@ -791,6 +793,9 @@ function chatRoute_(d, au) {
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();
+    case 'terminateTujuanFonnte': return ccTujuanFonnte_();
+    case 'terminateTujuanSumber': return ccTujuanSumber_(d);
+    case 'terminateGrupUji': return gmUjiTeks_(d);
     case 'terminateTujuanBaca': return { status: 'success', data: ccTujuanList_() };
     case 'terminateTujuanSimpan': return ccTujuanSimpan_(d);
     case 'terminateTujuanHapus': return ccTujuanHapus_(d);

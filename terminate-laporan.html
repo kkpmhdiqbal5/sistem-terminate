@@ -60,8 +60,11 @@
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
       ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">' +
-        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '1 pesan laporan gabungan. ') + 'Lewat WhatsApp API. Isi 1 sampai 10 nomor tujuan.</div>' +
-        '<label class="form-label small text-secondary fw-bold mb-1">Tujuan tersimpan</label><div class="d-flex gap-1 mb-2"><select id="dDaftar" class="form-select form-select-dark"><option value="">- pilih nama -</option></select><button class="btn btn-outline-danger btn-sm" id="dHapus" title="Hapus dari daftar">🗑</button></div>' +
+        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '1 pesan laporan gabungan. ') + 'Lewat WhatsApp API. Pilih satu atau lebih grup tersimpan, atau isi nomor sendiri.</div>' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Grup / tujuan tersimpan <span class="fw-normal">(boleh pilih lebih dari satu)</span></label>' +
+        '<input id="dCari" class="form-control form-control-dark mb-1" placeholder="Cari nama grup...">' +
+        '<div id="dDaftar" style="max-height:170px;overflow:auto" class="mb-1"></div>' +
+        '<div class="d-flex gap-1 flex-wrap mb-2"><button class="btn btn-outline-info btn-sm" id="dFonnte">⬇ Ambil grup dari Fonnte</button><span id="dDipilih" class="badge bg-success align-self-center">0 dipilih</span></div>' +
         (l.teksList ? '<label class="small d-block mb-2"><input type="checkbox" id="dTautan"> Sertakan tautan foto di teks (kalau gambar tidak muncul)</label>' : '') +
         '<label class="form-label small text-secondary fw-bold mb-1">Nomor tujuan * <span class="fw-normal">(08xx / 628xx / ID grup @g.us)</span></label><div id="dNo"></div><button class="btn btn-outline-info btn-sm mb-2" id="dNoT">+ Tambah nomor</button> <button class="btn btn-outline-success btn-sm mb-2" id="dSimpan">💾 Simpan nomor dengan nama</button>' +
         '<div id="dMsg"></div>' +
@@ -79,30 +82,43 @@
         });
       }
       gambar();
-      var tersimpan = [];
-      function isiDaftar() { var s = ov.querySelector('#dDaftar'); s.innerHTML = '<option value="">- pilih nama -</option>' + tersimpan.map(function (x, i) { return '<option value="' + i + '">' + esc2(x.nama) + ' (' + esc2(x.nomor) + ')</option>'; }).join(''); }
-      TMC.api('terminateTujuanBaca').then(function (r) { if (r && r.status === 'success') { tersimpan = r.data || []; isiDaftar(); } }).catch(function () {});
-      ov.querySelector('#dDaftar').onchange = function () {
-        var x = tersimpan[this.value]; if (!x) return; ambil();
-        var k = no.indexOf(''); if (k >= 0) no[k] = x.nomor; else if (no.indexOf(x.nomor) < 0 && no.length < 10) no.push(x.nomor); gambar(); this.value = '';
-      };
-      ov.querySelector('#dHapus').onclick = function () {
-        var s = ov.querySelector('#dDaftar'), x = tersimpan[s.value]; if (!x) return m('Pilih nama yang mau dihapus dulu.', 'warning');
-        if (!confirm('Hapus "' + x.nama + '" dari daftar?')) return;
-        TMC.api('terminateTujuanHapus', { nama: x.nama }).then(function (r) { if (r.status === 'success') { tersimpan = r.data; isiDaftar(); } });
+      var tersimpan = [], pilihT = {};
+      function isiDaftar() {
+        var q = ov.querySelector('#dCari').value.trim().toLowerCase(), box = ov.querySelector('#dDaftar');
+        var hit = tersimpan.map(function (x, i) { return { x: x, i: i }; }).filter(function (o) { return !q || (o.x.nama + ' ' + o.x.nomor).toLowerCase().indexOf(q) >= 0; });
+        box.innerHTML = hit.length ? hit.map(function (o) {
+          return '<div class="d-flex align-items-center gap-2 py-1 border-bottom border-secondary"><input type="checkbox" data-t="' + o.i + '"' + (pilihT[o.x.nomor] ? ' checked' : '') + '>' +
+            '<div class="flex-grow-1 small"><b>' + esc2(o.x.nama) + '</b><div class="kecil">' + esc2(o.x.nomor) + '</div></div>' +
+            '<button type="button" class="btn btn-sm py-0 ' + (o.x.sumber ? 'btn-success' : 'btn-outline-secondary') + '" data-s="' + o.i + '" title="Baca laporan & file DOCX yang masuk dari grup ini otomatis">📥</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-danger py-0" data-h="' + o.i + '">🗑</button></div>';
+        }).join('') : '<div class="kecil p-2">' + (tersimpan.length ? 'Tidak ada nama yang cocok.' : 'Belum ada. Klik "Ambil grup dari Fonnte" atau simpan nomor di bawah.') + '</div>';
+        ov.querySelector('#dDipilih').textContent = Object.keys(pilihT).length + ' dipilih';
+      }
+      function setTersimpan(r) { if (r && r.status === 'success') { tersimpan = r.data || []; isiDaftar(); } else if (r) m(r.message, 'danger'); }
+      TMC.api('terminateTujuanBaca').then(setTersimpan).catch(function () {});
+      ov.querySelector('#dCari').oninput = isiDaftar;
+      ov.querySelector('#dDaftar').addEventListener('click', function (e) {
+        var t = e.target, i;
+        if ((i = t.getAttribute('data-t')) != null) { var x = tersimpan[i]; if (t.checked) pilihT[x.nomor] = 1; else delete pilihT[x.nomor]; ov.querySelector('#dDipilih').textContent = Object.keys(pilihT).length + ' dipilih'; }
+        else if ((i = t.getAttribute('data-h')) != null) { var y = tersimpan[i]; if (confirm('Hapus "' + y.nama + '" dari daftar?')) { delete pilihT[y.nomor]; TMC.api('terminateTujuanHapus', { nama: y.nama }).then(setTersimpan); } }
+        else if ((i = t.getAttribute('data-s')) != null) { var z = tersimpan[i]; TMC.api('terminateTujuanSumber', { nomor: z.nomor, nyala: !z.sumber }).then(function (r) { setTersimpan(r); if (r.status === 'success') m(r.message, 'info'); }); }
+      });
+      ov.querySelector('#dFonnte').onclick = function () {
+        var b = this; b.disabled = true; b.textContent = 'Mengambil...';
+        TMC.api('terminateTujuanFonnte').then(function (r) { setTersimpan(r); if (r.status === 'success') m(r.message, 'success'); }).catch(function () { m('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; b.textContent = '⬇ Ambil grup dari Fonnte'; });
       };
       ov.querySelector('#dSimpan').onclick = function () {
         ambil(); var isi = no.map(function (v) { return v.trim(); }).filter(Boolean);
         if (!isi.length) return m('Isi nomor / ID grup dulu.', 'warning');
         var nama = prompt('Nama untuk ' + isi[0] + ' (mis. Grup Terminate Medan):'); if (!nama) return;
-        TMC.api('terminateTujuanSimpan', { nama: nama, nomor: isi[0] }).then(function (r) { if (r.status === 'success') { tersimpan = r.data; isiDaftar(); m(r.message, 'success'); } else m(r.message, 'danger'); });
+        TMC.api('terminateTujuanSimpan', { nama: nama, nomor: isi[0] }).then(function (r) { setTersimpan(r); if (r.status === 'success') m(r.message, 'success'); });
       };
       ov.querySelector('#dNoT').onclick = function () { ambil(); if (no.length < 10) no.push(''); gambar(); };
       ov.addEventListener('click', function (e) { var x = e.target.getAttribute && e.target.getAttribute('data-x'); if (x == null) return; ambil(); no.splice(+x, 1); gambar(); });
       ov.querySelector('#dBatal').onclick = function () { ov.remove(); };
       ov.querySelector('#dKirim').onclick = function () {
         ambil();
-        var n = no.map(function (v) { return v.trim(); }).filter(Boolean);
+        var n = no.map(function (v) { return v.trim(); }).filter(Boolean); Object.keys(pilihT).forEach(function (k) { if (n.indexOf(k) < 0) n.push(k); });
         if (!n.length) return m('Nomor tujuan wajib diisi (minimal 1).', 'warning');
         var bt = ov.querySelector('#dKirim'); bt.disabled = true; bt.textContent = 'Mengirim...'; m('', '');
         TMC.api('terminateKirimLaporan', { teks: l.teksList || l.teks, foto: l.fotoList || [], nomor: n, tautan: !!(ov.querySelector('#dTautan') && ov.querySelector('#dTautan').checked) }).then(function (r) {

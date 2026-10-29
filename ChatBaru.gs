@@ -229,9 +229,10 @@ function ccTujuanSimpan_(d) {
   const nomor = /@g\.us$/i.test(mentah) ? mentah : ccNoHp_(mentah);
   if (!nama) return tmErr_('Nama wajib diisi.');
   if (!nomor) return tmErr_('Nomor / ID grup tidak valid.');
-  const a = ccTujuanList_().filter(x => String(x.nama).toLowerCase() !== nama.toLowerCase());
-  a.push({ nama: nama, nomor: nomor });
-  if (a.length > 50) return tmErr_('Maksimal 50 tujuan tersimpan. Hapus yang tidak dipakai.');
+  const lama = ccTujuanList_(), pernah = lama.filter(x => String(x.nama).toLowerCase() === nama.toLowerCase())[0];
+  const a = lama.filter(x => String(x.nama).toLowerCase() !== nama.toLowerCase());
+  a.push({ nama: nama, nomor: nomor, sumber: !!(pernah && pernah.sumber) });
+  if (a.length > 100) return tmErr_('Maksimal 100 tujuan tersimpan. Hapus yang tidak dipakai.');
   PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
   return { status: 'success', data: a, message: 'Tersimpan: ' + nama };
 }
@@ -240,4 +241,13 @@ function ccTujuanHapus_(d) {
   const a = ccTujuanList_().filter(x => String(x.nama).toLowerCase() !== nama);
   PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
   return { status: 'success', data: a };
+}
+// tandai / lepas grup sebagai SUMBER data masuk (laporan & file DOCX dibaca otomatis)
+function ccTujuanSumber_(d) {
+  const nomor = String(d.nomor || '').toLowerCase();
+  const a = ccTujuanList_(); let ada = false;
+  a.forEach(x => { if (String(x.nomor).toLowerCase() === nomor) { x.sumber = !!d.nyala; ada = true; } });
+  if (!ada) return tmErr_('Tujuan tidak ditemukan.');
+  PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
+  return { status: 'success', data: a, message: d.nyala ? 'Grup ini sekarang dibaca otomatis.' : 'Grup ini tidak lagi dibaca.' };
 }

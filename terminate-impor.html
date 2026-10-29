@@ -14,6 +14,12 @@
 <body>
   <div class="container px-3 pt-3">
     <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">📥 Tempel laporan Terminate (otomatis ke sheet sesuai)</div>
+      <div class="kecil mb-2">Format "LAPORAN HARIAN TERMINATE" atau "Nama : … CID : …". Hanya POP / OLT Perbaungan dan Pantai Cermin. Diambil → sudah diambil, tidak ada di rumah → kunjungan, lanjut → lanjut berlanganan. Sama dengan yang dibaca otomatis dari grup.</div>
+      <textarea id="teksGrup" rows="5" class="form-control form-control-dark mb-2"></textarea>
+      <button id="btnGrup" class="btn btn-success w-100 fw-bold">Proses ke sheet</button><div id="hGrup" class="mt-2"></div>
+    </div>
+    <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">💬 Impor Data dari WhatsApp <span class="badge bg-warning text-dark">Khusus Admin</span></div>
       <div class="kecil mb-3">Di WhatsApp: buka grup → ⋮ → Lainnya → <b>Ekspor chat</b> → <b>Tanpa media</b>. Pilih file <b>.zip</b> atau <b>.txt</b> hasil ekspor di bawah. Foto tidak diambil, hanya teks.</div>
       <input id="berkas" type="file" accept=".zip,.txt" class="form-control form-control-dark mb-2">
@@ -70,6 +76,12 @@
       }
       return file.text();
     }
+    $('btnGrup').onclick = function () {
+      var t = $('teksGrup').value.trim(); if (!t) return;
+      var b = this; b.disabled = true; $('hGrup').innerHTML = '<div class="alert alert-secondary py-2 small mb-0">Memproses...</div>';
+      TMC.api('terminateGrupUji', { teks: t }).then(function (r) { $('hGrup').innerHTML = '<div class="alert alert-' + (r.status === 'success' ? 'success' : 'danger') + ' py-2 small mb-0">' + TMC.esc(r.message) + '</div>'; })
+        .catch(function () { $('hGrup').innerHTML = '<div class="alert alert-danger py-2 small mb-0">Gagal terhubung ke server.</div>'; }).finally(function () { b.disabled = false; });
+    };
     $('btnBaca').onclick = function () {
       var f = $('berkas').files[0], tm = $('teksManual').value.trim();
       if (!f && !tm) { pesan('Pilih file ekspor chat atau tempel laporan manual dulu.', 'warning'); return; }
