@@ -81,6 +81,7 @@
         <div class="d-flex gap-2"><button id="btnDiag" class="btn btn-outline-warning btn-sm">Cek koneksi balasan</button>
         <button id="btnMuat" class="btn btn-outline-info btn-sm">Muat ulang</button></div>
       </div>
+      <input id="cariS" class="form-control form-control-dark mb-2" placeholder="Cari nama / CID / nomor HP / ODP / isi pesan...">
       <div class="d-flex gap-2 align-items-center mb-2 flex-wrap"><label class="small text-secondary mb-0">Dari</label><input type="date" id="tglS" class="form-control form-control-dark" style="max-width:170px">
         <label class="small text-secondary mb-0">Sampai</label><input type="date" id="tglS2" class="form-control form-control-dark" style="max-width:170px"><button id="tglX" class="btn btn-outline-light btn-sm">Semua tanggal</button></div>
       <div id="grupStatus" class="d-flex gap-1 flex-wrap mb-2"></div>
@@ -244,6 +245,11 @@
       return 'menunggu';
     }
     function isoDari(s) { var m = /^(\d\d)\/(\d\d)\/(\d{4})/.exec(String(s || '')); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
+    function cocokCari(x) {
+      var q = $('cariS').value.trim().toLowerCase(); if (!q) return true;
+      return [x.nama, x.cid, x.phone, x.odp, x.pop, x.terakhir].join(' ').toLowerCase().indexOf(q) >= 0;
+    }
+    $('cariS').addEventListener('input', function () { gambarStatus(); });
     function cocokTgl(x) {
       var a = $('tglS').value, b = $('tglS2').value || a; if (!a) return true;
       return [isoDari(x.kirim), isoDari(x.balas)].some(function (t) { return t && t >= a && t <= b; });
@@ -255,7 +261,7 @@
       $('grupStatus').innerHTML = GRUP.map(function (g) {
         return '<button class="btn btn-sm ' + (g[0] === grupAktif ? 'btn-info' : 'btn-outline-light') + '" data-g="' + g[0] + '">' + g[1] + ' (' + (g[0] === 'semua' ? statusData.length : (hit[g[0]] || 0)) + ')</button>';
       }).join('');
-      var rows = statusData.filter(function (x) { return (grupAktif === 'semua' || grupDari(x) === grupAktif) && cocokTgl(x); });
+      var rows = statusData.filter(function (x) { return (grupAktif === 'semua' || grupDari(x) === grupAktif) && cocokTgl(x) && cocokCari(x); });
       if (!rows.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Tidak ada data di kelompok ini.</div>'; return; }
       $('daftarStatus').innerHTML = rows.map(function (x) {
         var calon = !x.cid, g = grupDari(x), ex = '';
