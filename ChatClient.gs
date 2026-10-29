@@ -568,7 +568,7 @@ function ccKirimClient_(d, au) {
 function ccStatus_(d) {
   if (d.cid || d.phone) {
     const c = tmCidDigit_(d.cid), ph = String(d.phone || '');
-    const rows = tmRead_(CC.SH.LOG).filter(r => c ? tmCidDigit_(r.CID) === c : String(r.PHONE) === ph).slice(-30).map(r => ({ waktu: tmWaktuTxt_(r.WAKTU), arah: String(r.ARAH), isi: String(r.ISI || '') }));
+    const rows = tmRead_(CC.SH.LOG).filter(r => c ? tmCidDigit_(r.CID) === c : String(r.PHONE) === ph).slice(-80).map(r => ({ waktu: tmWaktuTxt_(r.WAKTU), arah: String(r.ARAH), isi: String(r.ISI || '') }));
     return { status: 'success', riwayat: rows };
   }
   const kumpul = (nm, f) => { const o = {}; try { (f ? tmRead_(nm).filter(f) : tmRead_(nm)).forEach(r => { const c = tmCidDigit_(r.CID); if (c) o[c] = 1; }); } catch (e) { /* sheet belum ada */ } return o; };
@@ -800,6 +800,7 @@ function chatRoute_(d, au) {
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();
+    case 'terminateChatBalas': return ccBalas_(d, au);
     case 'terminateTujuanFonnte': return ccTujuanFonnte_();
     case 'terminateTujuanSumber': return ccTujuanSumber_(d);
     case 'terminateGrupUji': return gmUjiTeks_(d);

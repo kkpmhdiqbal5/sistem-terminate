@@ -76,6 +76,7 @@
 
     <!-- TAB 2 -->
     <div id="tab-status" class="d-none">
+    <div id="listStatus">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="fw-bold text-white">Status balasan client</div>
         <div class="d-flex gap-2"><button id="btnDiag" class="btn btn-outline-warning btn-sm">Cek koneksi balasan</button>
@@ -98,6 +99,18 @@
       <div id="hAksi" class="mb-2"></div>
       <div id="hDiag" class="mb-2"></div>
       <div class="card-custom mb-4" id="daftarStatus"></div>
+    </div>
+    <!-- HALAMAN PERCAKAPAN (bukan pop up): lihat riwayat dan balas langsung -->
+    <div id="viewChat" class="d-none">
+      <div class="d-flex align-items-center gap-2 mb-2"><button id="chatKembali" class="btn btn-outline-light btn-sm">← Kembali</button>
+        <div class="flex-grow-1"><div class="fw-bold text-white" id="chatJudul"></div><div class="kecil" id="chatSub"></div></div>
+        <button id="chatMuat" class="btn btn-outline-info btn-sm">Muat ulang</button></div>
+      <div id="chatIsi" class="card-custom p-2 mb-2" style="height:55vh;overflow:auto"></div>
+      <div id="chatMsg"></div>
+      <div class="d-flex gap-2"><textarea id="chatTeks" rows="2" class="form-control form-control-dark" placeholder="Tulis balasan untuk client..." maxlength="900"></textarea>
+        <button id="chatKirim" class="btn btn-success fw-bold">Kirim</button></div>
+      <div class="kecil mt-1">Terkirim lewat WhatsApp API "Chat client" dan dihitung dalam batas pesan per hari.</div>
+    </div>
     </div>
   </div>
 
@@ -292,10 +305,38 @@
       var t = e.target.getAttribute('data-tandai'), p = e.target.getAttribute('data-p');
       if (t) { TMC.api('terminateChatTandai', { phone: p, status: t }).then(function (r) { if (r.status === 'success') muatStatus(); else alert(r.message); }); return; }
       if (e.target.getAttribute('data-r') === null) return;
-      TMC.api('terminateChatStatus', { cid: e.target.getAttribute('data-r'), phone: p }).then(function (r) {
-        alert(r.status === 'success' ? (r.riwayat.map(function (x) { return '[' + x.waktu + '] ' + (x.arah === 'IN' ? 'CLIENT' : 'KAMI') + ': ' + x.isi; }).join('\n') || 'Belum ada percakapan.') : r.message);
-      });
+      bukaChat(e.target.getAttribute('data-r'), p);
     });
+    // ----- halaman percakapan
+    var chatKini = null;
+    function bukaChat(cid, phone) {
+      var x = statusData.filter(function (s) { return s.phone === phone && (s.cid || '') === (cid || ''); })[0] || {};
+      chatKini = { cid: cid, phone: phone };
+      $('chatJudul').textContent = (x.nama || 'Calon pelanggan') + (cid ? ' (CID ' + cid + ')' : '');
+      $('chatSub').textContent = '📱 ' + phone + (x.status ? ' | ' + (LABEL[x.status] ? LABEL[x.status][0] : x.status) : '');
+      $('listStatus').classList.add('d-none'); $('viewChat').classList.remove('d-none'); $('chatMsg').innerHTML = ''; muatChat();
+    }
+    function muatChat() {
+      $('chatIsi').innerHTML = '<div class="kecil p-2">Memuat...</div>';
+      TMC.api('terminateChatStatus', { cid: chatKini.cid, phone: chatKini.phone }).then(function (r) {
+        if (r.status !== 'success') { $('chatIsi').innerHTML = '<div class="text-danger p-2">' + esc(r.message) + '</div>'; return; }
+        $('chatIsi').innerHTML = r.riwayat.length ? r.riwayat.map(function (m) {
+          var kami = m.arah !== 'IN';
+          return '<div class="d-flex ' + (kami ? 'justify-content-end' : '') + ' mb-2"><div style="max-width:82%;padding:8px 10px;border-radius:10px;white-space:pre-line;background:' + (kami ? '#14532d' : '#1e293b') + '"><div class="small">' + esc(m.isi) + '</div><div class="kecil text-end">' + (kami ? 'Kami' : 'Client') + ' · ' + esc(m.waktu) + '</div></div></div>';
+        }).join('') : '<div class="kecil p-2">Belum ada percakapan.</div>';
+        $('chatIsi').scrollTop = $('chatIsi').scrollHeight;
+      });
+    }
+    $('chatKembali').onclick = function () { $('viewChat').classList.add('d-none'); $('listStatus').classList.remove('d-none'); muatStatus(); };
+    $('chatMuat').onclick = muatChat;
+    $('chatKirim').onclick = function () {
+      var t = $('chatTeks').value.trim(); if (!t || !chatKini) return;
+      var b = this; b.disabled = true;
+      TMC.api('terminateChatBalas', { cid: chatKini.cid, phone: chatKini.phone, teks: t }).then(function (r) {
+        if (r.status === 'success') { $('chatTeks').value = ''; $('chatMsg').innerHTML = ''; muatChat(); if (konfig) konfig.sisaHari = r.sisaHari; }
+        else pesan('chatMsg', r.message, 'danger');
+      }).catch(function () { pesan('chatMsg', 'Koneksi terputus.', 'danger'); }).finally(function () { b.disabled = false; });
+    };
     $('btnMuat').onclick = muatStatus;
     muat();
   </script>

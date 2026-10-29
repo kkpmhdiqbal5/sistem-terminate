@@ -264,3 +264,20 @@ function ccTandaiManual_(d, au, st) {
   });
   return { status: 'success', diubah: n, message: n + ' client ditandai ' + st.replace('_', ' ').toLowerCase() + '.' };
 }
+
+/* ---------- admin membalas client langsung dari halaman percakapan ---------- */
+function ccBalas_(d, au) {
+  const phone = String(d.phone || '').trim(), teks = String(d.teks || '').trim();
+  if (!phone) return tmErr_('Nomor kosong.');
+  if (!teks) return tmErr_('Pesan kosong.');
+  if (teks.length > 900) return tmErr_('Pesan terlalu panjang (maks 900 huruf).');
+  const cid = tmCidDigit_(d.cid), row = ccBarisChat_(phone, cid);
+  if (!row) return tmErr_('Nomor ini belum ada di daftar chat client.');
+  if (ccSisaHari_() < 1) return tmErr_('Kuota ' + CC.MAX_HARI + ' pesan per hari sudah habis (agar nomor WA aman). Lanjutkan besok.');
+  const r = waKirim_(phone, teks, 'CHAT_CLIENT');
+  if (!r.ok) return tmErr_('Gagal kirim: ' + r.msg);
+  ccPakaiKuota_(1);
+  tmLogChat_(phone, cid, 'OUT', teks);
+  tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, { PESANTERAKHIR: teks.slice(0, 120), WAKTUKIRIM: new Date() });
+  return { status: 'success', message: 'Terkirim.', sisaHari: ccSisaHari_() };
+}
