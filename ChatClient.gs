@@ -18,7 +18,8 @@ const CC = {
   FOLDER_RUMAH: 'Foto Rumah Client',
   MODEL: 'claude-haiku-5-5',
   MAX_KIRIM: 30,
-  MAX_HARI: 20,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
+  MAX_HARI: 30,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
+  MAX_LAPORAN_HARI: 20,  // batas pesan laporan per hari dari nomor WA laporan
   MAKS_DETIK: 270,                 // batas waktu satu permintaan kirim massal
   AKTIF: ['MENUNGGU_BALASAN', 'MINTA_FOTO', 'MINTA_BUKTI'],
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Kami ingin memastikan: apakah Bapak/Ibu MASIH INGIN LANJUT berlangganan internet? ' +
@@ -231,6 +232,8 @@ function ccKirimLaporan_(d, au) {
   if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
   const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 20);
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
+  const pakai = Number(PropertiesService.getScriptProperties().getProperty('LAP_' + tmIso_(new Date()))) || 0, sisaLap = Math.max(0, CC.MAX_LAPORAN_HARI - pakai);
+  if (teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + CC.MAX_LAPORAN_HARI + ' pesan laporan per hari (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Kurangi data / tujuan, atau lanjutkan besok.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
   let n = 0;
@@ -244,7 +247,7 @@ function ccKirimLaporan_(d, au) {
       let r = waKirim_(tujuan, (d.tautan && foto ? t + '\nFoto : ' + foto : t).slice(0, 6000), 'LAPORAN', foto);
       // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
       if (!r.ok && foto) { r = waKirim_(tujuan, (t + '\nFoto : ' + foto).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
-      if (r.ok) ok++; else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
+      if (r.ok) { ok++; const p = PropertiesService.getScriptProperties(), k = 'LAP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); } else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
     });
     if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
   });
