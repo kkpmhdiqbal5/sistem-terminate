@@ -18,7 +18,7 @@ const CC = {
   FOLDER_RUMAH: 'Foto Rumah Client',
   MODEL: 'claude-haiku-5-5',
   MAX_KIRIM: 30,
-  MAX_HARI: 30,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
+  MAX_HARI: 20,          // batas pesan ke client per hari (semua akun), agar nomor WA aman
   MAKS_DETIK: 270,                 // batas waktu satu permintaan kirim massal
   AKTIF: ['MENUNGGU_BALASAN', 'MINTA_FOTO', 'MINTA_BUKTI'],
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Kami ingin memastikan: apakah Bapak/Ibu MASIH INGIN LANJUT berlangganan internet? ' +
