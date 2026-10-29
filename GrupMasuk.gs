@@ -7,6 +7,10 @@
  * Butuh Terminate.gs, ChatClient.gs, ChatBaru.gs terbaru.
  *****************************************************************/
 
+const GM_MAKS_HARI = 20;   // batas data yang diambil otomatis dari grup per hari (laporan + baris DOCX)
+function gmSisa_() { return Math.max(0, GM_MAKS_HARI - (Number(PropertiesService.getScriptProperties().getProperty('GRUP_' + tmIso_(new Date()))) || 0)); }
+function gmPakai_() { const p = PropertiesService.getScriptProperties(), k = 'GRUP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); }
+
 function gmSumber_(grup) {
   const g = String(grup || '').toLowerCase();
   return !!g && ccTujuanList_().some(x => x.sumber && String(x.nomor).toLowerCase() === g);
@@ -77,9 +81,10 @@ function gmFoto_(url) {
 
 /* ---------- simpan ke sheet yang sesuai (sama dengan input tim terminate) ---------- */
 function gmProses_(items, fotoUrl) {
-  const h = { masuk: 0, dobel: 0, bukanPop: 0, tidakLengkap: 0 };
+  const h = { masuk: 0, dobel: 0, bukanPop: 0, tidakLengkap: 0, batas: 0 };
   const foto = fotoUrl ? gmFoto_(fotoUrl) : '';
   items.forEach(x => {
+    if (gmSisa_() < 1) { h.batas++; return; }
     const info = gmPopCari_(x);
     if (!info.pop) { h.bukanPop++; return; }
     if (!x.nama && info.nama) x.nama = info.nama;
@@ -110,11 +115,11 @@ function gmProses_(items, fotoUrl) {
     const tujuan = T ? [TM.SH.TERMINATE] : x.jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
     tujuan.forEach(nm => { try { tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ } tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja); });
     tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
-    h.masuk++;
+    h.masuk++; gmPakai_();
   });
   return h;
 }
-function gmRingkas_(h) { return h.masuk + ' masuk, ' + h.dobel + ' dobel, ' + h.bukanPop + ' bukan Perbaungan/Pantai Cermin (atau POP tidak ketahuan), ' + h.tidakLengkap + ' tidak lengkap'; }
+function gmRingkas_(h) { return h.masuk + ' masuk, ' + h.dobel + ' dobel, ' + h.bukanPop + ' bukan Perbaungan/Pantai Cermin (atau POP tidak ketahuan), ' + h.tidakLengkap + ' tidak lengkap' + (h.batas ? ', ' + h.batas + ' DITUNDA (batas ' + GM_MAKS_HARI + ' data per hari tercapai)' : ''); }
 
 /* ---------- file DOCX -> Full Data / target ---------- */
 function gmDocx_(url, namaFile) {
@@ -150,7 +155,7 @@ function gmMasukSheet_(hasil) {
   if (!sh) return { err: 'sheet "' + dest + '" tidak ada' };
   const ada = tmHeaders_(sh).map(tmCanon_);
   const sudah = {}; [TM.SH.FULL, TM.SH.TARGET].forEach(n => tmRead_(n).forEach(r => { const c = tmNorm_(r.CID); if (c) sudah[c] = 1; }));
-  const h = { sheet: dest, masuk: 0, dobel: 0, bukanPop: 0, tanpaCid: 0 };
+  const h = { sheet: dest, masuk: 0, dobel: 0, bukanPop: 0, tanpaCid: 0, batas: 0 };
   hasil.tabel.forEach(rows => {
     const hi = rows.findIndex(r => r.filter(c => ['NAMA', 'CID', 'ODP', 'POP', 'SN'].indexOf(gmKunci_(c)) >= 0).length >= 2);
     if (hi < 0) return;
@@ -159,11 +164,12 @@ function gmMasukSheet_(hasil) {
       const o = {}; kunci.forEach((k, i) => { if (k && o[k] === undefined && String(r[i] || '').trim()) o[k] = String(r[i]).trim(); });
       const cid = String(o.CID || '').replace(/\D/g, '');
       if (!cid) { h.tanpaCid++; return; }
+      if (gmSisa_() < 1) { h.batas++; return; }
       if (adaPop && !(tmPop_(o.POP) || tmPop_(o.ODP))) { h.bukanPop++; return; }
       if (sudah[cid]) { h.dobel++; return; }
       o.CID = cid; if (tmPop_(o.POP) || tmPop_(o.ODP)) o.POP = tmPop_(o.POP) || tmPop_(o.ODP);
       const baris = {}; Object.keys(o).forEach(k => { if (ada.indexOf(k) >= 0) baris[k] = o[k]; });   // hanya kolom yang sudah ada di sheet
-      tmAppendObj_(sh, baris); sudah[cid] = 1; h.masuk++;
+      tmAppendObj_(sh, baris); sudah[cid] = 1; h.masuk++; gmPakai_();
     });
   });
   return h;
@@ -176,7 +182,7 @@ function gmTerima_(m) {
     const d = gmDocx_(m.media, nama);
     if (d.err) { ccHookLog_(m.grup, '[docx] ' + nama, 'GAGAL: ' + d.err); return; }
     const h = d.tabel.length ? gmMasukSheet_(d) : null;
-    if (h && !h.err) { ccHookLog_(m.grup, '[docx] ' + nama, h.sheet + ': ' + h.masuk + ' masuk, ' + h.dobel + ' dobel, ' + h.bukanPop + ' bukan POP, ' + h.tanpaCid + ' tanpa CID'); return; }
+    if (h && !h.err) { ccHookLog_(m.grup, '[docx] ' + nama, h.sheet + ': ' + h.masuk + ' masuk, ' + h.dobel + ' dobel, ' + h.bukanPop + ' bukan POP, ' + h.tanpaCid + ' tanpa CID' + (h.batas ? ', ' + h.batas + ' DITUNDA (batas ' + GM_MAKS_HARI + '/hari)' : '')); return; }
     const t = gmProses_(gmParse_(d.teks), ''); ccHookLog_(m.grup, '[docx teks] ' + nama, (h && h.err ? h.err + '; ' : 'tidak ada tabel; ') + gmRingkas_(t)); return;
   }
   const teks = String(m.pesan || '');
