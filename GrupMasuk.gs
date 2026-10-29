@@ -7,8 +7,8 @@
  * Butuh Terminate.gs, ChatClient.gs, ChatBaru.gs terbaru.
  *****************************************************************/
 
-const GM_MAKS_HARI = 20;   // batas data yang diambil otomatis dari grup per hari (laporan + baris DOCX)
-function gmSisa_() { return Math.max(0, GM_MAKS_HARI - (Number(PropertiesService.getScriptProperties().getProperty('GRUP_' + tmIso_(new Date()))) || 0)); }
+const GM_MAKS_HARI = 0;   // batas data yang diambil otomatis dari grup per hari (laporan + baris DOCX); 0 = tanpa batas
+function gmSisa_() { return GM_MAKS_HARI ? Math.max(0, GM_MAKS_HARI - (Number(PropertiesService.getScriptProperties().getProperty('GRUP_' + tmIso_(new Date()))) || 0)) : 1e9; }
 function gmPakai_() { const p = PropertiesService.getScriptProperties(), k = 'GRUP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); }
 
 function gmSumber_(grup) {
