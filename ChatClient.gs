@@ -671,7 +671,11 @@ function ccTerima_(m) {
     tmLogChat_(m.phone, cid, 'IN', (m.pesan ? m.pesan + ' ' : '') + '[foto]');
     if (status === 'MINTA_BUKTI' || status === 'BUKTI_DITERIMA') {
       const bukti = ccSimpanFotoRumah_(m.media, 'BUKTI_' + cid, row.NAMA);
-      if (bukti) { setS('BUKTI_DITERIMA', { FOTOBUKTI: bukti }); balas('Terima kasih, foto bukti sudah kami terima. 🙏'); return; }
+      if (bukti) {
+        setS('BUKTI_DITERIMA', { FOTOBUKTI: bukti });
+        tmLogChat_(m.phone, cid, 'IN', '[bukti] laporan otomatis: ' + ccLaporLanjut_(row, cid, bukti));
+        balas('Terima kasih, foto bukti sudah kami terima. 🙏'); return;
+      }
       balas('Maaf, foto belum bisa kami simpan. Mohon kirim ulang ya.'); return;
     }
     if (status === 'MINTA_FOTO' || status === 'FOTO_DITERIMA' || status === 'BERHENTI') {

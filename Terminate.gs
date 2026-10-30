@@ -514,6 +514,7 @@ function tmSimpan_(d, au) {
         if (pindah) rec.VERIF += ' | DIPINDAH KE BARIS 2';
       }
       try { bersih += tmHapusCid_(TM.SH.B1, rec.CID); } catch (e) { /* abaikan */ }   // sisa CID dobel di Baris 1
+      if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'BERHENTI_DILAPOR');   // status di Chat Client ikut: sudah diambil
     } else {
       if (!rec.NAMA || !rec.CID) return tmErr_('Nama dan CID wajib diisi.');
       rec.SN = tmCleanCode_(s('sn')); rec.PSN = tmCleanCode_(s('psn'));   // opsional, membantu mencocokkan antrian
@@ -524,6 +525,7 @@ function tmSimpan_(d, au) {
       try {
         bersih += tmHapusAntrian_(rec);
         if (jenis === 'LANJUT') bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID);   // lanjut: tidak perlu diambil lagi
+        if (jenis === 'LANJUT' && typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'LANJUT_DILAPOR');
       } catch (e) { rec.VERIF = ((rec.VERIF ? rec.VERIF + ' | ' : '') + 'GAGAL BERSIHKAN ANTRIAN'); }
     }
 

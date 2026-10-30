@@ -80,9 +80,10 @@ function gmFoto_(url) {
 }
 
 /* ---------- simpan ke sheet yang sesuai (sama dengan input tim terminate) ---------- */
-function gmProses_(items, fotoUrl) {
+function gmProses_(items, fotoUrl, opt) {
+  opt = opt || {};
   const h = { masuk: 0, dobel: 0, bukanPop: 0, tidakLengkap: 0, batas: 0 };
-  const foto = fotoUrl ? gmFoto_(fotoUrl) : '';
+  const foto = opt.langsung ? (fotoUrl || '') : (fotoUrl ? gmFoto_(fotoUrl) : '');   // langsung = tautan foto sudah di Drive
   items.forEach(x => {
     if (gmSisa_() < 1) { h.batas++; return; }
     const info = gmPopCari_(x);
@@ -97,9 +98,9 @@ function gmProses_(items, fotoUrl) {
     if (dobel) { h.dobel++; return; }
     const sekarang = tgl === tmIso_(new Date()), waktu = sekarang ? new Date() : new Date(tgl + 'T12:00:00+07:00');
     const T = x.jenis === 'TERMINATE';
-    const rec = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: waktu, TANGGAL: tmTglIndo_(tgl), ADMIN: 'GRUP WA', TIM: 'GRUP WA', JENIS: x.jenis,
+    const rec = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: waktu, TANGGAL: tmTglIndo_(tgl), ADMIN: opt.admin || 'GRUP WA', TIM: opt.admin || 'GRUP WA', JENIS: x.jenis,
       NAMA: x.nama, CID: x.cid, ODP: T ? tmOdpAkhir_(x.odp || info.odp || '') : '', POP: T ? info.pop : '', SN: T ? tmCleanCode_(x.sn) : '', PSN: T ? tmCleanCode_(x.psn) : '',
-      KET: x.ket || TM.KET[x.jenis], VERIF: 'DARI GRUP WA', SUMBER: 'GRUP_WA', FOTO: foto };
+      KET: x.ket || TM.KET[x.jenis], VERIF: opt.verif || 'DARI GRUP WA', SUMBER: opt.sumber || 'GRUP_WA', FOTO: foto };
     let bersih = 0;
     try {
       if (T) {
@@ -108,9 +109,10 @@ function gmProses_(items, fotoUrl) {
         tmTandaiDiambil_([rec]);
         if (cari.found && cari.sheet === TM.SH.B1) { try { tmPindahB1_(rec.SN, rec.PSN, rec); } catch (e) { /* abaikan */ } }
         tmHapusCid_(TM.SH.B1, rec.CID);
+        if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'BERHENTI_DILAPOR');
       } else {
         bersih += tmHapusAntrian_(rec);
-        if (x.jenis === 'LANJUT') bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID);
+        if (x.jenis === 'LANJUT') { bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID); if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'LANJUT_DILAPOR'); }
       }
     } catch (e) { rec.VERIF += ' | GAGAL BERSIHKAN ANTRIAN'; }
     const kerja = Object.assign({}, rec); delete kerja.JENIS;

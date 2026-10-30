@@ -313,3 +313,22 @@ function ccSegarkan_(d, au) {
   tmLogChat_('', '', 'OUT', '[admin ' + au.user + ' menyegarkan status dari balasan]');
   return { status: 'success', hasil: h, message: h.dicek + ' client punya balasan tercatat: ' + h.lanjut + ' lanjut, ' + h.berhenti + ' berhenti, ' + h.stop + ' minta stop, ' + h.tanya + ' perlu dibaca admin. ' + h.tanpaBalasan + ' belum ada balasan tercatat. Tidak ada pesan yang dikirim.' };
 }
+
+/* ---------- otomatisasi: bukti diterima -> laporan; sudah diambil / dilapor -> status chat ikut ---------- */
+// ubah status client di CHAT CLIENT berdasarkan CID (dipakai saat tim terminate / grup melaporkan)
+function ccStatusChatCid_(cid, st) {
+  try {
+    const c = tmCidDigit_(cid); if (!c) return 0;
+    return tmUpdateRows_(CC.SH.CHAT, r => tmCidDigit_(r.CID) === c && ['STOP', 'SALAH_NOMOR'].indexOf(String(r.STATUS)) < 0, { STATUS: st, WAKTUBALAS: new Date() });
+  } catch (e) { Logger.log('status chat: ' + e.message); return 0; }
+}
+// client lanjut + foto bukti diterima -> otomatis masuk laporan (LOG TERMINATE jenis LANJUT, foto = bukti)
+function ccLaporLanjut_(row, cid, linkBukti) {
+  if (typeof gmProses_ !== 'function') return 'GrupMasuk.gs belum dipasang';
+  try {
+    const h = gmProses_([{ jenis: 'LANJUT', nama: String(row.NAMA || ''), cid: cid, odp: '', pop: tmPop_(row.POP), sn: '', psn: '', ket: '', tanggal: '' }], linkBukti,
+      { langsung: true, admin: 'BOT WA', verif: 'DARI CHAT CLIENT (bukti foto)', sumber: 'CHAT_CLIENT' });
+    ccStatusChatCid_(cid, 'BUKTI_DITERIMA');
+    return gmRingkas_(h);
+  } catch (e) { Logger.log('lapor lanjut: ' + e.message); return 'gagal: ' + e.message; }
+}

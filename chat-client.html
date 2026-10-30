@@ -245,13 +245,14 @@
         statusData = r.data; gambarStatus();
       });
     }
-    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
     function grupDari(x) {
       if (!x.cid) return 'calon';
       if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
       if (x.status === 'LANJUT_DILAPOR') return 'lanjut_sudah';
       if (x.status === 'BERHENTI_DILAPOR') return 'berhenti_lapor';
       if (x.status === 'SALAH_NOMOR') return 'salah';
+      if (x.status === 'BUKTI_DITERIMA' && !x.lapor) return 'lanjut_bukti';
       if (x.status === 'LANJUT' || x.status === 'MINTA_BUKTI' || x.status === 'BUKTI_DITERIMA') return x.lapor ? 'lanjut_sudah' : 'lanjut_belum';
       if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(x.status) >= 0) return 'berhenti';
       if (x.status === 'PERLU_ADMIN') return 'admin';

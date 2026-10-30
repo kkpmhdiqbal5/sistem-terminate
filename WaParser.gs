@@ -93,6 +93,7 @@
       if (/^RESCHEDULE$/.test(j)) { tutup(); sec = "RESCHEDULE"; return; }
       // laporan Terminate: judul bagian (berhenti / lanjut / tidak ada di rumah)
       if (/^LAPORAN HARIAN TERMINATE/.test(j)) { tutup(); sec = ""; ctx.pop = popNorm(j) || ctx.pop; inTim = false; return; }
+      if (/^TERMINATE( ION BROADBAND)?$/.test(j)) { tutup(); sec = "TERMINATE"; inTim = false; return; }
       if (/BERHENTI BERLANGGANAN|PERANGKAT SUDAH DIAMBIL/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "TERMINATE"; inTim = false; return; }
       if (/MASIH LANJUT/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "LANJUT"; inTim = false; return; }
       if (/TIDAK ADA (DI ?)?RUMAH/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "KUNJUNGAN"; inTim = false; return; }
