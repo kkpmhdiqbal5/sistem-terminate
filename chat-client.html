@@ -95,6 +95,7 @@
         <button id="bIngat" class="btn btn-outline-warning btn-sm">🔔 Ingatkan lagi</button>
         <button id="bLanjutL" class="btn btn-outline-success btn-sm">📋 Lanjut - sudah dilapor</button>
         <button id="bBerhentiL" class="btn btn-outline-info btn-sm">📋 Berhenti - sudah dilapor</button>
+        <button id="bKirimL" class="btn btn-success btn-sm">📤 Kirim laporan (link WA / API)</button>
         <button id="bSalah" class="btn btn-outline-danger btn-sm">📵 Salah nomor</button>
       </div>
       <div id="hAksi" class="mb-2"></div>
@@ -238,6 +239,48 @@
     $('bBerhentiL').onclick = function () { aksi('terminateChatUbah', { status: 'BERHENTI_DILAPOR' }, 'Tandai {n} client: BERHENTI, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
     $('bSalah').onclick = function () { aksi('terminateChatUbah', { status: 'SALAH_NOMOR' }, 'Tandai {n} client sebagai SALAH NOMOR? Nomor ini tidak akan dichat lagi.'); };
     $('bIngat').onclick = function () { aksi('terminateChatIngatkan', {}, 'Kirim pengingat sopan ke {n} client? (maks 3x per client, jeda minimal 4 jam, hitung dalam batas 30 pesan per hari)'); };
+
+    // Kirim laporan client terpilih (biasanya grup "belum dilapor"): link WhatsApp atau API Fonnte
+    function dataLaporS() {
+      var LJ = ['LANJUT', 'MINTA_BUKTI', 'BUKTI_DITERIMA', 'LANJUT_DILAPOR'], out = { teks: [], foto: [], lanjut: [], berhenti: [] };
+      terpilihS().forEach(function (p) {
+        var x = statusData.filter(function (y) { return y.cid === p.cid && y.phone === p.phone; })[0]; if (!x) return;
+        var lj = LJ.indexOf(x.status) >= 0, f = lj ? x.bukti : x.foto;
+        out.teks.push(['Nama : ' + x.nama, 'CID : ' + x.cid, x.odp ? 'ODP : ' + x.odp : '', 'Ket : ' + (lj ? 'Lanjut berlangganan' + (x.bukti ? ' (ada bukti)' : '') : 'Berhenti berlangganan, perangkat belum diambil'), !lj && x.sherlock ? 'Lokasi : ' + x.sherlock : ''].filter(Boolean).join('\n'));
+        out.foto.push(f || ''); (lj ? out.lanjut : out.berhenti).push({ cid: x.cid, phone: x.phone });
+      });
+      return out;
+    }
+    $('bKirimL').onclick = function () {
+      var L = dataLaporS(); if (!L.teks.length) { alert('Pilih client dulu (kotak centang).'); return; }
+      var ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
+      var gab = L.teks.map(function (t, i) { return t + (L.foto[i] ? '\nFoto : ' + L.foto[i] : ''); }).join('\n\n');
+      ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto"><div class="fw-bold text-white mb-1">📤 Kirim laporan (' + L.teks.length + ' client)</div>' +
+        '<a id="kWa" class="btn btn-outline-success btn-sm w-100 mb-2" target="_blank" rel="noopener">💬 Buka WhatsApp (link, 1 pesan gabungan)</a>' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Atau lewat API: grup tersimpan</label><input id="kCari" class="form-control form-control-dark mb-1" placeholder="Cari nama grup...">' +
+        '<div id="kDaftar" style="max-height:150px;overflow:auto" class="mb-1"></div>' +
+        '<input id="kNo" class="form-control form-control-dark mb-2" placeholder="Atau nomor / ID grup @g.us">' +
+        '<label class="small d-block mb-2"><input type="checkbox" id="kTaut"> Sertakan tautan foto di teks</label><div id="kMsg"></div>' +
+        '<div class="d-flex gap-2 mb-2"><button class="btn btn-outline-light flex-fill" id="kTutup">Tutup</button><button class="btn btn-success fw-bold flex-fill" id="kKirim">Kirim (API)</button></div>' +
+        '<button class="btn btn-outline-info btn-sm w-100" id="kTandai">✔ Tandai sudah dilapor</button></div>';
+      document.body.appendChild(ov);
+      var $k = function (i) { return ov.querySelector('#' + i); }, tersimpan = [], pil = {}, mk = function (t, j) { $k('kMsg').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc(t) + '</div>' : ''; };
+      $k('kWa').href = 'https://wa.me/?text=' + encodeURIComponent('LAPORAN TERMINATE\n\n' + gab);
+      function isi() { var q = $k('kCari').value.trim().toLowerCase(); $k('kDaftar').innerHTML = tersimpan.map(function (x, i) { return { x: x, i: i }; }).filter(function (o) { return !q || (o.x.nama + ' ' + o.x.nomor).toLowerCase().indexOf(q) >= 0; }).map(function (o) { return '<label class="d-flex gap-2 py-1 border-bottom border-secondary small"><input type="checkbox" data-t="' + o.i + '"' + (pil[o.x.nomor] ? ' checked' : '') + '><b>' + esc(o.x.nama) + '</b></label>'; }).join('') || '<div class="kecil p-2">Belum ada grup tersimpan (simpan di halaman Laporan).</div>'; }
+      TMC.api('terminateTujuanBaca').then(function (r) { if (r.status === 'success') { tersimpan = r.data || []; isi(); } });
+      $k('kCari').oninput = isi;
+      $k('kDaftar').addEventListener('change', function (e) { var i = e.target.getAttribute('data-t'); if (i == null) return; if (e.target.checked) pil[tersimpan[i].nomor] = 1; else delete pil[tersimpan[i].nomor]; });
+      $k('kTutup').onclick = function () { ov.remove(); };
+      function tandai() { var jobs = []; if (L.lanjut.length) jobs.push(TMC.api('terminateChatUbah', { status: 'LANJUT_DILAPOR', items: L.lanjut })); if (L.berhenti.length) jobs.push(TMC.api('terminateChatUbah', { status: 'BERHENTI_DILAPOR', items: L.berhenti })); return Promise.all(jobs).then(function () { pilihS = {}; hitungS(); muatStatus(); }); }
+      $k('kTandai').onclick = function () { if (confirm('Tandai ' + L.teks.length + ' client sudah dilapor?')) tandai().then(function () { ov.remove(); }); };
+      $k('kKirim').onclick = function () {
+        var n = Object.keys(pil), no = $k('kNo').value.trim(); if (no) n.push(no); if (!n.length) return mk('Pilih grup atau isi nomor tujuan.', 'warning');
+        var b = this; b.disabled = true; b.textContent = 'Mengirim...';
+        TMC.api('terminateKirimLaporan', { teks: L.teks, foto: L.foto, nomor: n, tautan: $k('kTaut').checked }).then(function (r) {
+          if (r.status === 'success') { if (confirm(r.message + '\n\nTandai ' + L.teks.length + ' client sudah dilapor?')) tandai(); ov.remove(); } else { mk(r.message, 'danger'); b.disabled = false; b.textContent = 'Kirim (API)'; }
+        }).catch(function () { mk('Gagal terhubung ke server.', 'danger'); b.disabled = false; b.textContent = 'Kirim (API)'; });
+      };
+    };
     function muatStatus() {
       $('daftarStatus').innerHTML = '<div class="p-3 kecil">Memuat...</div>';
       TMC.api('terminateChatStatus').then(function (r) {
