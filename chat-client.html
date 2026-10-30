@@ -95,9 +95,9 @@
         <button id="bIngat" class="btn btn-outline-warning btn-sm">🔔 Ingatkan lagi</button>
         <button id="bLanjutL" class="btn btn-outline-success btn-sm">📋 Lanjut - sudah dilapor</button>
         <button id="bBerhentiL" class="btn btn-outline-info btn-sm">📋 Berhenti - sudah dilapor</button>
-        <button id="bKirimL" class="btn btn-success btn-sm">📤 Kirim laporan (link WA / API)</button>
         <button id="bSalah" class="btn btn-outline-danger btn-sm">📵 Salah nomor</button>
       </div>
+      <div id="barKirimL" class="card-custom p-2 mb-2" style="display:none"><button id="bKirimL" class="btn btn-success btn-sm">📤 Kirim laporan client terpilih (link WA / API)</button></div>
       <div id="hAksi" class="mb-2"></div>
       <div id="hDiag" class="mb-2"></div>
       <div class="card-custom mb-4" id="daftarStatus"></div>
@@ -315,6 +315,7 @@
     $('tglS').onchange = $('tglS2').onchange = function () { gambarStatus(); };
     $('tglX').onclick = function () { $('tglS').value = ''; $('tglS2').value = ''; gambarStatus(); };
     function gambarStatus() {
+      $('barKirimL').style.display = ['lanjut_belum', 'lanjut_bukti', 'berhenti'].indexOf(grupAktif) >= 0 ? '' : 'none';
       var hit = {}; statusData.forEach(function (x) { var g = grupDari(x); hit[g] = (hit[g] || 0) + 1; });
       $('grupStatus').innerHTML = GRUP.map(function (g) {
         return '<button class="btn btn-sm ' + (g[0] === grupAktif ? 'btn-info' : 'btn-outline-light') + '" data-g="' + g[0] + '">' + g[1] + ' (' + (g[0] === 'semua' ? statusData.length : (hit[g[0]] || 0)) + ')</button>';
