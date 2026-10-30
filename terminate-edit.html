@@ -54,9 +54,20 @@
         var w = document.createElement('div');
         w.innerHTML = kartu(x, x.diedit ? '<div class="kecil">Diedit oleh: ' + TMC.esc(x.diedit) + '</div>' : '') +
           '<div class="row g-2 mb-3 mt-0"><div class="col-12 col-md-5"><input class="form-control form-control-dark" data-f="nama" placeholder="Nama" value="' + TMC.esc(x.nama) + '"></div>' +
-          '<div class="col-8 col-md-5"><input class="form-control form-control-dark" data-f="cid" inputmode="numeric" placeholder="CID" value="' + TMC.esc(x.cid) + '"></div>' +
-          '<div class="col-4 col-md-2"><button class="btn btn-success btn-sm w-100 fw-bold py-2">Simpan</button></div></div>';
-        var btn = w.querySelector('button'), inN = w.querySelector('[data-f=nama]'), inC = w.querySelector('[data-f=cid]');
+          '<div class="col-12 col-md-4"><input class="form-control form-control-dark" data-f="cid" inputmode="numeric" placeholder="CID" value="' + TMC.esc(x.cid) + '"></div>' +
+          '<div class="col-6 col-md-1"><button class="btn btn-outline-info btn-sm w-100 py-2" data-c="1">🔗 Cocokkan data</button></div>' +
+          '<div class="col-6 col-md-2"><button class="btn btn-success btn-sm w-100 fw-bold py-2" data-c="0">Simpan</button></div><div class="col-12 kecil" data-i="1"></div></div>';
+        var btn = w.querySelector('[data-c="0"]'), bCek = w.querySelector('[data-c="1"]'), inf = w.querySelector('[data-i]'), inN = w.querySelector('[data-f=nama]'), inC = w.querySelector('[data-f=cid]');
+        // cocokkan: cari di data lapangan (SN -> P-SN -> CID -> Nama), isi nama/CID yang kosong
+        bCek.onclick = function () {
+          inf.textContent = 'Mencari...';
+          TMC.api('terminateCek', { sn: x.sn, psn: x.psn, cid: inC.value.trim(), nama: inN.value.trim() }).then(function (r) {
+            if (!r || r.status !== 'success') { inf.textContent = (r && r.message) || 'Gagal.'; return; }
+            if (!r.found) { inf.textContent = r.message || 'Data tidak ditemukan.'; return; }
+            var h = r.data; if (h.nama) inN.value = h.nama; if (h.cid) inC.value = h.cid;
+            inf.textContent = 'Cocok (' + r.by + ') di sheet ' + r.sheet + ': ' + (h.nama || '-') + ' | ' + (h.cid || '-') + (r.kandidat && r.kandidat.length ? ' (ada ' + r.kandidat.length + ' data mirip, periksa dulu)' : '') + '. Klik Simpan untuk menyimpan.';
+          }).catch(function () { inf.textContent = 'Gagal terhubung ke server.'; });
+        };
         btn.onclick = function () {
           var nama = inN.value.trim(), cid = inC.value.replace(/\s+/g, '');
           if (!nama || !cid) { alert('Nama dan CID wajib diisi.'); return; }

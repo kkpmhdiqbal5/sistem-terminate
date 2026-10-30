@@ -69,7 +69,7 @@ function terminateRoute_(d) {
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
     const perlu = BUTUH[d.action];
-    const punya = perlu ? au.izin[perlu] : TM_IZIN.some(k => au.izin[k]);
+    const punya = d.action === 'terminateCek' ? (au.izin.TINPUT || au.izin.TEDIT) : (perlu ? au.izin[perlu] : TM_IZIN.some(k => au.izin[k]));
     if (!punya) return tmJson_({ status: 'error', code: 'IZIN', message: 'Akun Anda tidak punya izin untuk halaman/fitur ini.' });
     switch (d.action) {
       case 'terminateOptions': return tmJson_(tmOptions_(au));
