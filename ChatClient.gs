@@ -618,6 +618,7 @@ function ccRule_(t, ctx) {                                 // cadangan bila AI t
     return CC_PASANG.test(t) ? { intent: 'PASANG_BARU', reply: CC_PASANG_BALAS } : { intent: 'ABAIKAN', reply: '' };
   }
   if (CC_STOP.test(t)) return { intent: 'STOP_CHAT', reply: 'Baik, kami tidak akan menghubungi Bapak/Ibu lagi lewat chat ini. Terima kasih.' };
+  if (/^\W*(tidak|tdk|ga|gak|nggak|enggak|no)\W*$/.test(t)) return { intent: 'BERHENTI', reply: '' };   // balasan polos "TIDAK" (sesuai teks bot: balas LANJUT atau TIDAK)
   if (/(tidak|tdk|ga|gak|nggak|belum)\s*(lagi|mau|ingin|usah|lanjut|berlangganan|pakai|pake)|\b(berhenti|cabut|putus|ambil\s+(?:alat|perangkat|modem|ont))\b|\bterminate\b/.test(t)) return { intent: 'BERHENTI', reply: '' };
   if (/\b(lanjut|lanjutkan|masih|tetap|iya|ya|oke|ok)\b/.test(t)) return { intent: 'LANJUT', reply: '' };
   return { intent: 'ADMIN', reply: 'Terima kasih atas pesannya. Mohon balas *LANJUT* jika masih berlangganan atau *TIDAK* jika ingin berhenti. Admin kami akan menghubungi bila diperlukan.' };
