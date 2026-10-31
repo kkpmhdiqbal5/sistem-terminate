@@ -824,6 +824,7 @@ function chatRoute_(d, au) {
     case 'terminateVerifInfo': return ccVerifInfo_(d);
     case 'terminateVerifBerhenti': return ccVerifBerhenti_(d, au);
     case 'terminateVerifAmbil': return ccVerifAmbil_(d, au);
+    case 'terminateChatBukti': return ccBuktiManual_(d, au);
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
     case 'terminateKirimTeks': return ccKirimTeks_(d, au);
     case 'terminateApiBaca': return ccApiBaca_();

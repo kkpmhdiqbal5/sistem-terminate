@@ -331,3 +331,26 @@ function ccLaporLanjut_(row, cid, linkBukti) {
     return gmRingkas_(h);
   } catch (e) { Logger.log('lapor lanjut: ' + e.message); return 'gagal: ' + e.message; }
 }
+
+/* ---------- admin mengisi manual foto rumah + lokasi (Sherlock) dari client yang tidak tertangkap sistem ---------- */
+function ccBuktiManual_(d, au) {
+  const phone = String(d.phone || '').trim(), cid = tmCidDigit_(d.cid);
+  if (!phone || !cid) return tmErr_('Client tidak dikenali (nomor / CID kosong).');
+  const row = ccBarisChat_(phone, cid); if (!row) return tmErr_('Client tidak ditemukan di daftar chat.');
+  const lokIn = String(d.lokasi || '').trim(), foto = String(d.foto || '');
+  if (!lokIn && !foto) return tmErr_('Isi foto rumah atau lokasi dulu.');
+  const lok = lokIn ? ccLokasi_({ lokasi: lokIn, pesan: lokIn }) : '';
+  if (lokIn && !lok) return tmErr_('Lokasi tidak terbaca. Tempel tautan Google Maps atau koordinat (mis. -3.6012,99.0456).');
+  const ubah = {};
+  if (foto) {
+    let link = ''; try { link = tmSimpanFoto_(foto, 'RUMAH_' + cid); } catch (e) { return tmErr_(e.message); }
+    ubah.FOTORUMAH = link; ccTulisFotoRumah_(cid, link);
+  }
+  if (lok) { ubah.SHERLOCK = lok; ccTulisKolom_(cid, 'SHERLOCK', lok); }
+  if (['SIAP_DIAMBIL', 'BERHENTI_DILAPOR'].indexOf(String(row.STATUS)) < 0) ubah.STATUS = 'MINTA_FOTO';   // jadi client berhenti agar bisa masuk Baris 1
+  ubah.WAKTUBALAS = new Date();
+  tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && tmCidDigit_(r.CID) === cid, ubah);
+  tmLogChat_(phone, cid, 'IN', '[admin ' + au.user + ' mengisi manual:' + (foto ? ' foto rumah' : '') + (lok ? ' lokasi' : '') + ']');
+  const siap = ccCekSiapB1_(cid);
+  return { status: 'success', siap: siap, message: siap ? 'Tersimpan. Foto & lokasi lengkap, client masuk Baris 1 (siap diambil).' : 'Tersimpan. ' + ((ubah.FOTORUMAH || row.FOTORUMAH) ? '' : 'Foto rumah ') + ((ubah.SHERLOCK || row.SHERLOCK) ? '' : 'Lokasi ') + 'masih kurang, belum masuk Baris 1.' };
+}

@@ -295,6 +295,39 @@
         }).catch(function () { mk('Gagal terhubung ke server.', 'danger'); b.disabled = false; b.textContent = 'Kirim (API)'; });
       };
     };
+
+    // admin mengisi manual foto rumah + lokasi (Sherlock) yang diberikan client tetapi tidak tertangkap sistem
+    function kecilkan(file) {
+      return new Promise(function (ok, gagal) {
+        var fr = new FileReader(); fr.onerror = function () { gagal(); };
+        fr.onload = function () { var im = new Image(); im.onerror = function () { gagal(); }; im.onload = function () {
+          var r = Math.min(1, 1000 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * r); c.height = Math.round(im.height * r);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.75)); }; im.src = fr.result; };
+        fr.readAsDataURL(file);
+      });
+    }
+    function dialogBukti(cid, phone) {
+      var x = statusData.filter(function (y) { return y.cid === cid && y.phone === phone; })[0] || {};
+      var ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
+      ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto"><div class="fw-bold text-white mb-1">📎 Foto rumah &amp; lokasi</div><div class="kecil mb-2">' + esc(x.nama || '') + ' | CID ' + esc(cid) + '<br>' + (x.foto ? '📷 foto sudah ada' : '📷 foto belum ada') + ' | ' + (x.sherlock ? '📍 lokasi sudah ada' : '📍 lokasi belum ada') + '</div>' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Foto rumah (dari client)</label><input type="file" id="bFoto" accept="image/*" class="form-control form-control-dark mb-2">' +
+        '<label class="form-label small text-secondary fw-bold mb-1">Lokasi / Sherlock</label><input id="bLok" class="form-control form-control-dark mb-1" placeholder="Tempel tautan Google Maps atau koordinat -3.60,99.04">' +
+        '<div class="kecil mb-2">Boleh isi salah satu dulu. Bila foto dan lokasi sudah lengkap, client otomatis masuk Baris 1 (siap diambil).</div><div id="bMsg"></div>' +
+        '<div class="d-flex gap-2"><button class="btn btn-outline-light flex-fill" id="bTutup">Batal</button><button class="btn btn-success fw-bold flex-fill" id="bSimpan">Simpan</button></div></div>';
+      document.body.appendChild(ov);
+      var q = function (i) { return ov.querySelector('#' + i); }, mm = function (t, j) { q('bMsg').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 small">' + esc(t) + '</div>' : ''; };
+      q('bTutup').onclick = function () { ov.remove(); };
+      q('bSimpan').onclick = function () {
+        var f = q('bFoto').files[0], lok = q('bLok').value.trim(); if (!f && !lok) return mm('Pilih foto atau isi lokasi dulu.', 'warning');
+        var b = this; b.disabled = true; b.textContent = 'Menyimpan...';
+        (f ? kecilkan(f) : Promise.resolve('')).then(function (dataUrl) {
+          return TMC.api('terminateChatBukti', { phone: phone, cid: cid, foto: dataUrl, lokasi: lok });
+        }).then(function (r) {
+          if (r.status === 'success') { ov.remove(); pesan('hAksi', r.message, 'success'); muatStatus(); } else { mm(r.message, 'danger'); b.disabled = false; b.textContent = 'Simpan'; }
+        }).catch(function () { mm('Gagal membaca foto atau terhubung ke server.', 'danger'); b.disabled = false; b.textContent = 'Simpan'; });
+      };
+    }
+    $('daftarStatus').addEventListener('click', function (e) { var c = e.target.getAttribute && e.target.getAttribute('data-b'); if (c != null) dialogBukti(c, e.target.getAttribute('data-p')); });
     function muatStatus() {
       $('daftarStatus').innerHTML = '<div class="p-3 kecil">Memuat...</div>';
       TMC.api('terminateChatStatus').then(function (r) {
@@ -302,7 +335,7 @@
         statusData = r.data; gambarStatus();
       });
     }
-    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_bukti', 'Berhenti - sudah ada bukti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';
     function grupDari(x) {
       if (!x.cid) return x.status === 'CHAT_LAIN' ? 'lain' : 'calon';
       if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
@@ -311,7 +344,7 @@
       if (x.status === 'SALAH_NOMOR') return 'salah';
       if (x.status === 'BUKTI_DITERIMA' && !x.lapor) return 'lanjut_bukti';
       if (x.status === 'LANJUT' || x.status === 'MINTA_BUKTI' || x.status === 'BUKTI_DITERIMA') return x.lapor ? 'lanjut_sudah' : 'lanjut_belum';
-      if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(x.status) >= 0) return 'berhenti';
+      if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(x.status) >= 0) return x.foto && x.sherlock ? 'berhenti_bukti' : 'berhenti';
       if (x.status === 'PERLU_ADMIN') return 'admin';
       if (x.status === 'STOP') return 'stop';
       return 'menunggu';
@@ -337,11 +370,11 @@
       if (!rows.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Tidak ada data di kelompok ini.</div>'; return; }
       $('daftarStatus').innerHTML = rows.map(function (x) {
         var calon = !x.cid, g = grupDari(x), ex = '';
-        if (g === 'berhenti') ex = '<div class="kecil mt-1">' + (x.foto ? '📷 foto ✔' : '📷 foto ✖') + ' | ' + (x.sherlock ? '📍 lokasi ✔' : '📍 lokasi ✖') + (x.baris1 ? ' | <span class="text-success">Masuk Baris 1 (' + esc(x.baris1) + ')</span>' : '') + (x.diambil ? ' | <span class="text-info">Sudah diambil tim terminate</span>' : '') + '</div>';
+        if (g === 'berhenti' || g === 'berhenti_bukti') ex = '<div class="kecil mt-1">' + (x.foto ? '📷 foto ✔' : '📷 foto ✖') + ' | ' + (x.sherlock ? '📍 lokasi ✔' : '📍 lokasi ✖') + (x.baris1 ? ' | <span class="text-success">Masuk Baris 1 (' + esc(x.baris1) + ')</span>' : '') + (x.diambil ? ' | <span class="text-info">Sudah diambil tim terminate</span>' : '') + '</div>';
         if (g.indexOf('lanjut') === 0) ex = '<div class="kecil mt-1">' + (x.lapor ? '<span class="text-success">Sudah dilaporkan tim terminate (masuk sheet lanjut berlangganan)</span>' : '<span class="text-warning">Belum dilaporkan tim terminate</span>') + '</div>';
         return '<div class="baris">' + (calon ? '' : '<input type="checkbox" data-s="' + esc(x.cid + '|' + x.phone) + '"' + (pilihS[x.cid + '|' + x.phone] ? ' checked' : '') + '>') + '<div class="flex-grow-1"><div class="nama">' + esc(x.nama || (calon ? 'Calon pelanggan' : '-')) + ' <span class="kecil">' + (calon ? '📱 ' + esc(x.phone) : 'CID ' + esc(x.cid)) + '</span> ' + badge(x.status) + '</div>' +
           '<div class="kecil">' + (calon ? 'masuk: ' : esc(x.odp) + ' | ' + esc(x.pop) + ' | kirim: ' + esc(x.kirim || '-') + ' | balas: ') + esc(x.balas || '-') + '</div>' + ex +
-          '<div class="kecil">' + esc(x.terakhir) + '</div><button class="btn btn-outline-light btn-sm py-0 mt-1" data-r="' + esc(x.cid) + '" data-p="' + esc(x.phone) + '">Lihat percakapan</button>' +
+          '<div class="kecil">' + esc(x.terakhir) + '</div><button class="btn btn-outline-light btn-sm py-0 mt-1" data-r="' + esc(x.cid) + '" data-p="' + esc(x.phone) + '">Lihat percakapan</button>' + (!calon && ['LANJUT_DILAPOR', 'BERHENTI_DILAPOR', 'SALAH_NOMOR', 'STOP'].indexOf(x.status) < 0 ? ' <button class="btn btn-outline-warning btn-sm py-0 mt-1" data-b="' + esc(x.cid) + '" data-p="' + esc(x.phone) + '">📎 Input foto &amp; lokasi</button>' : '') +
           (calon && x.status === 'INGIN_PASANG' ? ' <button class="btn btn-outline-info btn-sm py-0 mt-1" data-tandai="DIHUBUNGI" data-p="' + esc(x.phone) + '">Sudah dihubungi</button>' : '') +
           (calon && x.status !== 'SELESAI' ? ' <button class="btn btn-outline-success btn-sm py-0 mt-1" data-tandai="SELESAI" data-p="' + esc(x.phone) + '">Selesai</button>' : '') + '</div>' +
           (x.ingat ? '<div class="kecil">🔔 sudah diingatkan ' + x.ingat + 'x</div>' : '') + (x.bukti ? '<div class="kecil"><a href="' + esc(x.bukti) + '" target="_blank">🧾 foto bukti</a></div>' : '') + (x.sherlock ? '<div class="kecil"><a href="' + esc(x.sherlock) + '" target="_blank">📍 lokasi</a></div>' : '') +
