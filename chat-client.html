@@ -120,7 +120,7 @@
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
     var $ = function (id) { return document.getElementById(id); };
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
-    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], LANJUT_DILAPOR: ['Lanjut - sudah dilapor', 'success'], BERHENTI_DILAPOR: ['Berhenti - sudah dilapor', 'info'], SALAH_NOMOR: ['Salah nomor', 'danger'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary']};
+    var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], LANJUT_DILAPOR: ['Lanjut - sudah dilapor', 'success'], BERHENTI_DILAPOR: ['Berhenti - sudah dilapor', 'info'], SALAH_NOMOR: ['Salah nomor', 'danger'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary'], CHAT_LAIN: ['Chat lain', 'secondary']};
     function badge(st) { var l = LABEL[st] || [st || '-', 'secondary']; return '<span class="badge bg-' + l[1] + (l[1] === 'warning' || l[1] === 'info' ? ' text-dark' : '') + '">' + esc(l[0]) + '</span>'; }
     function pesan(el, t, j) { $(el).innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small" style="white-space:pre-line">' + esc(t) + '</div>' : ''; }
 
@@ -288,9 +288,9 @@
         statusData = r.data; gambarStatus();
       });
     }
-    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';
     function grupDari(x) {
-      if (!x.cid) return 'calon';
+      if (!x.cid) return x.status === 'CHAT_LAIN' ? 'lain' : 'calon';
       if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
       if (x.status === 'LANJUT_DILAPOR') return 'lanjut_sudah';
       if (x.status === 'BERHENTI_DILAPOR') return 'berhenti_lapor';

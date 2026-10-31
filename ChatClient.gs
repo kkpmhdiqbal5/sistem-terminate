@@ -655,6 +655,10 @@ function ccTerima_(m) {
   if (!m.phone) return;
   const row = ccBarisChat_(m.phone, '');
   if (!row) return ccTerimaBaru_(m);                           // nomor baru: hanya ditanggapi bila ingin pasang WiFi
+  if (String(row.STATUS) === 'CHAT_LAIN' && !tmCidDigit_(row.CID)) {     // nomor lain: catat saja
+    tmLogChat_(m.phone, '', 'IN', m.pesan || (m.media ? '[media]' : '[pesan]'));
+    return tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === m.phone && !tmCidDigit_(r.CID), { WAKTUBALAS: new Date(), PESANTERAKHIR: String(m.pesan || '[media]').slice(0, 120) });
+  }
   if (['INGIN_PASANG', 'DIHUBUNGI', 'SELESAI'].indexOf(String(row.STATUS)) >= 0 && !tmCidDigit_(row.CID)) return ccLanjutPasang_(m, row);
   const cid = tmCidDigit_(row.CID), status = String(row.STATUS || '');
   const lagi = new Date();
@@ -723,7 +727,11 @@ function ccTerimaBaru_(m) {
   const teks = String(m.pesan || '').trim();
   if (!teks) return;
   const hasil = ccAI_([], teks, 'baru') || ccRule_(teks, 'baru');
-  if (!hasil || hasil.intent !== 'PASANG_BARU') return;
+  if (!hasil || hasil.intent !== 'PASANG_BARU') {            // nomor lain: cukup dicatat agar bisa dibaca & dibalas admin (tanpa balasan otomatis)
+    const sh0 = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT); tmEnsureCols_(sh0, CC_KEYS_CHAT);
+    tmAppendObj_(sh0, { PHONE: m.phone, CID: '', NAMA: m.nama || '', STATUS: 'CHAT_LAIN', WAKTUBALAS: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
+    tmLogChat_(m.phone, '', 'IN', teks); return;
+  }
   const sh = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT); tmEnsureCols_(sh, CC_KEYS_CHAT);
   tmAppendObj_(sh, { PHONE: m.phone, CID: '', NAMA: m.nama || '', STATUS: 'INGIN_PASANG', WAKTUBALAS: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
   tmLogChat_(m.phone, '', 'IN', teks);
