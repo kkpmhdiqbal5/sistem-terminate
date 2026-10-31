@@ -90,6 +90,7 @@
       <div class="card-custom p-2 mb-2 d-flex gap-2 flex-wrap align-items-center">
         <label class="small mb-0"><input type="checkbox" id="cekSemuaS"> Pilih semua</label>
         <span id="dipilihS" class="badge bg-success">0 dipilih</span>
+        <span class="d-inline-flex gap-1 align-items-center"><input id="nOto" type="number" min="1" inputmode="numeric" class="form-control form-control-dark form-control-sm" style="width:80px" placeholder="jumlah"><button id="bOto" class="btn btn-outline-light btn-sm">Pilih otomatis</button></span>
         <button id="bLanjut" class="btn btn-outline-success btn-sm">✔ Ubah ke LANJUT (minta foto bukti)</button>
         <button id="bBerhenti" class="btn btn-outline-danger btn-sm">✖ Ubah ke BERHENTI (minta foto rumah &amp; lokasi)</button>
         <button id="bIngat" class="btn btn-outline-warning btn-sm">🔔 Ingatkan lagi</button>
@@ -217,11 +218,12 @@
 
     // ----- status balasan
     var statusData = [], pilihS = {};
+    function barisTampil() { return statusData.filter(function (x) { return (grupAktif === 'semua' || grupDari(x) === grupAktif) && cocokTgl(x) && cocokCari(x); }); }
     function hitungS() { $('dipilihS').textContent = Object.keys(pilihS).length + ' dipilih'; }
     function terpilihS() { return Object.keys(pilihS).map(function (k) { var p = k.split('|'); return { cid: p[0], phone: p[1] }; }); }
     $('daftarStatus').addEventListener('change', function (e) { var k = e.target.getAttribute('data-s'); if (!k) return; if (e.target.checked) pilihS[k] = 1; else delete pilihS[k]; hitungS(); });
     $('cekSemuaS').onchange = function () {
-      var v = this.checked; statusData.filter(function (x) { return x.cid && (grupAktif === 'semua' || grupDari(x) === grupAktif); }).forEach(function (x) { if (v) pilihS[x.cid + '|' + x.phone] = 1; else delete pilihS[x.cid + '|' + x.phone]; });
+      var v = this.checked; barisTampil().filter(function (x) { return x.cid; }).forEach(function (x) { if (v) pilihS[x.cid + '|' + x.phone] = 1; else delete pilihS[x.cid + '|' + x.phone]; });
       gambarStatus(); hitungS();
     };
     function aksi(act, data, tanya) {
@@ -233,6 +235,12 @@
         if (r.status === 'success') { pilihS = {}; hitungS(); muatStatus(); }
       }).catch(function () { pesan('hAksi', 'Koneksi terputus. Muat ulang untuk melihat hasilnya.', 'danger'); });
     }
+    // pilih otomatis N client teratas dari daftar yang sedang tampil (grup + pencarian + tanggal)
+    $('bOto').onclick = function () {
+      var n = parseInt($('nOto').value, 10); if (!(n > 0)) { alert('Isi jumlah yang mau dipilih.'); return; }
+      pilihS = {}; barisTampil().filter(function (x) { return x.cid; }).slice(0, n).forEach(function (x) { pilihS[x.cid + '|' + x.phone] = 1; });
+      gambarStatus(); hitungS();
+    };
     $('bLanjut').onclick = function () { aksi('terminateChatUbah', { status: 'LANJUT' }, 'Ubah {n} client menjadi LANJUT berlangganan dan minta foto bukti lewat WhatsApp?'); };
     $('bBerhenti').onclick = function () { aksi('terminateChatUbah', { status: 'BERHENTI' }, 'Ubah {n} client menjadi BERHENTI dan minta foto rumah + lokasi (Sherlock) lewat WhatsApp?'); };
     $('bLanjutL').onclick = function () { aksi('terminateChatUbah', { status: 'LANJUT_DILAPOR' }, 'Tandai {n} client: LANJUT, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
@@ -319,7 +327,7 @@
       $('grupStatus').innerHTML = GRUP.map(function (g) {
         return '<button class="btn btn-sm ' + (g[0] === grupAktif ? 'btn-info' : 'btn-outline-light') + '" data-g="' + g[0] + '">' + g[1] + ' (' + (g[0] === 'semua' ? statusData.length : (hit[g[0]] || 0)) + ')</button>';
       }).join('');
-      var rows = statusData.filter(function (x) { return (grupAktif === 'semua' || grupDari(x) === grupAktif) && cocokTgl(x) && cocokCari(x); });
+      var rows = barisTampil();
       if (!rows.length) { $('daftarStatus').innerHTML = '<div class="p-3 kecil">Tidak ada data di kelompok ini.</div>'; return; }
       $('daftarStatus').innerHTML = rows.map(function (x) {
         var calon = !x.cid, g = grupDari(x), ex = '';
