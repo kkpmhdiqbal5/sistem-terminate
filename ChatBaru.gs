@@ -117,7 +117,6 @@ function ccUbahStatus_(d, au) {
     tmLogChat_(it.phone, it.cid, 'OUT', '[admin ' + au.user + ' mengubah status: ' + st + ']');
     diubah++;
     if (!kirim || baru === 'SIAP_DIAMBIL') return;
-    if (ccSisaHari_() < 1) { catatan.push(it.cid + ': kuota harian habis, pesan tidak dikirim'); return; }
     if (Date.now() - mulai > CC.MAKS_DETIK * 1000) { catatan.push(it.cid + ': waktu habis, pesan tidak dikirim'); return; }
     const nama = row.NAMA || 'Pelanggan';
     const teks = st === 'LANJUT'
@@ -126,7 +125,7 @@ function ccUbahStatus_(d, au) {
     const r = waKirim_(it.phone, teks, 'CHAT_CLIENT');
     if (!r.ok) { catatan.push(it.cid + ': gagal kirim (' + r.msg + ')'); return; }
     tmUpdateRows_(CC.SH.CHAT, sama, { WAKTUKIRIM: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
-    tmLogChat_(it.phone, it.cid, 'OUT', teks); ccPakaiKuota_(1); terkirim++; CB_PAUSE();
+    tmLogChat_(it.phone, it.cid, 'OUT', teks); terkirim++; CB_PAUSE();
   });
   return { status: 'success', diubah: diubah, terkirim: terkirim, message: diubah + ' client diubah ke ' + st + (kirim ? ', ' + terkirim + ' pesan permintaan terkirim' : '') + '.' + (catatan.length ? ' Catatan: ' + catatan.slice(0, 6).join('; ') : '') };
 }
@@ -166,7 +165,6 @@ function ccIngatkan_(d, au) {
     if (n >= CB.MAX_INGAT) { skip('sudah ' + CB.MAX_INGAT + 'x diingatkan'); continue; }
     const t = [row.WAKTUINGAT, row.WAKTUKIRIM].filter(x => x instanceof Date).map(x => x.getTime()).sort((a, b) => b - a)[0] || 0;
     if (t && Date.now() - t < CB.JEDA_JAM * 3600 * 1000) { skip('belum ' + CB.JEDA_JAM + ' jam sejak pesan terakhir'); continue; }
-    if (ccSisaHari_() < 1) { skip('kuota harian habis'); break; }
     if (Date.now() - mulai > CC.MAKS_DETIK * 1000) { skip('waktu habis'); break; }
     const pernah = ccRiwayat_(it.phone, 40).filter(x => x.dari === 'kami').map(x => x.isi);
     const pilih = ccVarian_(st, row.NAMA, row);
@@ -176,7 +174,7 @@ function ccIngatkan_(d, au) {
     const r = waKirim_(it.phone, teks, 'CHAT_CLIENT');
     if (!r.ok) { skip('gagal kirim (' + r.msg + ')'); if (/token|disconnect|device/i.test(r.msg)) break; continue; }
     tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === it.phone && tmCidDigit_(x.CID) === it.cid, { JMLINGAT: n + 1, WAKTUINGAT: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
-    tmLogChat_(it.phone, it.cid, 'OUT', teks); ccPakaiKuota_(1); terkirim++;
+    tmLogChat_(it.phone, it.cid, 'OUT', teks); terkirim++;
     if (i < items.length - 1) CB_PAUSE();
   }
   return { status: 'success', terkirim: terkirim, dilewati: lewat, message: 'Pengingat terkirim ' + terkirim + ' dari ' + items.length + '.' + (lewat.length ? ' Dilewati: ' + lewat.slice(0, 8).join('; ') : '') };

@@ -252,7 +252,7 @@
     $('bLanjutL').onclick = function () { aksi('terminateChatUbah', { status: 'LANJUT_DILAPOR' }, 'Tandai {n} client: LANJUT, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
     $('bBerhentiL').onclick = function () { aksi('terminateChatUbah', { status: 'BERHENTI_DILAPOR' }, 'Tandai {n} client: BERHENTI, sudah dilaporkan? (tidak ada pesan yang dikirim)'); };
     $('bSalah').onclick = function () { aksi('terminateChatUbah', { status: 'SALAH_NOMOR' }, 'Tandai {n} client sebagai SALAH NOMOR? Nomor ini tidak akan dichat lagi.'); };
-    $('bIngat').onclick = function () { aksi('terminateChatIngatkan', {}, 'Kirim pengingat sopan ke {n} client? (maks 3x per client, jeda minimal 4 jam, hitung dalam batas 30 pesan per hari)'); };
+    $('bIngat').onclick = function () { aksi('terminateChatIngatkan', {}, 'Kirim pengingat sopan ke {n} client? (maks 3x per client, jeda minimal 4 jam)'); };
 
     // Kirim laporan client terpilih (biasanya grup "belum dilapor"): link WhatsApp atau API Fonnte
     function dataLaporS() {
