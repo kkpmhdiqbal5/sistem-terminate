@@ -273,10 +273,9 @@ function ccBalas_(d, au) {
   if (teks.length > 900) return tmErr_('Pesan terlalu panjang (maks 900 huruf).');
   const cid = tmCidDigit_(d.cid), row = ccBarisChat_(phone, cid);
   if (!row) return tmErr_('Nomor ini belum ada di daftar chat client.');
-  if (ccSisaHari_() < 1) return tmErr_('Kuota ' + CC.MAX_HARI + ' pesan per hari sudah habis (agar nomor WA aman). Lanjutkan besok.');
+  // membalas client yang sudah menulis tidak dihitung dalam batas harian (batas hanya untuk chat yang kita mulai)
   const r = waKirim_(phone, teks, 'CHAT_CLIENT');
   if (!r.ok) return tmErr_('Gagal kirim: ' + r.msg);
-  ccPakaiKuota_(1);
   tmLogChat_(phone, cid, 'OUT', teks);
   tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, { PESANTERAKHIR: teks.slice(0, 120), WAKTUKIRIM: new Date() });
   return { status: 'success', message: 'Terkirim.', sisaHari: ccSisaHari_() };
