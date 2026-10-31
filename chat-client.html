@@ -39,6 +39,7 @@
         </div>
         <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
           <button id="btnSemua" class="btn btn-outline-light btn-sm">Pilih semua hasil</button>
+          <input id="nOto1" type="number" min="1" inputmode="numeric" class="form-control form-control-dark form-control-sm" style="width:80px" placeholder="jumlah"><button id="btnOto1" class="btn btn-outline-light btn-sm">Pilih otomatis</button>
           <button id="btnTak" class="btn btn-outline-light btn-sm">Kosongkan</button>
           <span id="dipilih" class="badge bg-success ms-auto">0 dipilih</span>
         </div>
@@ -189,6 +190,11 @@
     ['cari', 'fPop', 'fSumber', 'fChat'].forEach(function (id) { $(id).addEventListener('input', function () { tampilN = 200; gambar(); }); });
     $('btnSemua').onclick = function () { saring().forEach(function (x) { pilih[x.cid] = 1; }); gambar(); };
     $('btnTak').onclick = function () { pilih = {}; gambar(); };
+    // pilih N teratas dari hasil pencarian/filter yang sedang tampil (nomor HP tidak valid dilewati)
+    $('btnOto1').onclick = function () {
+      var n = parseInt($('nOto1').value, 10); if (!(n > 0)) { alert('Isi jumlah yang mau dipilih.'); return; }
+      pilih = {}; saring().filter(function (x) { return x.hp; }).slice(0, n).forEach(function (x) { pilih[x.cid] = 1; }); gambar();
+    };
 
     // ----- kirim ke teknisi
     $('btnTeknisi').onclick = function () {
