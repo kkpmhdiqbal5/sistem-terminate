@@ -92,8 +92,11 @@
         baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
         return (aiAktif && $('pakaiAi').checked ? bacaAi(txt, r, dari, sampai) : Promise.resolve()).then(function () { return r; });
       }).then(function (r) {
-        baris.forEach(function (x) { x.pilih = true; });
+        var n0 = baris.length; baris = gabungDobel(baris);
+        baris.forEach(function (x) { x.pilih = !((x.sheet === 'Instalasi' || x.sheet === 'MT') && !x.sn && !x.psn); });   // Instalasi/MT tanpa SN & P-SN tidak dicentang otomatis
         pesan('', '');
+        var kosongSn = baris.filter(function (x) { return !x.pilih; }).length;
+        if (n0 !== baris.length || kosongSn) setTimeout(function () { pesan((n0 !== baris.length ? (n0 - baris.length) + ' data dobel digabung (dipakai yang paling akhir dikirim). ' : '') + (kosongSn ? kosongSn + ' data Instalasi/MT tanpa SN dan P-SN tidak dicentang otomatis; periksa dulu sebelum dikirim.' : ''), 'info'); }, 0);
         if (!baris.length) { pesan('Dari ' + r.jumlahPesan + ' pesan, tidak ada data yang cocok. Coba ubah pilihan "Grup ini berisi" atau "Jika tidak jelas".', 'warning'); $('pratinjau').classList.add('d-none'); return; }
         tampil(); isiSn();
       }).catch(function (e) { pesan('Gagal membaca file: ' + e.message, 'danger'); });
@@ -140,6 +143,20 @@
         TMC.api('terminateSnCid', { cids: cids.slice(i, i + 300) }).then(function (r) { if (r && r.status === 'success') Object.assign(peta, r.data || {}); i += 300; lanjut(); }).catch(function () {});
       })();
     }
+    // satu SN (Instalasi/MT) atau satu CID (Terminate dll.) dilaporkan berkali-kali -> sisakan yang terakhir dikirim, lengkapi yang kosong dari yang lama
+    function gabungDobel(arr) {
+      var urut = arr.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { var p = (a.x.tanggal + (a.x.jam || '')), q = (b.x.tanggal + (b.x.jam || '')); return p < q ? -1 : p > q ? 1 : a.i - b.i; }).map(function (o) { return o.x; });
+      var peta = {}, out = [];
+      urut.forEach(function (x) {
+        var im = x.sheet === 'Instalasi' || x.sheet === 'MT', cid = String(x.cid || '').replace(/\D/g, '');
+        var k = x.sheet + '|' + (im ? (x.sn ? 'S' + x.sn : 'C' + cid + '|' + String(x.nama || '').toLowerCase()) : (cid || x.sn || x.psn || x.nama));
+        var lama = peta[k];
+        if (lama) { ['nama', 'cid', 'odp', 'pop', 'sn', 'psn', 'ket'].forEach(function (f) { if (!x[f] && lama[f]) x[f] = lama[f]; }); x.kali = (lama.kali || 1) + 1; out[out.indexOf(lama)] = x; }
+        else { x.kali = 1; out.push(x); }
+        peta[k] = x;
+      });
+      return out;
+    }
     function hitung() {
       var a = 0, b = 0, t = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else if (x.sheet === 'Instalasi') a++; else t++; } });
       $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + ', Terminate/Kunjungan/Lanjut ' + t + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
@@ -153,7 +170,7 @@
           '<div class="flex-grow-1"><div class="kecil">' + (x.ai ? '<span class="badge bg-info text-dark">AI</span> ' : '') + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
-          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snDariData ? ' <span class="text-info">(dari data)</span>' : '') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
+          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snDariData ? ' <span class="text-info">(dari data)</span>' : '') + (x.kali > 1 ? ' <span class="text-warning">(dilaporkan ' + x.kali + 'x)</span>' : '') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
           (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
           '<select class="form-select form-select-sm form-select-dark" style="width:120px" data-s="' + i + '">' + [['Instalasi', 'Instalasi'], ['MT', 'MT'], ['TERMINATE', 'Diambil'], ['KUNJUNGAN', 'Tdk ada orang'], ['LANJUT', 'Lanjut']].map(function (o) { return '<option value="' + o[0] + '"' + (x.sheet === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
         d.appendChild(c);
