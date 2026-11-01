@@ -120,8 +120,8 @@ function ccUbahStatus_(d, au) {
     if (Date.now() - mulai > CC.MAKS_DETIK * 1000) { catatan.push(it.cid + ': waktu habis, pesan tidak dikirim'); return; }
     const nama = row.NAMA || 'Pelanggan';
     const teks = st === 'LANJUT'
-      ? 'Terima kasih Bapak/Ibu ' + nama + ', kami catat Bapak/Ibu masih lanjut berlangganan. Agar data kami lengkap, mohon kirimkan *foto bukti* (misalnya bukti pembayaran/tagihan yang terlihat nama dan CID Bapak/Ibu). Terima kasih 🙏'
-      : CC_MINTA_FOTO + ' Mohon juga *share lokasi (Sherlock)* rumah Bapak/Ibu lewat WhatsApp (ikon + lalu Lokasi).';
+      ? 'Terima kasih Bapak/Ibu ' + nama + ', sudah kami catat masih lanjut berlangganan 🙏 Biar datanya lengkap, boleh kirim *foto bukti* (misalnya bukti bayar atau tagihan yang terlihat nama dan CID-nya) ya.'
+      : 'Baik, terima kasih infonya. ' + CC_MINTA_FOTO + ' Kalau bisa sekalian *share lokasinya* lewat WhatsApp (ikon + lalu Lokasi) ya.';
     const r = waKirim_(it.phone, teks, 'CHAT_CLIENT');
     if (!r.ok) { catatan.push(it.cid + ': gagal kirim (' + r.msg + ')'); return; }
     tmUpdateRows_(CC.SH.CHAT, sama, { WAKTUKIRIM: new Date(), PESANTERAKHIR: teks.slice(0, 120) });

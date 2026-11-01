@@ -158,6 +158,8 @@
       var ctx = { tgl: p.tanggal || "", pop: "" };
       blok(p.teks, ctx).forEach(function (b) {
         var all = b._raw.join(" ");
+        // catatan seperti "(Dismental)" pada SN = perangkat dibongkar / diambil -> Terminate, bukan Instalasi
+        if ((!b.sec || b.sec === "INSTALASI") && /dismental|dismantle|dismantel|bongkar|cabut/i.test(b._cat || "")) { b.sec = "TERMINATE"; if (!b.ket) b.ket = b._cat; }
         // blok tanpa judul bagian, tapi ciri Terminate (P-SN / "perangkat sudah diambil", tanpa PORT/TARIKAN/OLT/SN lama) -> Terminate, bukan Instalasi
         if (!b.sec && !b.snlama && !/\b(port|tarikan|sc\s*upc|olt)\s*[:=]/i.test(all) && (b.psn || /sudah\s*(di\s*)?(ambil|cabut)|berhenti\s*berlangganan|dismantle|dismental|terminate/i.test(b.ket || ""))) b.sec = "TERMINATE";
         if (b.sec === "TERMINATE" || b.sec === "LANJUT" || b.sec === "KUNJUNGAN") {      // laporan Terminate harian

@@ -168,7 +168,7 @@
       var d = $('daftar'); d.innerHTML = '';
       baris.slice(0, 400).forEach(function (x, i) {
         var c = document.createElement('div'); c.className = 'card-custom p-2 mb-2 small';
-        c.innerHTML = '<div class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input mt-1" data-i="' + i + '" checked>' +
+        c.innerHTML = '<div class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input mt-1" data-i="' + i + '"' + (x.pilih ? ' checked' : '') + '>' +
           '<div class="flex-grow-1"><div class="kecil">' + (x.ai ? '<span class="badge bg-info text-dark">AI</span> ' : '') + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
