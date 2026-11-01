@@ -55,6 +55,17 @@ function gmParse_(teks) {
 }
 
 /* ---------- cari POP dari data yang sudah ada ---------- */
+// cari SN / P-SN untuk sebuah CID dari sheet yang sudah ada (Baris 1, Baris 2, Instalasi, MT, Full Data, target)
+function gmSnDariCid_(cid) {
+  const c = tmCidDigit_(cid), sheets = [TM.SH.B1, TM.SH.B2, TM.SH.INSTALASI, TM.SH.MT, TM.SH.FULL, TM.SH.TARGET];
+  if (!c) return { sn: '', psn: '' };
+  for (let i = 0; i < sheets.length; i++) {
+    let rows = []; try { rows = tmRead_(sheets[i]); } catch (e) { rows = []; }
+    const r = rows.filter(r => tmCidDigit_(r.CID) === c && (String(r.SN || '').trim() || String(r.PSN || '').trim())).pop();
+    if (r) return { sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() };
+  }
+  return { sn: '', psn: '' };
+}
 function gmPopCari_(x) {
   let p = tmPop_(x.odp) || tmPop_(x.pop || '');
   if (p) return { pop: p };
@@ -84,15 +95,17 @@ function gmProses_(items, fotoUrl, opt) {
   opt = opt || {};
   const h = { masuk: 0, dobel: 0, bukanPop: 0, tidakLengkap: 0, batas: 0 };
   const foto = opt.langsung ? (fotoUrl || '') : (fotoUrl ? gmFoto_(fotoUrl) : '');   // langsung = tautan foto sudah di Drive
+  const logRows = tmRead_(TM.SH.LOG);                       // dibaca sekali (cepat untuk impor ratusan data)
   items.forEach(x => {
     if (gmSisa_() < 1) { h.batas++; return; }
     const info = gmPopCari_(x);
     if (!info.pop) { h.bukanPop++; return; }
     if (!x.nama && info.nama) x.nama = info.nama;
     if (!x.cid && info.cid) x.cid = info.cid;
-    if (!x.cid || (x.jenis !== 'TERMINATE' && !x.nama) || (x.jenis === 'TERMINATE' && !x.sn && !x.psn)) { h.tidakLengkap++; return; }
+    if (x.jenis === 'TERMINATE' && x.cid && !x.sn && !x.psn) { const s = gmSnDariCid_(x.cid); x.sn = s.sn; x.psn = s.psn; }   // laporan tanpa SN: lengkapi dari data yang sudah ada
+    if (!x.cid || (x.jenis !== 'TERMINATE' && !x.nama)) { h.tidakLengkap++; return; }
     const tgl = x.tanggal || tmIso_(new Date());
-    const dobel = tmRead_(TM.SH.LOG).some(r => r.JENIS === x.jenis && (x.jenis === 'TERMINATE'
+    const dobel = logRows.some(r => r.JENIS === x.jenis && (x.jenis === 'TERMINATE'
       ? (tmNorm_(r.CID) === tmNorm_(x.cid) || (x.sn && tmNorm_(r.SN) === tmNorm_(x.sn)) || (x.psn && tmNorm_(r.PSN) === tmNorm_(x.psn)))
       : (tmNorm_(r.CID) === tmNorm_(x.cid) && tmIso_(r.WAKTU) === tgl)));
     if (dobel) { h.dobel++; return; }
@@ -118,7 +131,7 @@ function gmProses_(items, fotoUrl, opt) {
     const kerja = Object.assign({}, rec); delete kerja.JENIS;
     const tujuan = T ? [TM.SH.TERMINATE] : x.jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
     tujuan.forEach(nm => { try { tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ } tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja); });
-    tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
+    tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec); logRows.push(rec);
     h.masuk++; gmPakai_();
   });
   return h;

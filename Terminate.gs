@@ -748,12 +748,24 @@ function tmModelIW_(nama) {
   return { nama: nama, sh: sh, canon: canon, rows: rows, baru: [] };
 }
 function tmImporWA_(d, au) {
-  const rows = Array.isArray(d.rows) ? d.rows.slice(0, 200) : [];
+  let rows = Array.isArray(d.rows) ? d.rows.slice(0, 200) : [];
   if (!rows.length) return tmErr_('Tidak ada baris untuk diimpor.');
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
-    const hasil = { Instalasi: 0, MT: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0, lewat: [] };
+    const hasil = { Instalasi: 0, MT: 0, terminate: 0, kunjungan: 0, lanjut: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0, lewat: [] };
+    // laporan Terminate (diambil / tidak ada di rumah / lanjut) -> jalur grup WA (GrupMasuk.gs), SN dilengkapi dari data yang ada
+    const JT = { TERMINATE: 'terminate', KUNJUNGAN: 'kunjungan', LANJUT: 'lanjut' };
+    if (typeof gmProses_ === 'function') {
+      Object.keys(JT).forEach(j => {
+        const sub = rows.filter(x => String(x.sheet) === j).sort((a, b) => (String(a.tanggal || '') + String(a.jam || '')).localeCompare(String(b.tanggal || '') + String(b.jam || '')));
+        if (!sub.length) return;
+        const h = gmProses_(sub.map(x => ({ jenis: j, nama: String(x.nama || '').trim(), cid: String(x.cid || '').replace(/\s+/g, ''), odp: String(x.odp || ''), pop: String(x.pop || ''), sn: String(x.sn || ''), psn: String(x.psn || ''), ket: String(x.ket || ''), tanggal: /^\d{4}-\d{2}-\d{2}$/.test(String(x.tanggal || '')) ? x.tanggal : '' })), '',
+          { admin: au.user, verif: 'IMPOR WA (' + au.user + ')', sumber: 'IMPOR_WA' });
+        hasil[JT[j]] += h.masuk; hasil.dobel += h.dobel; hasil.ditolak += h.tidakLengkap; hasil.pop += h.bukanPop;
+      });
+    }
+    rows = rows.filter(x => !JT[String(x.sheet)]);
     const lewati = (x, why, k) => { hasil[k]++; if (hasil.lewat.length < 50) hasil.lewat.push({ nama: String(x.nama || '').trim() || '(tanpa nama)', cid: String(x.cid || '-'), sn: String(x.sn || ''), alasan: why }); };
     const M = {}; M.Instalasi = tmModelIW_(TM.SH.INSTALASI); M.MT = tmModelIW_(TM.SH.MT);
     const semua = () => [].concat(M.Instalasi.rows, M.Instalasi.baru, M.MT.rows, M.MT.baru).filter(r => !r.del);
