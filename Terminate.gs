@@ -771,6 +771,7 @@ function tmImporWA_(d, au) {
     const M = {}; M.Instalasi = tmModelIW_(TM.SH.INSTALASI); M.MT = tmModelIW_(TM.SH.MT);
     const semua = () => [].concat(M.Instalasi.rows, M.Instalasi.baru, M.MT.rows, M.MT.baru).filter(r => !r.del);
     const sn = r => tmNorm_(r.o.SN);
+    const lepas = [];   // perangkat Instalasi baru: catatan lama di "sudah diambil" dengan SN / P-SN sama dihapus (perangkat dipakai ulang)
     // urut dari yang paling lama agar yang terbaru menang
     const urut = rows.map((x, i) => ({ x: x, i: i })).sort((a, b) => (String(a.x.tanggal || '') + String(a.x.jam || '')).localeCompare(String(b.x.tanggal || '') + String(b.x.jam || '')) || a.i - b.i).map(z => z.x);
 
@@ -792,6 +793,19 @@ function tmImporWA_(d, au) {
           lengkapi(rec, r.o); r.del = true; hasil.dihapus++;
         });
       }
+      // 1b) Instalasi: CID sama tetapi SN berbeda = ganti perangkat -> perbarui SN & P-SN di baris yang sama (bukan baris baru)
+      if (nama === 'Instalasi' && rec.CID && (rec.SN || rec.PSN) && !(rec.SN && semua().some(r => sn(r) === tmNorm_(rec.SN)))) {
+        const lama = M.Instalasi.rows.concat(M.Instalasi.baru).filter(r => !r.del && tmNorm_(r.o.CID) === tmNorm_(rec.CID));
+        if (lama.length) {
+          const t0 = lama.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
+          if ((t0.tgl || '') > tglIso) { lewati(x, 'CID sama, di sheet sudah ada data yang lebih baru', 'dobel'); return; }
+          lengkapi(rec, t0.o);
+          ['SN', 'PSN', 'TANGGAL'].forEach(k => { if (String(t0.o[k] == null ? '' : t0.o[k]) !== String(rec[k] || '')) { t0.o[k] = rec[k] || ''; t0.upd[k] = rec[k] || ''; } });
+          t0.tgl = tglIso; hasil.diperbarui++; lepas.push({ rec: rec, tgl: tglIso });
+          lama.forEach(r => { if (r !== t0) { r.del = true; hasil.dihapus++; } });
+          return;
+        }
+      }
       // 2) SN sama -> yang terbaru menang
       if (rec.SN) {
         const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN));
@@ -808,7 +822,7 @@ function tmImporWA_(d, au) {
           cocok.forEach(r => { if (r !== sama) { r.del = true; hasil.dihapus++; } });
           if (sama) {
             TM_KEYS_IW.forEach(k => { if (rec[k] !== undefined && String(rec[k]).trim() !== '' && String(sama.o[k] == null ? '' : sama.o[k]) !== String(rec[k])) { sama.o[k] = rec[k]; sama.upd[k] = rec[k]; } });
-            sama.tgl = tglIso; hasil.diperbarui++; return;
+            sama.tgl = tglIso; hasil.diperbarui++; if (nama === 'Instalasi') lepas.push({ rec: rec, tgl: tglIso }); return;
           }
         }
       } else {
@@ -819,7 +833,7 @@ function tmImporWA_(d, au) {
       // 3) lengkapi nama/ODP/POP dari baris lain dengan CID yang sama
       if (rec.CID) semua().filter(r => tmNorm_(r.o.CID) === tmNorm_(rec.CID)).forEach(r => lengkapi(rec, r.o));
       tujuan.baru.push({ row: 0, o: rec, tgl: tglIso, upd: {}, del: false });
-      hasil[nama]++;
+      hasil[nama]++; if (nama === 'Instalasi') lepas.push({ rec: rec, tgl: tglIso });
     });
 
     // tulis: perbarui di tempat -> tambah baris -> hapus (dari bawah)
@@ -829,6 +843,7 @@ function tmImporWA_(d, au) {
       m.baru.filter(r => !r.del).forEach(r => tmAppendObj_(m.sh, r.o));
       m.rows.filter(r => r.del).map(r => r.row).sort((a, b) => b - a).forEach(r => m.sh.deleteRow(r));
     });
+    hasil.perangkatDipakaiUlang = tmLepasDiambil_(lepas, au);
     return { status: 'success', hasil: hasil, message: 'Instalasi +' + hasil.Instalasi + ', MT +' + hasil.MT + ', diperbarui ' + hasil.diperbarui + ', dobel/lebih lama dilewati ' + hasil.dobel + ', baris lama dihapus ' + hasil.dihapus + ', ditolak ' + hasil.ditolak + ', POP salah ' + hasil.pop };
   } finally {
     lock.releaseLock();
@@ -1054,4 +1069,27 @@ function tmSnCid_(d) {
     rows.forEach(r => { const k = tmCidDigit_(r.CID); if (want[k] && (String(r.SN || '').trim() || String(r.PSN || '').trim())) peta[k] = { sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() }; });
   });
   return { status: 'success', data: peta };
+}
+
+// Perangkat (SN / P-SN) yang kini terpasang di Instalasi baru tidak boleh lagi tercatat sebagai "sudah diambil" dari client lama:
+// baris di "sudah diambil" dengan SN / P-SN yang sama dihapus (dicatat di LOG HAPUS BERSIH). Riwayat di LOG TERMINATE tidak diubah.
+function tmLepasDiambil_(recs, au) {
+  const sh = tmSheet_(TM.SH.DIAMBIL); if (!sh || sh.getLastRow() < 2 || !recs.length) return 0;
+  const v = sh.getDataRange().getValues(), canon = v[0].map(tmCanon_), iS = canon.indexOf('SN'), iP = canon.indexOf('PSN'), iC = canon.indexOf('CID');
+  if (iS < 0 && iP < 0) return 0;
+  const iT = canon.indexOf('TANGGAL'), sn = {}, psn = {};
+  recs.forEach(x => { const r = x.rec, k = tmNorm_(r.SN), p = tmNorm_(r.PSN); if (k && !(sn[k] && sn[k].tgl > x.tgl)) sn[k] = { cid: r.CID, tgl: x.tgl }; if (p && !(psn[p] && psn[p].tgl > x.tgl)) psn[p] = { cid: r.CID, tgl: x.tgl }; });
+  const lebihBaru = (h, tgl) => { const d = iT >= 0 ? tmTglParse_(h[iT]) : ''; return !d || d <= tgl; };   // yang dihapus hanya yang diambil SEBELUM / pada tanggal Instalasi itu
+  const hapus = [], log = [];
+  for (let r = v.length - 1; r >= 1; r--) {
+    const a = iS >= 0 ? tmNorm_(v[r][iS]) : '', b = iP >= 0 ? tmNorm_(v[r][iP]) : '';
+    const ma = a && sn[a], mb = b && psn[b];
+    if ((ma && lebihBaru(v[r], ma.tgl)) || (mb && lebihBaru(v[r], mb.tgl))) {
+      hapus.push(r + 1);
+      log.push([new Date(), au.user, 'IMPOR INSTALASI', TM.SH.DIAMBIL, iC >= 0 ? String(v[r][iC]) : '', 'perangkat dipakai ulang di Instalasi baru (CID ' + ((ma || mb).cid || '-') + ')', v[r].map(x => (x instanceof Date ? tmIso_(x) : String(x))).join(' | ').slice(0, 400)]);
+    }
+  }
+  hapus.forEach(r => sh.deleteRow(r));
+  try { tmBersihLog_(log); } catch (e) { Logger.log('log lepas: ' + e.message); }
+  return hapus.length;
 }
