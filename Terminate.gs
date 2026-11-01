@@ -761,7 +761,7 @@ function tmImporWA_(d, au) {
       Object.keys(JT).forEach(j => {
         const sub = rows.filter(x => String(x.sheet) === j).sort((a, b) => (String(a.tanggal || '') + String(a.jam || '')).localeCompare(String(b.tanggal || '') + String(b.jam || '')));
         if (!sub.length) return;
-        const h = gmProses_(sub.map(x => ({ jenis: j, nama: String(x.nama || '').trim(), cid: String(x.cid || '').replace(/\s+/g, ''), odp: String(x.odp || ''), pop: String(x.pop || ''), sn: String(x.sn || ''), psn: String(x.psn || ''), ket: String(x.ket || ''), tanggal: /^\d{4}-\d{2}-\d{2}$/.test(String(x.tanggal || '')) ? x.tanggal : '' })), '',
+        const h = gmProses_(sub.map(x => ({ jenis: j, nama: String(x.nama || '').trim(), cid: String(x.cid || '').replace(/\s+/g, ''), odp: String(x.odp || ''), pop: String(x.pop || ''), sn: String(x.sn || ''), psn: String(x.psn || ''), ket: String(x.ket || ''), cariSn: !!x.cariSn, tanggal: /^\d{4}-\d{2}-\d{2}$/.test(String(x.tanggal || '')) ? x.tanggal : '' })), '',
           { admin: au.user, verif: 'IMPOR WA (' + au.user + ')', sumber: 'IMPOR_WA' });
         hasil[JT[j]] += h.masuk; hasil.dobel += h.dobel; hasil.ditolak += h.tidakLengkap; hasil.pop += h.bukanPop;
       });

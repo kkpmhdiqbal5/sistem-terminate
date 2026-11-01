@@ -60,7 +60,7 @@
     psn: /^(?:p[\s\-]?sn|psn|port\s*sn|sn\s*port)\s*[:=]\s*(.*)$/i,
     snbaru: /^(?:sn|s\/n)\s*(?:ont\s*|unit\s*)?baru\s*[:=]\s*(.*)$/i,
     snlama: /^(?:sn|s\/n)\s*(?:ont\s*|unit\s*)?lama\s*[:=]\s*(.*)$/i,
-    sn: /^(?:sn(?:\s*(?:ont|unit))?|s\/n|serial(?:\s*number)?)\s*[:=]\s*(.*)$/i,
+    sn: /^(?:sn|s\/n|s\.n|serial(?:\s*(?:number|no\.?))?)(?:\s*\(?(?:ont|onu|unit|modem|stb|perangkat|device)\)?)*\s*[:=]\s*(.*)$/i,
     sn2: /^(?:sn|s\/n|s\.n)(?:\s*(?:ont|onu|unit|modem|stb))?\s+([A-Za-z0-9][A-Za-z0-9\-]{7,})$/i,       // "SN RCMG4C28518C" (tanpa titik dua)
     psn2: /^(?:p[\s\-]?sn|psn|port\s*sn)\s+([A-Za-z0-9][A-Za-z0-9\-]{7,})$/i,
     laporan: /^(?:laporan|tanggal)\s*[:=]\s*(.*)$/i,
@@ -86,7 +86,9 @@
     var blocks = [], cur = null, sec = "", inTim = false;
     function tutup() { if (cur) { blocks.push(cur); cur = null; } }
     String(teks || "").split("\n").forEach(function (ln) {
-      var l = bersih(ln).trim();
+      var l = bersih(ln).replace(/[*~]/g, "").trim();                  // tanda tebal WhatsApp (*SN :*) dibuang
+      l = l.replace(/^[\-\u2022\u00b7\u25aa\u25ba>]+\s*/, "");                    // bullet di depan baris
+      if (/^\d+\s*[.)]\s*\S[^:=]*[:=]/.test(l)) l = l.replace(/^\d+\s*[.)]\s*/, "");   // penomoran "2. SN : ..."
       if (!l) return;
       var j = judul(l);
       // judul bagian

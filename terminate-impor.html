@@ -37,7 +37,8 @@
             <option value="lewati">Lewati</option><option value="Instalasi">Anggap Instalasi</option><option value="MT">Anggap MT</option></select></div>
       </div>
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mtGanti" checked>
-        <label class="form-check-label small" for="mtGanti">MT: hanya yang ganti perangkat (harus ada SN)</label></div>
+        <label class="form-check-label small" for="mtGanti">MT: hanya yang ganti perangkat (harus ada SN)</label>
+      <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="cariSn"> <span class="form-check-label small">Terminate tanpa SN: lengkapi SN / P-SN dari data yang sudah ada (cocok lewat CID). Biarkan kosong bila SN hanya boleh dari laporan.</span></label></div>
       <div class="form-check mb-2" id="aiBox" style="display:none"><input class="form-check-input" type="checkbox" id="pakaiAi" checked>
         <label class="form-check-label small" for="pakaiAi">✨ AI ikut membaca pesan yang tidak terbaca parser (ditandai "AI", periksa dulu sebelum kirim)</label></div>
       <div class="row g-2">
@@ -134,6 +135,7 @@
     }
     // laporan Terminate lama tanpa SN: lengkapi dari data yang sudah ada (cari lewat CID), tampil di pratinjau
     function isiSn() {
+      if (!$('cariSn').checked) return;
       var kosong = baris.filter(function (x) { return x.sheet === 'TERMINATE' && x.cid && !x.sn && !x.psn; });
       var cids = []; kosong.forEach(function (x) { if (cids.indexOf(x.cid) < 0) cids.push(x.cid); });
       if (!cids.length) return;
@@ -190,6 +192,7 @@
       var kirim = baris.filter(function (x) { return x.pilih; }).sort(function (a, b) { return (a.tanggal + (a.jam || '')) < (b.tanggal + (b.jam || '')) ? -1 : 1; });
       if (!kirim.length) { alert('Tidak ada data yang dipilih.'); return; }
       if (!confirm('Kirim ' + kirim.length + ' data ke Google Sheet?')) return;
+      kirim.forEach(function (x) { x.cariSn = $('cariSn').checked; });
       var btn = $('btnKirim'); btn.disabled = true;
       var tot = { Instalasi: 0, MT: 0, terminate: 0, kunjungan: 0, lanjut: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0 }, i = 0, lewat = [];
       function lanjut() {

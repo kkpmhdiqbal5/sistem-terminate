@@ -102,7 +102,7 @@ function gmProses_(items, fotoUrl, opt) {
     if (!info.pop) { h.bukanPop++; return; }
     if (!x.nama && info.nama) x.nama = info.nama;
     if (!x.cid && info.cid) x.cid = info.cid;
-    if (x.jenis === 'TERMINATE' && x.cid && !x.sn && !x.psn) { const s = gmSnDariCid_(x.cid); x.sn = s.sn; x.psn = s.psn; }   // laporan tanpa SN: lengkapi dari data yang sudah ada
+    if (x.cariSn && x.jenis === 'TERMINATE' && x.cid && !x.sn && !x.psn) { const s = gmSnDariCid_(x.cid); x.sn = s.sn; x.psn = s.psn; }   // laporan tanpa SN: lengkapi dari data yang sudah ada
     if (!x.cid || (x.jenis !== 'TERMINATE' && !x.nama)) { h.tidakLengkap++; return; }
     const tgl = x.tanggal || tmIso_(new Date());
     const dobel = logRows.some(r => r.JENIS === x.jenis && (x.jenis === 'TERMINATE'
