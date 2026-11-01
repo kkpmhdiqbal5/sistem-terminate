@@ -336,6 +336,13 @@ function ccBuktiManual_(d, au) {
   if (!phone || !cid) return tmErr_('Client tidak dikenali (nomor / CID kosong).');
   const row = ccBarisChat_(phone, cid); if (!row) return tmErr_('Client tidak ditemukan di daftar chat.');
   const lokIn = String(d.lokasi || '').trim(), foto = String(d.foto || '');
+  if (['LANJUT', 'MINTA_BUKTI', 'BUKTI_DITERIMA'].indexOf(String(row.STATUS)) >= 0) {     // client LANJUT: yang diisi foto bukti, bukan foto rumah/lokasi
+    if (!foto) return tmErr_('Pilih foto bukti dulu.');
+    let link = ''; try { link = tmSimpanFoto_(foto, 'BUKTI_' + cid); } catch (e) { return tmErr_(e.message); }
+    tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && tmCidDigit_(r.CID) === cid, { FOTOBUKTI: link, STATUS: 'BUKTI_DITERIMA', WAKTUBALAS: new Date() });
+    tmLogChat_(phone, cid, 'IN', '[admin ' + au.user + ' mengisi manual: foto bukti] ' + ccLaporLanjut_(row, cid, link));
+    return { status: 'success', message: 'Foto bukti tersimpan dan laporan lanjut dibuat otomatis (masuk sheet lanjut berlangganan).' };
+  }
   if (!lokIn && !foto) return tmErr_('Isi foto rumah atau lokasi dulu.');
   const lok = lokIn ? ccLokasi_({ lokasi: lokIn, pesan: lokIn }) : '';
   if (lokIn && !lok) return tmErr_('Lokasi tidak terbaca. Tempel tautan Google Maps atau koordinat (mis. -3.6012,99.0456).');

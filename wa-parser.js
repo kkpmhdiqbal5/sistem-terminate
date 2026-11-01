@@ -149,6 +149,8 @@
       var ctx = { tgl: p.tanggal || "", pop: "" };
       blok(p.teks, ctx).forEach(function (b) {
         var all = b._raw.join(" ");
+        // blok tanpa judul bagian, tapi ciri Terminate (P-SN / "perangkat sudah diambil", tanpa PORT/TARIKAN/OLT/SN lama) -> Terminate, bukan Instalasi
+        if (!b.sec && !b.snlama && !/\b(port|tarikan|sc\s*upc|olt)\s*[:=]/i.test(all) && (b.psn || /sudah\s*(di\s*)?(ambil|cabut)|berhenti\s*berlangganan|dismantle|dismental|terminate/i.test(b.ket || ""))) b.sec = "TERMINATE";
         if (b.sec === "TERMINATE" || b.sec === "LANJUT" || b.sec === "KUNJUNGAN") {      // laporan Terminate harian
           if (opsi.mode === "Instalasi" || opsi.mode === "MT") return;
           if (b.sec === "TERMINATE" ? !(b.cid || b.sn || b.psn) : !(b.cid && b.nama)) return;
