@@ -3,13 +3,13 @@
                 (2) teks laporan biasa yang ditempel/disimpan tanpa stempel waktu.
    Berjalan di browser; foto/media diabaikan. */
 (function (root) {
-  var HEAD = /^‎?\[?(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4}),?\s+(\d{1,2})[.:](\d{2})(?:[.:]\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\]?\s*(?:-\s*)?([^:]{1,80}?):\s?(.*)$/;
+  var HEAD = /^\u200e?\[?(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4}),?\s+(\d{1,2})[.:](\d{2})(?:[.:]\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\]?\s*(?:-\s*)?([^:]{1,80}?):\s?(.*)$/;
   var MT_WORDS = /(ganti|penggantian|tukar|swap|replace|rusak)\s*(perangkat|ont|modem|stb|onu|router|unit)?/i;
   var MT_HINT = /(maintenance|\bmt\b|tiket|gangguan|troubleshoot|ganti|penggantian)/i;
   var INS_HINT = /(instalasi|installasi|pasang baru|\bpsb\b|aktivasi|new install)/i;
   var BULAN = ["januari", "februari", "maret", "april", "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember"];
 
-  function bersih(s) { return String(s || "").replace(/[‎‏‪-‮⁦-⁩﻿ ]/g, " ").replace(/\s+$/g, ""); }
+  function bersih(s) { return String(s || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff\u00a0]/g, " ").replace(/\s+$/g, ""); }
   function iso(d, m, y) { y = +y; if (y < 100) y += 2000; return y + "-" + ("0" + m).slice(-2) + "-" + ("0" + d).slice(-2); }
   function popNorm(v) {
     var n = String(v || "").toUpperCase().replace(/[^A-Z]/g, "");
@@ -38,7 +38,7 @@
   function pesan(txt) {
     var out = [], cur = null, lines = String(txt || "").split(/\r?\n/);
     lines.forEach(function (raw) {
-      var line = raw.replace(/^‎/, "");
+      var line = raw.replace(/^\u200e/, "");
       var m = HEAD.exec(line);
       if (m) {
         cur = { tanggal: iso(m[1], m[2], m[3]), jam: m[4] + ":" + m[5], pengirim: bersih(m[6]), teks: bersih(m[7]) };
@@ -61,6 +61,8 @@
     snbaru: /^(?:sn|s\/n)\s*(?:ont\s*|unit\s*)?baru\s*[:=]\s*(.*)$/i,
     snlama: /^(?:sn|s\/n)\s*(?:ont\s*|unit\s*)?lama\s*[:=]\s*(.*)$/i,
     sn: /^(?:sn(?:\s*(?:ont|unit))?|s\/n|serial(?:\s*number)?)\s*[:=]\s*(.*)$/i,
+    sn2: /^(?:sn|s\/n|s\.n)(?:\s*(?:ont|onu|unit|modem|stb))?\s+([A-Za-z0-9][A-Za-z0-9\-]{7,})$/i,       // "SN RCMG4C28518C" (tanpa titik dua)
+    psn2: /^(?:p[\s\-]?sn|psn|port\s*sn)\s+([A-Za-z0-9][A-Za-z0-9\-]{7,})$/i,
     laporan: /^(?:laporan|tanggal)\s*[:=]\s*(.*)$/i,
     ket: /^(?:ket|keterangan|status|kendala)\s*[:=]\s*(.*)$/i,
     ts: /^(?:ts|teknisi)\s*[:=]\s*(.*)$/i
@@ -119,15 +121,20 @@
       if (cur._ts && !/[:=]/.test(l) && sec) { cur.tim.push(l.replace(/^[\-•*\d.\s]+/, "").trim()); return; }
       cur._ts = false;
       cur._raw.push(l);
+      if (cur._aw) {                                            // label SN / P-SN kosong, nilainya di baris berikutnya
+        var aw = cur._aw; cur._aw = "";
+        if (/^[A-Za-z0-9][A-Za-z0-9\-]{7,}$/.test(l) && !cur[aw]) { cur[aw] = nilai(aw, l, cur); return; }
+      }
       var wo = /WO-(\d{4})(\d{2})(\d{2})/i.exec(l); if (wo && !cur.tglwo) cur.tglwo = wo[1] + "-" + wo[2] + "-" + wo[3];
       for (var k in LBL) {
         if (k === "wo") continue;
         var m = LBL[k].exec(l);
         if (m) {
+          var k0 = k; k = k.replace(/2$/, "");
           if (k === "nama") cur.nama0 = true;
           if (k === "laporan") { var t2 = tglDari(m[1]); if (t2 && !cur.tgl) cur.tgl = t2; break; }
           if (k === "ts") { cur.tim = cur.tim || []; cur._ts = true; if (m[1].trim()) cur.tim.push(m[1].trim()); break; }
-          var v = nilai(k, m[1], cur); if (v && !cur[k]) cur[k] = v; break;
+          var v = nilai(k, m[1], cur); if (v && !cur[k]) cur[k] = v; if (!v && (k === "sn" || k === "psn") && !cur[k]) cur._aw = k; break;
         }
       }
     });
