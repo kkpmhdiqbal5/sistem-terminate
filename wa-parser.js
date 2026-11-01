@@ -161,7 +161,7 @@
         if (b.sec === "TERMINATE" || b.sec === "LANJUT" || b.sec === "KUNJUNGAN") {      // laporan Terminate harian
           if (opsi.mode === "Instalasi" || opsi.mode === "MT") return;
           if (b.sec === "TERMINATE" ? !(b.cid || b.sn || b.psn) : !(b.cid && b.nama)) return;
-          hasil.push({ sheet: b.sec, tanggal: b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
+          hasil.push({ sheet: b.sec, tanggal: p.tanggal || b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
                        sn: b.sn || "", snlama: "", psn: b.psn || "", ket: b.ket || "", tim: (b.tim || []).join(", ") });
           return;
         }
@@ -185,7 +185,7 @@
         var ket = [];
         if (b.ket && sheet === "MT") ket.push(b.ket);
         if (b._cat && sheet === "Instalasi") ket.push(b._cat);
-        hasil.push({ sheet: sheet, tanggal: b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
+        hasil.push({ sheet: sheet, tanggal: p.tanggal || b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
                      sn: b.sn || "", snlama: b.snlama || "", psn: b.psn || "", ket: ket.join(" | ") });
       });
     });

@@ -208,7 +208,7 @@ function gmTerima_(m) {
   const terminate = /LAPORAN HARIAN TERMINATE|BERHENTI BERLANGGANAN|MASIH LANJUT BERLANGGANAN|TIDAK ADA ?DI ?RUMAH|PERANGKAT SUDAH DIAMBIL/i.test(teks);
   let hasil = [];
   if (!terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks));          // laporan Instalasi / MT teknisi
-  const items = gmParse_(teks);
+  const items = gmParse_(teks); items.forEach(it => { it.tanggal = tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
   ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
@@ -217,7 +217,7 @@ function gmTerima_(m) {
 function gmInstMt_(teks) {
   let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: true }); } catch (e) { return 'pembaca gagal: ' + e.message; }
   const hariIni = tmIso_(new Date());
-  const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: r.tanggal || hariIni }));
+  const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: hariIni }));
   if (!rows.length) return '';
   const r = tmImporWA_({ rows: rows }, { user: 'GRUP WA' });
   return r.status === 'success' ? 'Instalasi/MT: ' + r.message : 'Instalasi/MT gagal: ' + r.message;
