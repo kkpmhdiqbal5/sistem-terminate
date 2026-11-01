@@ -95,7 +95,7 @@
         baris.forEach(function (x) { x.pilih = true; });
         pesan('', '');
         if (!baris.length) { pesan('Dari ' + r.jumlahPesan + ' pesan, tidak ada data yang cocok. Coba ubah pilihan "Grup ini berisi" atau "Jika tidak jelas".', 'warning'); $('pratinjau').classList.add('d-none'); return; }
-        tampil();
+        tampil(); isiSn();
       }).catch(function (e) { pesan('Gagal membaca file: ' + e.message, 'danger'); });
     };
     var aiAktif = false;
@@ -129,6 +129,17 @@
       }
       return lanjut();
     }
+    // laporan Terminate lama tanpa SN: lengkapi dari data yang sudah ada (cari lewat CID), tampil di pratinjau
+    function isiSn() {
+      var kosong = baris.filter(function (x) { return x.sheet === 'TERMINATE' && x.cid && !x.sn && !x.psn; });
+      var cids = []; kosong.forEach(function (x) { if (cids.indexOf(x.cid) < 0) cids.push(x.cid); });
+      if (!cids.length) return;
+      var peta = {}, i = 0;
+      (function lanjut() {
+        if (i >= cids.length) { var n = 0; kosong.forEach(function (x) { var s = peta[String(x.cid).replace(/\D/g, '')]; if (s) { x.sn = s.sn; x.psn = s.psn; x.snDariData = true; n++; } }); if (n) { tampil(); pesan(n + ' data Terminate tanpa SN dilengkapi dari data yang sudah ada (cocok lewat CID).', 'info'); } return; }
+        TMC.api('terminateSnCid', { cids: cids.slice(i, i + 300) }).then(function (r) { if (r && r.status === 'success') Object.assign(peta, r.data || {}); i += 300; lanjut(); }).catch(function () {});
+      })();
+    }
     function hitung() {
       var a = 0, b = 0, t = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else if (x.sheet === 'Instalasi') a++; else t++; } });
       $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + ', Terminate/Kunjungan/Lanjut ' + t + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
@@ -142,7 +153,7 @@
           '<div class="flex-grow-1"><div class="kecil">' + (x.ai ? '<span class="badge bg-info text-dark">AI</span> ' : '') + TMC.esc(x.tanggal) + ' | ' + TMC.esc(x.pengirim) + '</div>' +
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
-          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
+          '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snDariData ? ' <span class="text-info">(dari data)</span>' : '') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
           (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
           '<select class="form-select form-select-sm form-select-dark" style="width:120px" data-s="' + i + '">' + [['Instalasi', 'Instalasi'], ['MT', 'MT'], ['TERMINATE', 'Diambil'], ['KUNJUNGAN', 'Tdk ada orang'], ['LANJUT', 'Lanjut']].map(function (o) { return '<option value="' + o[0] + '"' + (x.sheet === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
         d.appendChild(c);

@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -82,6 +82,7 @@ function terminateRoute_(d) {
       case 'terminateEditSimpan': return tmJson_(tmEditSimpan_(d, au));
       case 'terminateFull': return tmJson_(tmFull_(d));
       case 'terminateImporWA': return tmJson_(tmImporWA_(d, au));
+      case 'terminateSnCid': return tmJson_(tmSnCid_(d));
       case 'terminateBersih1': return tmJson_(tmBersih_(d, au, 1));
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
     }
@@ -1042,4 +1043,15 @@ function pasangTriggerHarian() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'jalankanHarian').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('jalankanHarian').timeBased().everyDays(1).atHour(TM.JAM_TRIGGER).create();
   Logger.log('Trigger harian terpasang, jam ' + TM.JAM_TRIGGER);
+}
+
+// SN / P-SN untuk daftar CID (dibaca dari Baris 1, Baris 2, Instalasi, MT, Full Data, target; yang paling akhir menang)
+function tmSnCid_(d) {
+  const want = {}; (Array.isArray(d.cids) ? d.cids : []).slice(0, 300).forEach(c => { const k = tmCidDigit_(c); if (k) want[k] = true; });
+  const peta = {};
+  [TM.SH.TARGET, TM.SH.FULL, TM.SH.MT, TM.SH.INSTALASI, TM.SH.B2, TM.SH.B1].forEach(nm => {
+    let rows = []; try { rows = tmRead_(nm); } catch (e) { rows = []; }
+    rows.forEach(r => { const k = tmCidDigit_(r.CID); if (want[k] && (String(r.SN || '').trim() || String(r.PSN || '').trim())) peta[k] = { sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() }; });
+  });
+  return { status: 'success', data: peta };
 }
