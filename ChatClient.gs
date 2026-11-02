@@ -656,6 +656,8 @@ function ccAI_(baris, teks, ctx) {
 }
 const CC_MINTA_FOTO = 'Supaya teknisi gampang menemukan rumahnya, boleh dikirimkan *foto rumah* tampak depan (yang terlihat nomor rumah atau patokannya) ya 🙏';
 // satu nomor tidak dibalas bot lebih dari sekali dalam 90 detik (cegah banjir pesan bila ada kiriman ganda)
+// pesan dari admin (ubah status / ingatkan / balas) juga menahan balasan bot 90 detik ke nomor yang sama
+function ccTahanBot_(phone) { try { CacheService.getScriptCache().put('bal_' + phone, '1', 90); } catch (e) { /* abaikan */ } }
 function ccBolehBalas_(phone) { const ch = CacheService.getScriptCache(), k = 'bal_' + phone; if (ch.get(k)) return false; ch.put(k, '1', 90); return true; }
 function ccTerima_(m) {
   if (!m.phone) return;
@@ -713,6 +715,9 @@ function ccTerima_(m) {
   // 2) pesan teks -> bot AI (cadangan: kata kunci)
   const hasil = ccAI_(ccRiwayat_(m.phone, 8).slice(0, -1), teks) || ccRule_(teks);
   let reply = hasil.reply;
+  // status sudah mengikuti (admin sudah mengubahnya): jawaban client yang sama tidak mengubah status & tidak dibalas lagi
+  if (hasil.intent === 'LANJUT' && ['LANJUT', 'MINTA_BUKTI', 'BUKTI_DITERIMA', 'LANJUT_DILAPOR'].indexOf(status) >= 0) return;
+  if (hasil.intent === 'BERHENTI' && ['SIAP_DIAMBIL', 'BERHENTI_DILAPOR'].indexOf(status) >= 0) return;
   if (hasil.intent === 'STOP_CHAT') { setS('STOP'); balas(reply || 'Baik, kami tidak akan menghubungi lagi. Terima kasih.'); return; }
   if (hasil.intent === 'LANJUT') {
     setS('LANJUT');

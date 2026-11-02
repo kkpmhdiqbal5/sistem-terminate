@@ -125,7 +125,7 @@ function ccUbahStatus_(d, au) {
     const r = waKirim_(it.phone, teks, 'CHAT_CLIENT');
     if (!r.ok) { catatan.push(it.cid + ': gagal kirim (' + r.msg + ')'); return; }
     tmUpdateRows_(CC.SH.CHAT, sama, { WAKTUKIRIM: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
-    tmLogChat_(it.phone, it.cid, 'OUT', teks); terkirim++; CB_PAUSE();
+    tmLogChat_(it.phone, it.cid, 'OUT', teks); ccTahanBot_(it.phone); terkirim++; CB_PAUSE();
   });
   return { status: 'success', diubah: diubah, terkirim: terkirim, message: diubah + ' client diubah ke ' + st + (kirim ? ', ' + terkirim + ' pesan permintaan terkirim' : '') + '.' + (catatan.length ? ' Catatan: ' + catatan.slice(0, 6).join('; ') : '') };
 }
@@ -174,7 +174,7 @@ function ccIngatkan_(d, au) {
     const r = waKirim_(it.phone, teks, 'CHAT_CLIENT');
     if (!r.ok) { skip('gagal kirim (' + r.msg + ')'); if (/token|disconnect|device/i.test(r.msg)) break; continue; }
     tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === it.phone && tmCidDigit_(x.CID) === it.cid, { JMLINGAT: n + 1, WAKTUINGAT: new Date(), PESANTERAKHIR: teks.slice(0, 120) });
-    tmLogChat_(it.phone, it.cid, 'OUT', teks); terkirim++;
+    tmLogChat_(it.phone, it.cid, 'OUT', teks); ccTahanBot_(it.phone); terkirim++;
     if (i < items.length - 1) CB_PAUSE();
   }
   return { status: 'success', terkirim: terkirim, dilewati: lewat, message: 'Pengingat terkirim ' + terkirim + ' dari ' + items.length + '.' + (lewat.length ? ' Dilewati: ' + lewat.slice(0, 8).join('; ') : '') };
@@ -274,7 +274,7 @@ function ccBalas_(d, au) {
   // membalas client yang sudah menulis tidak dihitung dalam batas harian (batas hanya untuk chat yang kita mulai)
   const r = waKirim_(phone, teks, 'CHAT_CLIENT');
   if (!r.ok) return tmErr_('Gagal kirim: ' + r.msg);
-  tmLogChat_(phone, cid, 'OUT', teks);
+  tmLogChat_(phone, cid, 'OUT', teks); ccTahanBot_(phone);
   tmUpdateRows_(CC.SH.CHAT, x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, { PESANTERAKHIR: teks.slice(0, 120), WAKTUKIRIM: new Date() });
   return { status: 'success', message: 'Terkirim.', sisaHari: ccSisaHari_() };
 }
