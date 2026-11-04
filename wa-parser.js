@@ -166,7 +166,7 @@
           if (opsi.mode === "Instalasi" || opsi.mode === "MT") return;
           if (b.sec === "TERMINATE" ? !(b.cid || b.sn || b.psn) : !(b.cid && b.nama)) return;
           hasil.push({ sheet: b.sec, tanggal: p.tanggal || b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
-                       sn: b.sn || "", snlama: "", psn: b.psn || "", ket: b.ket || "", tim: (b.tim || []).join(", ") });
+                       sn: b.sn || "", snlama: "", psn: b.psn || "", ket: b.ket || "", tim: (b.tim || []).join(", "), src: String(p.teks || "").slice(0, 1500) });
           return;
         }
         if (opsi.mode === "Terminate") return;
@@ -190,7 +190,7 @@
         if (b.ket && sheet === "MT") ket.push(b.ket);
         if (b._cat && sheet === "Instalasi") ket.push(b._cat);
         hasil.push({ sheet: sheet, tanggal: p.tanggal || b.tglN, jam: p.jam, pengirim: p.pengirim, nama: b.nama || "", cid: b.cid || "", odp: b.odpN || "", pop: b.popN || "", popasli: b.popN ? "" : (b.pop || ""),
-                     sn: b.sn || "", snlama: b.snlama || "", psn: b.psn || "", ket: ket.join(" | ") });
+                     sn: b.sn || "", snlama: b.snlama || "", psn: b.psn || "", ket: ket.join(" | "), src: String(p.teks || "").slice(0, 1500) });
       });
     });
     return { jumlahPesan: ps.length, baris: hasil };

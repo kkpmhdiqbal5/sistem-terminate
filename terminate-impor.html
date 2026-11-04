@@ -176,7 +176,7 @@
           '<div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
           '<div>ODP: ' + TMC.esc(x.odp || '-') + ' | POP: ' + TMC.esc(x.pop || '-') + '</div>' +
           '<div>SN: ' + TMC.esc(x.sn || '-') + ' | P-SN: ' + TMC.esc(x.psn || '-') + (x.snDariData ? ' <span class="text-info">(dari data)</span>' : '') + (x.kali > 1 ? ' <span class="text-warning">(dilaporkan ' + x.kali + 'x)</span>' : '') + (x.snlama ? ' | <span class="text-warning">SN lama: ' + TMC.esc(x.snlama) + '</span>' : '') + '</div>' +
-          (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + '</div>' +
+          (x.ket ? '<div class="kecil">Ket: ' + TMC.esc(x.ket) + '</div>' : '') + (x.src ? '<details class="kecil mt-1"><summary style="cursor:pointer">Lihat pesan asli</summary><pre style="white-space:pre-wrap;margin:4px 0 0">' + TMC.esc(x.src) + '</pre></details>' : '') + '</div>' +
           '<select class="form-select form-select-sm form-select-dark" style="width:120px" data-s="' + i + '">' + [['Instalasi', 'Instalasi'], ['MT', 'MT'], ['TERMINATE', 'Diambil'], ['KUNJUNGAN', 'Tdk ada orang'], ['LANJUT', 'Lanjut']].map(function (o) { return '<option value="' + o[0] + '"' + (x.sheet === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
         d.appendChild(c);
       });
