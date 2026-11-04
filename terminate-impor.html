@@ -148,14 +148,15 @@
     // satu SN (Instalasi/MT) atau satu CID (Terminate dll.) dilaporkan berkali-kali -> sisakan yang terakhir dikirim, lengkapi yang kosong dari yang lama
     function gabungDobel(arr) {
       var urut = arr.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { var p = (a.x.tanggal + (a.x.jam || '')), q = (b.x.tanggal + (b.x.jam || '')); return p < q ? -1 : p > q ? 1 : a.i - b.i; }).map(function (o) { return o.x; });
-      var peta = {}, out = [];
+      var peta = {}, peta2 = {}, out = [];
       urut.forEach(function (x) {
         var im = x.sheet === 'Instalasi' || x.sheet === 'MT', cid = String(x.cid || '').replace(/\D/g, '');
         var k = x.sheet + '|' + (im ? (x.sn ? 'S' + x.sn : 'C' + cid + '|' + String(x.nama || '').toLowerCase()) : (cid || x.sn || x.psn || x.nama));
-        var lama = peta[k];
-        if (lama) { ['nama', 'cid', 'odp', 'pop', 'sn', 'psn', 'ket'].forEach(function (f) { if (!x[f] && lama[f]) x[f] = lama[f]; }); x.kali = (lama.kali || 1) + 1; out[out.indexOf(lama)] = x; }
+        var lama = peta[k], k2 = x.sheet + '|' + cid;
+        if (!lama && im && cid && peta2[k2] && (!x.sn || !peta2[k2].sn)) lama = peta2[k2];   // satu pesan terbaca parser (ada SN) & AI (tanpa SN) = satu data
+        if (lama) { ['nama', 'cid', 'odp', 'pop', 'sn', 'psn', 'ket'].forEach(function (f) { if (!x[f] && lama[f]) x[f] = lama[f]; }); x.kali = (lama.kali || 1) + 1; out[out.indexOf(lama)] = x; Object.keys(peta).forEach(function (q) { if (peta[q] === lama) peta[q] = x; }); }
         else { x.kali = 1; out.push(x); }
-        peta[k] = x;
+        peta[k] = x; if (im && cid) peta2[k2] = x;
       });
       return out;
     }
