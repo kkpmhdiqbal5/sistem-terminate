@@ -529,7 +529,12 @@ function ccBarisChat_(phone, cid) {          // baris CHAT CLIENT terbaru untuk 
 }
 
 /* ---------- kirim chat ke CLIENT (WhatsApp API saja) ---------- */
-function ccKirimClient_(d, au) {
+function ccKirimClient_(d, au) {            // satu pengiriman pada satu waktu: klik ganda / kiriman ulang dari browser tidak mengirim dua kali
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) return tmErr_('Masih ada pengiriman lain yang berjalan. Tunggu sebentar lalu coba lagi.');
+  try { return ccKirimClient2_(d, au); } finally { lock.releaseLock(); }
+}
+function ccKirimClient2_(d, au) {
   const items = ccBykid_(d.cids);
   if (!items.length) return tmErr_('Tidak ada client yang dipilih.');
   if (items.length > CC.MAX_KIRIM) return tmErr_('Maksimal ' + CC.MAX_KIRIM + ' client sekali kirim (agar nomor WA aman dari pemblokiran). Kirim bertahap.');
@@ -539,7 +544,7 @@ function ccKirimClient_(d, au) {
   if (tpl.length > 900) return tmErr_('Pesan terlalu panjang (maks 900 huruf).');
   if (!ccApiPilih_('CHAT_CLIENT', 'WA')) return tmErr_('Belum ada API WhatsApp berfungsi "Chat client". Atur di Profil > Pengaturan API.');
   const mulai = Date.now();
-  const hasil = { terkirim: 0, dilewati: [] };
+  const hasil = { terkirim: 0, dilewati: [] }, sudahHp = {};
   const chatSh = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT);
   tmEnsureCols_(chatSh, CC_KEYS_CHAT);
   for (let i = 0; i < items.length; i++) {
@@ -547,11 +552,13 @@ function ccKirimClient_(d, au) {
     const skip = why => hasil.dilewati.push({ nama: x.nama || '(tanpa nama)', cid: x.cid, alasan: why });
     if (Date.now() - mulai > CC.MAKS_DETIK * 1000) { skip('waktu habis, kirim ulang bagian ini'); continue; }
     if (!x.hp) { skip('nomor HP kosong / tidak valid (' + (x.hpAsli || '-') + ')'); continue; }
+    if (sudahHp[x.hp] || CacheService.getScriptCache().get('kirim_' + x.hp)) { skip('nomor ini baru saja dikirimi pesan (nomor sama / CID lain)'); continue; }     // satu nomor = satu pesan
     const lama = ccBarisChat_(x.hp, x.cid);
     if (lama && CC.AKTIF.indexOf(String(lama.STATUS)) > -1 && !d.paksa) { skip('masih menunggu balasan (status ' + lama.STATUS + ')'); continue; }
     if (lama && String(lama.STATUS) === 'STOP') { skip('client minta tidak dihubungi lagi'); continue; }
     if (lama && String(lama.STATUS) === 'SALAH_NOMOR') { skip('ditandai salah nomor'); continue; }
     const pesan = tpl.replace(/\{nama\}/g, x.nama || 'Pelanggan').replace(/\{cid\}/g, x.cid).replace(/\{odp\}/g, x.odp || '');
+    sudahHp[x.hp] = 1; CacheService.getScriptCache().put('kirim_' + x.hp, '1', 120);
     const r = waKirim_(x.hp, pesan, 'CHAT_CLIENT');
     if (!r.ok) { skip('gagal kirim: ' + r.msg); if (/token|disconnect|device/i.test(r.msg)) break; continue; }
     const baru = { PHONE: x.hp, CID: x.cid, NAMA: x.nama, ODP: x.odp, POP: x.pop, STATUS: 'MENUNGGU_BALASAN', WAKTUKIRIM: new Date(), PESANTERAKHIR: pesan.slice(0, 120), DIKIRIMOLEH: au.user };
