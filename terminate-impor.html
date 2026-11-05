@@ -93,11 +93,13 @@
         baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
         return (aiAktif && $('pakaiAi').checked ? bacaAi(txt) : Promise.resolve()).then(function () { return r; });
       }).then(function (r) {
+        var luarPop = baris.length; baris = baris.filter(function (x) { return x.pop === 'PERBAUNGAN' || x.pop === 'PANTAI CERMIN'; }); luarPop -= baris.length;   // hanya POP/OLT Perbaungan & Pantai Cermin
         var n0 = baris.length; baris = gabungDobel(baris);
         baris.forEach(function (x) { x.pilih = !((x.sheet === 'Instalasi' || x.sheet === 'MT') && !x.sn && !x.psn); });   // Instalasi/MT tanpa SN & P-SN tidak dicentang otomatis
         pesan('', '');
         var kosongSn = baris.filter(function (x) { return !x.pilih; }).length;
         if (n0 !== baris.length || kosongSn) setTimeout(function () { pesan((n0 !== baris.length ? (n0 - baris.length) + ' data dobel digabung (dipakai yang paling akhir dikirim). ' : '') + (kosongSn ? kosongSn + ' data Instalasi/MT tanpa SN dan P-SN tidak dicentang otomatis; periksa dulu sebelum dikirim.' : ''), 'info'); }, 0);
+        if (luarPop) setTimeout(function () { pesan(luarPop + ' data di luar POP Perbaungan / Pantai Cermin (atau POP tidak terbaca) dilewati.', 'info'); }, 0);
         if (!baris.length) { pesan('Dari ' + r.jumlahPesan + ' pesan, tidak ada data yang cocok. Coba ubah pilihan "Grup ini berisi" atau "Jika tidak jelas".', 'warning'); $('pratinjau').classList.add('d-none'); return; }
         tampil(); isiSn();
       }).catch(function (e) { pesan('Gagal membaca file: ' + e.message, 'danger'); });
