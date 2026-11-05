@@ -530,9 +530,10 @@ function ccBarisChat_(phone, cid) {          // baris CHAT CLIENT terbaru untuk 
 
 /* ---------- kirim chat ke CLIENT (WhatsApp API saja) ---------- */
 function ccKirimClient_(d, au) {            // satu pengiriman pada satu waktu: klik ganda / kiriman ulang dari browser tidak mengirim dua kali
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(120000)) return tmErr_('Masih ada pengiriman lain yang berjalan. Tunggu sebentar lalu coba lagi.');
-  try { return ccKirimClient2_(d, au); } finally { lock.releaseLock(); }
+  const cache = CacheService.getScriptCache();            // bukan LockService: kunci skrip yang lama dipegang membuat webhook (balasan client) gagal "Batas waktu penguncian habis"
+  if (cache.get('kirim_jalan')) return tmErr_('Masih ada pengiriman lain yang berjalan. Tunggu sebentar lalu coba lagi.');
+  cache.put('kirim_jalan', '1', 300);
+  try { return ccKirimClient2_(d, au); } finally { cache.remove('kirim_jalan'); }
 }
 function ccKirimClient2_(d, au) {
   const items = ccBykid_(d.cids);
@@ -587,6 +588,22 @@ function ccStatus_(d) {
 }
 
 /* ---------- WEBHOOK: pesan masuk dari client ---------- */
+// Fonnte ikut mengirim pesan KELUAR milik kita ke webhook seolah-olah dari client. Tanpa penyaring ini bot membalas pesannya sendiri,
+// membaca kata "LANJUT"/"TIDAK" di pesan kita, lalu mengubah status client yang belum membalas.
+function ccGemaKeluar_(phone, pesan) {
+  const t = String(pesan || '');
+  if (/sent via fonnte\.com/i.test(t)) return true;
+  const n = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
+  const k = n(t); if (k.length < 12) return false;
+  return ccRiwayat_(phone, 80).some(x => x.dari === 'kami' && n(x.isi) === k);
+}
+// Pesan media dari client tetapi Fonnte tidak mengirim file/URL-nya: dicatat, status tidak diubah, tidak dibalas bot
+function ccTerimaMediaKosong_(phone, kunci) {
+  const row = ccBarisChat_(phone, ''); if (!row) return;
+  const cid = tmCidDigit_(row.CID);
+  tmLogChat_(phone, cid, 'IN', '[foto/media dari client, file tidak ikut terkirim ke sistem] ' + kunci);
+  tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && tmCidDigit_(r.CID) === cid, { WAKTUBALAS: new Date(), PESANTERAKHIR: '[client mengirim foto/media, file tidak sampai: lihat di WhatsApp lalu Input foto manual]' });
+}
 // Dipanggil dari doPost (Kode.gs) paling awal: const w = waHookRoute_(e); if (w) return w;
 function waHookRoute_(e) {
   if (!e || !e.parameter || e.parameter.hook === undefined) return null;
@@ -603,6 +620,7 @@ function waHookRoute_(e) {
     const grup = !!sender && (!!g('member') || /@g\.us|-/.test(sender));
     if (!sender) { ccHookLog_(sender, pesan, 'diabaikan (tanpa pengirim)'); return out({ status: 'ok', abaikan: 'kosong' }); }
     if (grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
+    if (!grup && ccGemaKeluar_(ccNoHp_(sender), pesan)) { ccHookLog_(sender, pesan, 'diabaikan (gema pesan keluar kita sendiri)'); return out({ status: 'ok', abaikan: 'gema' }); }
     const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media)).slice(0, 16);
     const cache = CacheService.getScriptCache();
     // cek dobel DI DALAM kunci: kiriman ulang serentak dari Fonnte diproses bergiliran, jadi hanya yang pertama lolos
@@ -612,6 +630,7 @@ function waHookRoute_(e) {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
       if (grup) { rel(); gmTerima_({ grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }); }   // mengunci sendiri
+      else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
       else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
     if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
