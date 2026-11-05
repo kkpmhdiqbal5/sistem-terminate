@@ -186,6 +186,22 @@ function tmUpdateRows_(name, pred, obj) {
   }
   return n;
 }
+// Folder foto di Drive: induk "foto" (ID di bawah) berisi subfolder "foto prangkat", "foto bukti", "foto rumah". Induk tak terjangkau -> folder lama.
+const TM_FOLDER_FOTO_ID = '1FP8Re2kJOzdjRmyGpry4s2BJPJreseYk';
+function tmSubFoto_(prefix) {
+  const p = String(prefix || '').toUpperCase();
+  return /^TERMINATE_|^GRUP_/.test(p) ? 'foto prangkat' : /^(BUKTI|LANJUT)_/.test(p) ? 'foto bukti' : 'foto rumah';
+}
+function tmFolderFoto_(sub) {
+  try {
+    const induk = DriveApp.getFolderById(TM_FOLDER_FOTO_ID), it = induk.getFoldersByName(sub);
+    return it.hasNext() ? it.next() : induk.createFolder(sub);
+  } catch (e) {
+    Logger.log('folder foto induk gagal (' + sub + '): ' + e.message);
+    const it2 = DriveApp.getFoldersByName(TM.FOLDER_FOTO);
+    return it2.hasNext() ? it2.next() : DriveApp.createFolder(TM.FOLDER_FOTO);
+  }
+}
 // Foto -> Drive (utama). Jika izin Drive belum diberikan, otomatis dicoba lewat imgbb (uploadToImgbb di Kode.gs).
 // Keduanya gagal -> error jelas supaya data TIDAK tersimpan tanpa foto (foto wajib).
 function tmSimpanFoto_(dataUrl, prefix) {
@@ -197,8 +213,7 @@ function tmSimpanFoto_(dataUrl, prefix) {
   let errDrive = '';
   try {
     const blob = Utilities.newBlob(Utilities.base64Decode(dataUrl.substring(koma + 1)), mime, nama);
-    const it = DriveApp.getFoldersByName(TM.FOLDER_FOTO);
-    const folder = it.hasNext() ? it.next() : DriveApp.createFolder(TM.FOLDER_FOTO);
+    const folder = tmFolderFoto_(tmSubFoto_(prefix));
     const f = folder.createFile(blob);
     f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return f.getUrl();

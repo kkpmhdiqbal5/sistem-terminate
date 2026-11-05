@@ -805,8 +805,7 @@ function ccSimpanFotoRumah_(url, cid, nama) {
     const blob = res.getBlob();
     if (blob.getBytes().length > 12 * 1024 * 1024) return '';
     blob.setName('RUMAH_' + String(cid) + '_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg');
-    const it = DriveApp.getFoldersByName(CC.FOLDER_RUMAH);
-    const folder = it.hasNext() ? it.next() : DriveApp.createFolder(CC.FOLDER_RUMAH);
+    const folder = tmFolderFoto_(tmSubFoto_(/^BUKTI_/.test(String(cid)) ? 'BUKTI_' : 'RUMAH_'));
     const f = folder.createFile(blob);
     f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return f.getUrl();

@@ -84,7 +84,7 @@ function gmFoto_(url) {
     if (res.getResponseCode() !== 200) return '';
     const blob = res.getBlob(); if (blob.getBytes().length > 12 * 1024 * 1024) return '';
     blob.setName('GRUP_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg');
-    const it = DriveApp.getFoldersByName(TM.FOLDER_FOTO), folder = it.hasNext() ? it.next() : DriveApp.createFolder(TM.FOLDER_FOTO);
+    const folder = tmFolderFoto_('foto prangkat');
     const f = folder.createFile(blob); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return f.getUrl();
   } catch (e) { Logger.log('foto grup: ' + e.message); return ''; }
