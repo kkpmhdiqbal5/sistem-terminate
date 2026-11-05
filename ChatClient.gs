@@ -654,6 +654,8 @@ function ccAI_(baris, teks, ctx) {
     return { intent: o.intent, reply: String(o.reply || '').replace(/https?:\/\/\S+/g, '').slice(0, 400).trim() };
   } catch (e) { Logger.log('AI gagal: ' + e.message); return null; }
 }
+const CC_MINTA_BUKTI = 'Biar datanya lengkap, boleh kirim *foto bukti* (misalnya bukti bayar atau tagihan yang terlihat nama dan CID-nya) ya 🙏';
+const CC_MINTA_LOK = 'Kalau bisa sekalian *share lokasi rumahnya (Sherlock)* lewat WhatsApp (ikon + lalu Lokasi) ya.';
 const CC_MINTA_FOTO = 'Supaya teknisi gampang menemukan rumahnya, boleh dikirimkan *foto rumah* tampak depan (yang terlihat nomor rumah atau patokannya) ya 🙏';
 // satu nomor tidak dibalas bot lebih dari sekali dalam 90 detik (cegah banjir pesan bila ada kiriman ganda)
 // pesan dari admin (ubah status / ingatkan / balas) juga menahan balasan bot 90 detik ke nomor yang sama
@@ -681,7 +683,7 @@ function ccTerima_(m) {
   // 1) client mengirim FOTO
   if (m.media && /^(jpe?g|png|webp|heic)$/i.test(m.ext || 'jpg')) {
     tmLogChat_(m.phone, cid, 'IN', (m.pesan ? m.pesan + ' ' : '') + '[foto]');
-    if (status === 'MINTA_BUKTI' || status === 'BUKTI_DITERIMA') {
+    if (status === 'MINTA_BUKTI' || status === 'BUKTI_DITERIMA' || status === 'LANJUT') {
       const bukti = ccSimpanFotoRumah_(m.media, 'BUKTI_' + cid, row.NAMA);
       if (bukti) {
         setS('BUKTI_DITERIMA', { FOTOBUKTI: bukti });
@@ -720,18 +722,19 @@ function ccTerima_(m) {
   if (hasil.intent === 'BERHENTI' && ['SIAP_DIAMBIL', 'BERHENTI_DILAPOR'].indexOf(status) >= 0) return;
   if (hasil.intent === 'STOP_CHAT') { setS('STOP'); balas(reply || 'Baik, kami tidak akan menghubungi lagi. Terima kasih.'); return; }
   if (hasil.intent === 'LANJUT') {
-    setS('LANJUT');
+    setS('MINTA_BUKTI');                                      // client lanjut -> langsung dimintai foto bukti
     try { tmAppendObj_(tmSheetEnsure_(TM.SH.LANJUT, ['ID', 'WAKTU', 'TANGGAL', 'ADMIN', 'NAMA', 'CID', 'ODP', 'POP', 'KET']),
       { ID: Utilities.getUuid(), WAKTU: lagi, TANGGAL: tmTglIndo_(tmIso_(lagi)), ADMIN: 'BOT WA', NAMA: row.NAMA, CID: cid, ODP: row.ODP, POP: tmPop_(row.POP), KET: 'Client masih mau lanjut berlangganan (via chat WA)' }); } catch (e) { Logger.log(e.message); }
-    balas(reply || 'Baik, terima kasih Bapak/Ibu. Layanan Anda tetap kami lanjutkan. 🙏');
+    balas(/bukti/i.test(reply || '') ? reply : ((reply || 'Baik, terima kasih Bapak/Ibu, layanannya tetap kami lanjutkan. 🙏') + ' ' + CC_MINTA_BUKTI));
   } else if (hasil.intent === 'BERHENTI') {
     const sudahMinta = status === 'MINTA_FOTO' || status === 'FOTO_DITERIMA';
     setS(status === 'FOTO_DITERIMA' ? 'FOTO_DITERIMA' : 'MINTA_FOTO');
-    balas(sudahMinta ? reply : (/foto/i.test(reply) ? reply : ((reply ? reply + ' ' : 'Baik, terima kasih infonya. ') + CC_MINTA_FOTO)));   // permintaan foto tidak diulang
+    const mintaFL = (/foto/i.test(reply || '') ? reply : ((reply ? reply + ' ' : 'Baik, terima kasih infonya. ') + CC_MINTA_FOTO)) + (/lokasi|sherlock/i.test(reply || '') ? '' : ' ' + CC_MINTA_LOK);
+    balas(sudahMinta ? reply : mintaFL);   // foto + lokasi diminta sekaligus, tidak diulang
   } else if (hasil.intent === 'ADMIN') {
     setS('PERLU_ADMIN'); balas(reply);
   } else {
-    setS(status === 'MINTA_FOTO' ? 'MINTA_FOTO' : 'MENUNGGU_BALASAN'); balas(reply);
+    setS(['MINTA_FOTO', 'MINTA_BUKTI', 'BUKTI_DITERIMA', 'FOTO_DITERIMA', 'SIAP_DIAMBIL'].indexOf(status) >= 0 ? status : 'MENUNGGU_BALASAN'); balas(reply);
   }
 }
 
