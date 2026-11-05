@@ -130,7 +130,7 @@ function gmProses_(items, fotoUrl, opt) {
     } catch (e) { rec.VERIF += ' | GAGAL BERSIHKAN ANTRIAN'; }
     const kerja = Object.assign({}, rec); delete kerja.JENIS;
     const tujuan = T ? [TM.SH.TERMINATE] : x.jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
-    tujuan.forEach(nm => { try { tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ } tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja); });
+    tujuan.forEach(nm => { try { tmUpsertCid_(nm, TM_LOG_KEYS, kerja); } catch (e) { Logger.log('upsert ' + nm + ': ' + e.message); } });
     tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec); logRows.push(rec);
     h.masuk++; gmPakai_();
   });

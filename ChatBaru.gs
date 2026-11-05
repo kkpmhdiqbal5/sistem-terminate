@@ -296,8 +296,8 @@ function ccSegarkan_(d, au) {
     const sama = x => String(x.PHONE) === phone && tmCidDigit_(x.CID) === cid, waktu = masuk[masuk.length - 1].WAKTU, ringkas = teks.slice(0, 120);
     if (hasil.intent === 'LANJUT') {
       tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'LANJUT', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas });
-      try { tmHapusCid_(TM.SH.LANJUT, cid); tmAppendObj_(tmSheetEnsure_(TM.SH.LANJUT, ['ID', 'WAKTU', 'TANGGAL', 'ADMIN', 'NAMA', 'CID', 'ODP', 'POP', 'KET']),
-        { ID: Utilities.getUuid(), WAKTU: waktu, TANGGAL: tmTglIndo_(tmIso_(waktu)), ADMIN: 'BOT WA', NAMA: r.NAMA, CID: cid, ODP: r.ODP, POP: tmPop_(r.POP), KET: 'Client masih mau lanjut berlangganan (via chat WA)' }); } catch (e) { /* abaikan */ }
+      try { tmUpsertCid_(TM.SH.LANJUT, ['ID', 'WAKTU', 'TANGGAL', 'ADMIN', 'NAMA', 'CID', 'ODP', 'POP', 'KET'],
+        { ID: Utilities.getUuid(), WAKTU: waktu, TANGGAL: tmTglIndo_(tmIso_(waktu)), ADMIN: 'BOT WA', NAMA: r.NAMA, CID: cid, ODP: r.ODP, POP: tmPop_(r.POP), KET: 'Client masih mau lanjut berlangganan (via chat WA)' }, { keepId: true }); } catch (e) { /* abaikan */ }
       h.lanjut++;
     } else if (hasil.intent === 'BERHENTI') {
       tmUpdateRows_(CC.SH.CHAT, sama, { STATUS: 'MINTA_FOTO', WAKTUBALAS: waktu, PESANTERAKHIR: ringkas }); h.berhenti++;   // foto & lokasi diminta admin lewat tombol "Ubah ke BERHENTI"

@@ -150,6 +150,36 @@ function tmCell_(k, v) {
   if ((k === 'CID' || k === 'SN' || k === 'PSN' || k === 'PHONE') && String(v) !== '') return "'" + String(v);   // simpan sebagai teks
   return v;
 }
+// Nilai sel sama dengan nilai yang akan ditulis? (supaya sel yang tidak berubah tidak ditulis ulang)
+function tmSamaCell_(cv, nv) {
+  if (cv instanceof Date && nv instanceof Date) return cv.getTime() === nv.getTime();
+  if (typeof nv === 'string' && nv.charAt(0) === "'") nv = nv.slice(1);
+  return String(cv == null ? '' : cv) === String(nv == null ? '' : nv);
+}
+// Satu CID satu baris: kalau CID sudah ada di sheet, HANYA sel yang berubah diperbarui (baris tidak dihapus/ditulis ulang); kalau belum ada, baris baru ditambahkan.
+// opts.keepId: jangan ganti ID baris yang sudah punya ID. Baris dobel dengan CID sama dihapus.
+function tmUpsertCid_(nama, keys, rec, opts) {
+  opts = opts || {};
+  const sh = tmSheetEnsure_(nama, keys);
+  const c = tmNorm_(rec.CID);
+  if (!c) { tmAppendObj_(sh, rec); return { baru: true, ubah: 0 }; }
+  tmEnsureCols_(sh, Object.keys(rec).filter(k => rec[k] !== undefined));
+  const v = sh.getLastRow() > 1 ? sh.getDataRange().getValues() : [];
+  const canon = v.length ? v[0].map(tmCanon_) : [], iC = canon.indexOf('CID');
+  const cocok = []; if (iC >= 0) for (let r = 1; r < v.length; r++) if (tmNorm_(v[r][iC]) === c) cocok.push(r);
+  if (!cocok.length) { tmAppendObj_(sh, rec); return { baru: true, ubah: 0 }; }
+  const r0 = cocok[0], iID = canon.indexOf('ID'); let ubah = 0;
+  Object.keys(rec).forEach(k => {
+    if (rec[k] === undefined) return;
+    if (k === 'ID' && opts.keepId && iID >= 0 && String(v[r0][iID] || '')) return;
+    const i = canon.indexOf(k); if (i < 0) return;
+    const nv = tmCell_(k, rec[k]);
+    if (tmSamaCell_(v[r0][i], nv)) return;
+    sh.getRange(r0 + 1, i + 1).setValue(nv); ubah++;
+  });
+  for (let j = cocok.length - 1; j >= 1; j--) sh.deleteRow(cocok[j] + 1);
+  return { baru: false, ubah: ubah };
+}
 function tmAppendObj_(sh, obj) {
   const keys = Object.keys(obj).filter(k => obj[k] !== undefined);
   tmEnsureCols_(sh, keys);
@@ -181,7 +211,7 @@ function tmUpdateRows_(name, pred, obj) {
     const o = {};
     canon.forEach((c, i) => { if (c && o[c] === undefined) o[c] = v[r][i]; });
     if (!pred(o)) continue;
-    Object.keys(obj).forEach(k => { const i = canon.indexOf(k); if (i >= 0) sh.getRange(r + 1, i + 1).setValue(tmCell_(k, obj[k])); });
+    Object.keys(obj).forEach(k => { const i = canon.indexOf(k); if (i < 0) return; const nv = tmCell_(k, obj[k]); if (!tmSamaCell_(v[r][i], nv)) sh.getRange(r + 1, i + 1).setValue(nv); });
     n++;
   }
   return n;
@@ -597,8 +627,7 @@ function tmSimpan_(d, au) {
     // sheet tujuan sesuai jenis; CID dobel di sheet tujuan dihapus dulu supaya satu CID satu baris
     const tujuan = jenis === 'TERMINATE' ? [TM.SH.TERMINATE] : jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
     tujuan.forEach(nm => {
-      try { bersih += tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ }
-      tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja);
+      tmUpsertCid_(nm, TM_LOG_KEYS, kerja);          // CID sudah ada: hanya sel yang berubah diperbarui
     });
     if (ada) { const f = Object.assign({}, rec); delete f.ID; tmUpdateRows_(TM.SH.LOG, r => String(r.ID) === rec.ID, f); }   // baris lama diperbarui (termasuk foto)
     else tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
