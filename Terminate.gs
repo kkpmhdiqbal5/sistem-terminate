@@ -423,6 +423,13 @@ function tmCari_(d) {
   ];
   for (let u = 0; u < uji.length; u++) {
     if (!uji[u][1]) continue;
+    if (uji[u][0] === 'NAMA') {                              // nama: cocok persis/mengandung, atau MIRIP (salah ketik, urutan kata, sebagian kata) -> pilih dari daftar
+      const res = tmCariNama_(d.nama, order, baca);
+      if (!res.length) continue;
+      const h0 = res[0].h, mirip = res[0].skor < 1.2;
+      return { status: 'success', found: true, by: mirip ? 'NAMA (mirip)' : 'NAMA', mirip: mirip, sheet: h0.sheet, data: h0, kandidat: (mirip || res.length > 1) ? res.map(o => o.h) : [],
+               fotoRumah: (!mirip && typeof ccFotoRumah_ === 'function' && h0.cid) ? ccFotoRumah_(h0.cid) : '' };
+    }
     const hits = [];
     order.forEach(sh => baca(sh).forEach(r => { if (hits.length < 8 && uji[u][2](r)) hits.push({ sheet: sh, nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPop_(r.POP), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() }); }));
     if (!hits.length) continue;
@@ -432,6 +439,42 @@ function tmCari_(d) {
              fotoRumah: (typeof ccFotoRumah_ === 'function' && h0.cid) ? ccFotoRumah_(h0.cid) : '' };
   }
   return { status: 'success', found: false, message: 'Data tidak ditemukan. Isi kolom CID atau Nama pelanggan agar data bisa ditemukan.' };
+}
+function tmEdit_(a, b) {                                     // jarak edit (Levenshtein)
+  const m = a.length, n = b.length; if (!m) return n; if (!n) return m;
+  let p = []; for (let j = 0; j <= n; j++) p[j] = j;
+  for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; }
+  return p[n];
+}
+function tmCariNama_(nama, order, baca) {
+  const tok = t => String(t || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  let q = tok(nama).filter(t => t.length >= 3); if (!q.length) q = tok(nama);
+  const nq = tmNorm_(nama), best = {};
+  if (!q.length) return [];
+  order.forEach(sh => baca(sh).forEach(r => {
+    const nm = String(r.NAMA || '').trim(); if (!nm) return;
+    const rt = tok(nm), nr = tmNorm_(nm);
+    let skor = 0;
+    if (nq.length >= 3 && (nr === nq || nr.indexOf(nq) >= 0)) skor = 1.2;
+    else {
+      q.forEach(w => {
+        let b = 0;
+        rt.forEach(t => {
+          if (t === w) b = Math.max(b, 1);
+          else if (w.length >= 4 && tmEdit_(w, t) <= 1) b = Math.max(b, 0.9);
+          else if (w.length >= 7 && tmEdit_(w, t) <= 2) b = Math.max(b, 0.75);
+          else if (w.length >= 4 && t.length >= 4 && (t.indexOf(w) >= 0 || w.indexOf(t) >= 0)) b = Math.max(b, 0.7);
+        });
+        skor += b;
+      });
+      skor = skor / q.length;
+    }
+    if (skor < 0.5) return;
+    const h = { sheet: sh, nama: nm, cid: String(r.CID || '').trim(), odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPop_(r.POP), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim() };
+    const k = tmCidDigit_(h.cid) || tmNorm_(nm);
+    if (!best[k] || skor > best[k].skor) best[k] = { skor: skor, h: h };
+  }));
+  return Object.keys(best).map(k => best[k]).sort((x, y) => y.skor - x.skor).slice(0, 8);
 }
 // Pindahkan baris dari "Baris 1" (akan diambil) ke "Baris 2" (sudah diambil & diverif tim terminate)
 function tmPindahB1_(sn, psn, rec) {

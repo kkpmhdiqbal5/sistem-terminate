@@ -64,6 +64,16 @@
           TMC.api('terminateCek', { sn: x.sn, psn: x.psn, cid: inC.value.trim(), nama: inN.value.trim() }).then(function (r) {
             if (!r || r.status !== 'success') { inf.textContent = (r && r.message) || 'Gagal.'; return; }
             if (!r.found) { inf.textContent = r.message || 'Data tidak ditemukan.'; return; }
+            if (r.mirip) {                                            // nama mirip: pilih dari daftar, tidak diisi otomatis
+              inf.textContent = 'Nama persis tidak ada; ada ' + r.kandidat.length + ' nama mirip. Pilih yang benar:';
+              r.kandidat.forEach(function (k) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-outline-light btn-sm me-1 mb-1';
+                b.textContent = (k.nama || '-') + ' | ' + (k.cid || '-') + ' (' + k.sheet + ')';
+                b.onclick = function () { if (k.nama) inN.value = k.nama; if (k.cid) inC.value = k.cid; inf.textContent = 'Dipilih: ' + (k.nama || '-') + ' | ' + (k.cid || '-') + '. Klik Simpan untuk menyimpan.'; };
+                inf.appendChild(document.createElement('br')); inf.appendChild(b);
+              });
+              return;
+            }
             var h = r.data; if (h.nama) inN.value = h.nama; if (h.cid) inC.value = h.cid;
             inf.textContent = 'Cocok (' + r.by + ') di sheet ' + r.sheet + ': ' + (h.nama || '-') + ' | ' + (h.cid || '-') + (r.kandidat && r.kandidat.length ? ' (ada ' + r.kandidat.length + ' data mirip, periksa dulu)' : '') + '. Klik Simpan untuk menyimpan.';
           }).catch(function () { inf.textContent = 'Gagal terhubung ke server.'; });

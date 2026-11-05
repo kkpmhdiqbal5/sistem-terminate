@@ -220,9 +220,9 @@
       TMC.api('terminateCek', { sn: sn, psn: psn, cid: cid, nama: nama }).then(function (r) {
         if (!r || r.status !== 'success') { $('info').textContent = (r && r.message) || 'Cek gagal.'; return; }
         if (!r.found) { $('info').textContent = (sn || psn) && !cid && !nama ? 'SN/P-SN belum ditemukan. Isi kolom CID atau Nama agar data bisa ditemukan.' : (r.message || 'Data tidak ditemukan.'); return; }
-        terapkan(r.data, r.by, r.sheet, r.fotoRumah, manual === true);
+        if (r.mirip) $('info').textContent = 'Nama persis tidak ada; ada ' + r.kandidat.length + ' nama mirip. Pilih yang benar:'; else terapkan(r.data, r.by, r.sheet, r.fotoRumah, manual === true);
         if (r.kandidat && r.kandidat.length) {
-          var w = document.createElement('div'); w.className = 'mt-2'; w.innerHTML = '<div class="kecil">Ada ' + r.kandidat.length + ' data mirip, pilih yang benar:</div>';
+          var w = document.createElement('div'); w.className = 'mt-2'; if (!r.mirip) w.innerHTML = '<div class="kecil">Ada ' + r.kandidat.length + ' data mirip, pilih yang benar:</div>';
           r.kandidat.forEach(function (k) {
             var b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-outline-light btn-sm me-1 mb-1';
             b.textContent = (k.nama || '-') + ' | ' + (k.cid || '-') + ' (' + k.sheet + ')';
