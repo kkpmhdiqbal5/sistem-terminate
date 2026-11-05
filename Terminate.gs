@@ -517,6 +517,7 @@ function tmSimpan_(d, au) {
   if (!d.foto) return tmErr_('Foto wajib diambil dengan kamera.');
 
   let bersih = 0;                       // jumlah baris dobel / antrian yang dibersihkan
+  let ada = null;                       // data yang sama sudah ada -> diperbarui (bukan baris baru)
   const now = new Date();
   const rec = {
     ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: now, TANGGAL: tmTglIndo_(tmIso_(now)),
@@ -533,9 +534,10 @@ function tmSimpan_(d, au) {
       rec.SN = tmCleanCode_(s('sn')); rec.PSN = tmCleanCode_(s('psn'));
       if (!rec.SN || !rec.PSN) return tmErr_('SN dan P-SN wajib diisi keduanya.');
 
-      const dup = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' &&
-        (tmNorm_(r.SN) === tmNorm_(rec.SN) || tmNorm_(r.PSN) === tmNorm_(rec.PSN)))[0];
-      if (dup) return tmErr_('Perangkat ini sudah dicatat ' + tmIso_(dup.WAKTU) + ' oleh ' + dup.ADMIN + '.');
+      // perangkat yang sama (SN / P-SN) untuk client yang sama (CID kosong/sama) = data yang sama -> diperbarui; CID beda = client lain (perangkat dipakai ulang) -> baris baru
+      ada = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' &&
+        (tmNorm_(r.SN) === tmNorm_(rec.SN) || tmNorm_(r.PSN) === tmNorm_(rec.PSN)) &&
+        (!rec.CID || !tmNorm_(r.CID) || tmNorm_(r.CID) === tmNorm_(rec.CID)))[0] || null;
 
       const cari = tmLookup_(rec.SN, rec.PSN);
       if (cari.found) {
@@ -562,6 +564,7 @@ function tmSimpan_(d, au) {
       if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'BERHENTI_DILAPOR');   // status di Chat Client ikut: sudah diambil
     } else {
       if (!rec.NAMA || !rec.CID) return tmErr_('Nama dan CID wajib diisi.');
+      ada = tmRead_(TM.SH.LOG).filter(r => r.JENIS === jenis && tmNorm_(r.CID) === tmNorm_(rec.CID) && tmIso_(r.WAKTU) === tmIso_(now))[0] || null;   // CID & jenis sama di hari yang sama
       rec.SN = tmCleanCode_(s('sn')); rec.PSN = tmCleanCode_(s('psn'));   // opsional, membantu mencocokkan antrian
       rec.KET = rec.KET || TM.KET[jenis];
       rec.STATUS = jenis === 'KUNJUNGAN' ? 'TIDAK ADA DIRUMAH' : 'LANJUT';
@@ -574,6 +577,7 @@ function tmSimpan_(d, au) {
       } catch (e) { rec.VERIF = ((rec.VERIF ? rec.VERIF + ' | ' : '') + 'GAGAL BERSIHKAN ANTRIAN'); }
     }
 
+    if (ada) rec.ID = String(ada.ID);
     const kerja = Object.assign({}, rec); delete kerja.JENIS;
     // sheet tujuan sesuai jenis; CID dobel di sheet tujuan dihapus dulu supaya satu CID satu baris
     const tujuan = jenis === 'TERMINATE' ? [TM.SH.TERMINATE] : jenis === 'KUNJUNGAN' ? [TM.SH.KUNJUNGAN] : [TM.SH.LANJUT, TM.SH.TERMINATE];
@@ -581,9 +585,10 @@ function tmSimpan_(d, au) {
       try { bersih += tmHapusCid_(nm, rec.CID); } catch (e) { /* abaikan */ }
       tmAppendObj_(tmSheetEnsure_(nm, TM_LOG_KEYS), kerja);
     });
-    tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
+    if (ada) { const f = Object.assign({}, rec); delete f.ID; tmUpdateRows_(TM.SH.LOG, r => String(r.ID) === rec.ID, f); }   // baris lama diperbarui (termasuk foto)
+    else tmAppendObj_(tmSheetEnsure_(TM.SH.LOG, TM_LOG_KEYS), rec);
 
-    return { status: 'success', message: 'Tersimpan.',
+    return { status: 'success', message: ada ? 'Data sudah ada: diperbarui (termasuk foto), tidak dibuat baris baru.' : 'Tersimpan.', diperbarui: !!ada,
              data: { nama: rec.NAMA, cid: rec.CID, odp: rec.ODP, pop: rec.POP, sn: rec.SN, psn: rec.PSN, verif: rec.VERIF, pindah: pindah, bersih: bersih } };
   } finally {
     lock.releaseLock();

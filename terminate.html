@@ -262,7 +262,7 @@
       }).then(function (res) {
         if (res.status === 'success') {
           var d = res.data || {};
-          hasil.innerHTML = '<div class="alert alert-success py-2 mb-0">Tersimpan.<br>Nama: ' + TMC.esc(d.nama || '-') + ' | CID: ' + TMC.esc(d.cid || '-') +
+          hasil.innerHTML = '<div class="alert alert-success py-2 mb-0">' + (res.diperbarui ? 'Data sudah ada: diperbarui (foto diganti), tidak dibuat baris baru.' : 'Tersimpan.') + '<br>Nama: ' + TMC.esc(d.nama || '-') + ' | CID: ' + TMC.esc(d.cid || '-') +
             (d.pop ? '<br>POP: ' + TMC.esc(d.pop) + ' | ODP: ' + TMC.esc(d.odp) : '') +
             (d.sn ? '<br>SN: ' + TMC.esc(d.sn) + ' | P-SN: ' + TMC.esc(d.psn) : '') +
             (d.verif ? '<br>Verif: ' + TMC.esc(d.verif) : '') +
