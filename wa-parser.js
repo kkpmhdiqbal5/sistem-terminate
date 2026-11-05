@@ -92,14 +92,19 @@
       if (!l) return;
       var j = judul(l);
       // judul bagian
-      if (/^(MAINTENANCE( ION CORE| ION BROADBAND)?|MAINTENANCE & INSTALASI)$/.test(j) && j !== "MAINTENANCE & INSTALASI") { tutup(); sec = "MAINTENANCE"; return; }
+      if (/^(MAINTENANCE( ION CORE| ION BROADBAND| MANUAL)?|MAINTENANCE & INSTALASI)$/.test(j) && j !== "MAINTENANCE & INSTALASI") { tutup(); sec = "MAINTENANCE"; return; }
       if (/^INSTALASI( ION BROADBAND)?$/.test(j)) { tutup(); sec = "INSTALASI"; return; }
-      if (/^RESCHEDULE$/.test(j)) { tutup(); sec = "RESCHEDULE"; return; }
+      if (/^(\d+\s*[.)]\s*)?(RESCHEDULE|CANCEL|NOTES?)$/.test(j)) { tutup(); sec = "RESCHEDULE"; return; }
+      if (/MAINTENANCE CLIENT/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "MAINTENANCE"; return; }
       // laporan Terminate: judul bagian (berhenti / lanjut / tidak ada di rumah)
       if (/^LAPORAN HARIAN TERMINATE/.test(j)) { tutup(); sec = ""; ctx.pop = popNorm(j) || ctx.pop; inTim = false; return; }
       if (/^TERMINATE( ION BROADBAND)?$/.test(j)) { tutup(); sec = "TERMINATE"; inTim = false; return; }
       if (/BERHENTI BERLANGGANAN|PERANGKAT SUDAH DIAMBIL/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "TERMINATE"; inTim = false; return; }
       if (/MASIH LANJUT/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "LANJUT"; inTim = false; return; }
+      if (/^client\b/i.test(l) && !/[:=]/.test(l) && cur && cur.cid && !cur.sn && !cur.psn && !cur.ket) {     // status di AKHIR blok: "Client Tidak Ada Di Rumah" / "Client Masih Mau Lanjut"
+        var ts = /TIDAK ADA (DI ?)?RUMAH/.test(j) ? "KUNJUNGAN" : (/(MASIH|MAU)( MAU)? LANJUT/.test(j) ? "LANJUT" : "");
+        if (ts) { cur.sec = ts; tutup(); return; }
+      }
       if (/TIDAK ADA (DI ?)?RUMAH/.test(j) && !/[:=]/.test(l)) { tutup(); sec = "KUNJUNGAN"; inTim = false; return; }
       if (/^TIM\s*[:=]?$/.test(j)) { tutup(); inTim = true; return; }
       if (inTim && !/[:=]/.test(l)) return;                              // daftar nama tim di kepala laporan
@@ -162,6 +167,8 @@
         if ((!b.sec || b.sec === "INSTALASI") && /dismental|dismantle|dismantel|bongkar|cabut/i.test(b._cat || "")) { b.sec = "TERMINATE"; if (!b.ket) b.ket = b._cat; }
         // blok tanpa judul bagian, tapi ciri Terminate (P-SN / "perangkat sudah diambil", tanpa PORT/TARIKAN/OLT/SN lama) -> Terminate, bukan Instalasi
         if (!b.sec && !b.snlama && !/\b(port|tarikan|sc\s*upc|olt)\s*[:=]/i.test(all) && (b.psn || /sudah\s*(di\s*)?(ambil|cabut)|berhenti\s*berlangganan|dismantle|dismental|terminate/i.test(b.ket || ""))) b.sec = "TERMINATE";
+        // JADWAL dari admin (pesan memuat "Belum ada Laporan"/judul JADWAL, blok tanpa SN/P-SN) bukan laporan selesai -> dilewati
+        if (b.sec === "TERMINATE" && !b.sn && !b.psn && /belum\s*ada\s*lap|^\s*JADWAL\b/im.test(p.teks || "")) return;
         if (b.sec === "TERMINATE" || b.sec === "LANJUT" || b.sec === "KUNJUNGAN") {      // laporan Terminate harian
           if (opsi.mode === "Instalasi" || opsi.mode === "MT") return;
           if (b.sec === "TERMINATE" ? !(b.cid || b.sn || b.psn) : !(b.cid && b.nama)) return;
@@ -186,6 +193,7 @@
         if (!sheet) return;
         if (sheet === "MT" && opsi.mtHanyaGanti !== false && !(b.snlama || (MT_WORDS.test(all) && (b.sn || b.psn)))) return;
         if (sheet === "Instalasi" && !(b.sn || b.psn || b.cid)) return;
+        if (sheet === "Instalasi" && !b.sn && !b.psn && !b.snlama && /reschedule|cancel|batal/i.test(all)) return;   // catatan jadwal ulang / batal, bukan pemasangan
         var ket = [];
         if (b.ket && sheet === "MT") ket.push(b.ket);
         if (b._cat && sheet === "Instalasi") ket.push(b._cat);
