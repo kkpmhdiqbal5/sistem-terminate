@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -80,6 +80,7 @@ function terminateRoute_(d) {
       case 'terminateRekap': return tmJson_(tmRekap_(d, au));
       case 'terminateEditList': return tmJson_(tmEditList_(au, d));
       case 'terminateEditSimpan': return tmJson_(tmEditSimpan_(d, au));
+      case 'terminateFotoSimpan': return tmJson_(tmFotoSimpan_(d, au));
       case 'terminateFull': return tmJson_(tmFull_(d));
       case 'terminateImporWA': return tmJson_(tmImporWA_(d, au));
       case 'terminateSnCid': return tmJson_(tmSnCid_(d));
@@ -666,6 +667,34 @@ function tmEditList_(au, d) {
   if (au.role !== 'ADMIN') rows = rows.filter(r => tmSame_(r.ADMIN, au.user));
   rows.sort(tmByWaktuDesc_);
   return { status: 'success', role: au.role, data: rows.slice(0, 500).map(tmOut_) };
+}
+// Foto dimasukkan manual dari halaman Laporan (menambah / mengganti foto sebuah data)
+function tmFotoSimpan_(d, au) {
+  const id = String(d.id || '').trim();
+  if (!id) return tmErr_('ID data tidak ada.');
+  if (!d.foto || String(d.foto).length < 100) return tmErr_('Foto belum dipilih.');
+  if (String(d.foto).length > 6000000) return tmErr_('Foto terlalu besar. Pilih foto lain.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
+    if (!rec) return tmErr_('Data tidak ditemukan.');
+    if (au.role !== 'ADMIN' && !tmSame_(rec.ADMIN, au.user)) return tmErr_('Anda hanya boleh mengubah foto data milik sendiri.');
+    const link = tmSimpanFoto_(d.foto, (rec.JENIS || 'DATA') + '_' + (rec.CID || rec.SN || id));
+    const sama = r => String(r.ID) === id;
+    tmUpdateRows_(TM.SH.LOG, sama, { FOTO: link });
+    tmUpdateRows_(TM.SH.TERMINATE, sama, { FOTO: link });
+    tmUpdateRows_(TM.SH.KUNJUNGAN, sama, { FOTO: link });
+    tmUpdateRows_(TM.SH.LANJUT, sama, { FOTO: link });
+    if (rec.JENIS === 'TERMINATE' && tmNorm_(rec.SN)) {          // salinan di Baris 2 & sudah diambil (dicari lewat SN)
+      const bySN = r => tmNorm_(r.SN) === tmNorm_(rec.SN);
+      tmUpdateRows_(TM.SH.B2, bySN, { FOTOTERMINATE: link });
+      tmUpdateRows_(TM.SH.DIAMBIL, bySN, { FOTO: link });
+    }
+    return { status: 'success', foto: link, message: 'Foto tersimpan.' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 function tmEditSimpan_(d, au) {
   const id = String(d.id || '').trim(), nama = String(d.nama || '').trim(), cid = String(d.cid || '').replace(/\s+/g, '');

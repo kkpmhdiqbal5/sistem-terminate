@@ -33,7 +33,17 @@
     function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
     function foto(x) {
       var t = TMC.thumb(x.foto, 200);
-      return t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>' : '';
+      return '<div data-fotobox style="flex:none">' + (t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>'
+        : '<div class="thumb d-flex align-items-center justify-content-center text-center kecil">Belum ada foto</div>') + '</div>';
+    }
+    function kecilkan(file) {
+      return new Promise(function (ok, gagal) {
+        var fr = new FileReader(); fr.onerror = function () { gagal(); };
+        fr.onload = function () { var im = new Image(); im.onerror = function () { gagal(); }; im.onload = function () {
+          var r = Math.min(1, 1280 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * r); c.height = Math.round(im.height * r);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.8)); }; im.src = fr.result; };
+        fr.readAsDataURL(file);
+      });
     }
     function kartu(x, extra) {
       return '<div class="card-custom p-3 mb-2"><div class="d-flex gap-3">' + foto(x) + '<div class="small flex-grow-1">' +
@@ -185,9 +195,19 @@
           (adm ? '<button id="bGab" class="btn btn-success btn-sm fw-bold flex-fill">Kirim via WA API (1 pesan)</button><button id="bPer" class="btn btn-warning btn-sm fw-bold flex-fill">1 data 1 pesan + foto</button>' : '<a id="bWa" class="btn btn-success btn-sm fw-bold flex-fill" target="_blank" rel="noopener">Kirim WhatsApp</a>') + '</div>';
         $('hasil').appendChild(c);
         DATA.forEach(function (x, i) {
-          var k = document.createElement('div'); k.innerHTML = kartu(x, '<button type="button" class="btn btn-outline-info btn-sm mt-1" data-salin="1">Salin data ini</button>');
+          var k = document.createElement('div'); k.innerHTML = kartu(x, '<button type="button" class="btn btn-outline-info btn-sm mt-1" data-salin="1">Salin data ini</button> <button type="button" class="btn btn-outline-warning btn-sm mt-1" data-foto="1"></button><input type="file" accept="image/*" hidden data-file="1">');
           var card = k.firstChild, tb = card.querySelector('[data-salin]');
           tb.onclick = function () { salin(x.caption).then(function () { tb.textContent = 'Tersalin ✔'; }); };
+          var bf = card.querySelector('[data-foto]'), fi = card.querySelector('[data-file]');
+          bf.textContent = x.foto ? '📷 Ganti foto' : '📷 Tambah foto';
+          bf.onclick = function () { fi.click(); };
+          fi.onchange = function () {
+            var f = fi.files[0]; if (!f) return; bf.disabled = true; bf.textContent = 'Mengunggah...';
+            kecilkan(f).then(function (url) { return TMC.api('terminateFotoSimpan', { id: x.id, foto: url }); }).then(function (r) {
+              if (r.status !== 'success') { alert(r.message || 'Gagal menyimpan foto.'); return; }
+              x.foto = r.foto; var box = card.querySelector('[data-fotobox]'), nb = document.createElement('div'); nb.innerHTML = foto(x); box.parentNode.replaceChild(nb.firstChild, box);
+            }).catch(function (e) { alert((e && e.message) || 'Foto tidak bisa dibaca / gagal terhubung.'); }).finally(function () { bf.disabled = false; bf.textContent = x.foto ? '📷 Ganti foto' : '📷 Tambah foto'; fi.value = ''; });
+          };
           var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.setAttribute('data-pilih', i); cb.style.cssText = 'width:20px;height:20px;margin-top:4px';
           cb.onchange = segarkan; card.querySelector('.d-flex').insertBefore(cb, card.querySelector('.d-flex').firstChild);
           $('daftar').appendChild(card);

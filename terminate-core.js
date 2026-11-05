@@ -37,8 +37,15 @@
   }
   function thumb(url, w) {
     var id = driveId(url);
-    return id ? "https://drive.google.com/thumbnail?id=" + id + "&sz=w" + (w || 300) : (/^https:\/\//.test(url || "") ? url : "");
+    return id ? "https://lh3.googleusercontent.com/d/" + id + "=w" + (w || 300) : (/^https:\/\//.test(url || "") ? url : "");
   }
+  // gambar Drive gagal tampil -> coba alamat lain (thumbnail Drive, lalu uc?export=view) sebelum menyerah
+  document.addEventListener("error", function (e) {
+    var im = e.target; if (!im || im.tagName !== "IMG" || !im.classList.contains("thumb")) return;
+    var id = driveId(im.src), n = +(im.getAttribute("data-try") || 0); if (!id || n > 1) return;
+    im.setAttribute("data-try", n + 1);
+    im.src = n === 0 ? "https://drive.google.com/thumbnail?id=" + id + "&sz=w300" : "https://drive.google.com/uc?export=view&id=" + id;
+  }, true);
 
   var CSS = "body{background:#0b132b;color:#e0e6ed;font-family:'Segoe UI',sans-serif;padding-bottom:85px;margin:0}" +
     ".tm-top{background:#1c2541;padding:12px 16px;border-bottom:1px solid #2a385b;display:flex;justify-content:space-between;align-items:center;gap:8px}" +
