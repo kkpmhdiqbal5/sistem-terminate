@@ -68,11 +68,15 @@ function ccTerimaLokasi_(m, row, lok, setS, balas, cid) {
     : row.FOTORUMAH ? 'Terima kasih, lokasi rumah sudah kami terima. 🙏'
     : 'Terima kasih, lokasi rumah sudah kami terima. Mohon kirim juga *foto rumah* (tampak depan) ya. 🙏');
 }
-// foto rumah + lokasi lengkap -> status SIAP_DIAMBIL dan masuk Baris 1 (sekali)
+// foto rumah + lokasi sudah lengkap? (TIDAK lagi otomatis masuk Baris 1: client masuk kelompok "Berhenti - sudah ada bukti", admin yang menekan "Masukkan ke laporan")
 function ccCekSiapB1_(cid) {
   const row = tmRead_(CC.SH.CHAT).filter(r => tmCidDigit_(r.CID) === cid).pop();
+  return !!(row && row.FOTORUMAH && row.SHERLOCK && ['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(String(row.STATUS)) >= 0);
+}
+// dipanggil admin: masukkan client berhenti ke Baris 1 (siap diambil)
+function ccMasukB1_(cid) {
+  const row = tmRead_(CC.SH.CHAT).filter(r => tmCidDigit_(r.CID) === cid).pop();
   if (!row || !row.FOTORUMAH || !row.SHERLOCK) return false;
-  if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(String(row.STATUS)) < 0) return false;
   try {
     let sudah = false; try { sudah = tmBacaCid_(TM.SH.B1).list.some(x => x.cid === cid); } catch (e) { sudah = false; }
     if (!sudah) {
@@ -159,6 +163,7 @@ function ccIngatkan_(d, au) {
     const it = items[i], row = ccBarisChat_(it.phone, it.cid), nama = row && row.NAMA || it.cid;
     const skip = w => lewat.push(nama + ': ' + w);
     if (!row || !it.cid) { skip('data tidak ditemukan'); continue; }
+    if (String(row.AMBILALIH || '').toUpperCase() === 'YA') { skip('sedang ditangani admin'); continue; }
     const st = String(row.STATUS);
     if (CC.AKTIF.indexOf(st) < 0) { skip('tidak sedang menunggu balasan (' + st + ')'); continue; }
     const n = Number(row.JMLINGAT) || 0;
@@ -325,9 +330,38 @@ function ccLaporLanjut_(row, cid, linkBukti) {
   try {
     const h = gmProses_([{ jenis: 'LANJUT', nama: String(row.NAMA || ''), cid: cid, odp: '', pop: tmPop_(row.POP), sn: '', psn: '', ket: '', tanggal: '' }], linkBukti,
       { langsung: true, admin: 'BOT WA', verif: 'DARI CHAT CLIENT (bukti foto)', sumber: 'CHAT_CLIENT' });
-    ccStatusChatCid_(cid, 'BUKTI_DITERIMA');
     return gmRingkas_(h);
   } catch (e) { Logger.log('lapor lanjut: ' + e.message); return 'gagal: ' + e.message; }
+}
+
+/* ---------- admin memasukkan client yang sudah ada bukti ke data laporan (per data / beberapa sekaligus) ---------- */
+function ccMasukLaporan_(d, au) {
+  const items = Array.isArray(d.items) && d.items.length ? d.items : [{ phone: d.phone, cid: d.cid }];
+  let ok = 0; const lewat = [];
+  items.slice(0, 50).forEach(it => {
+    const phone = String(it.phone || '').trim(), cid = tmCidDigit_(it.cid), row = phone && cid ? ccBarisChat_(phone, cid) : null, nama = row && row.NAMA || cid;
+    if (!row) { lewat.push(nama + ': data tidak ditemukan'); return; }
+    const st = String(row.STATUS);
+    if (['LANJUT', 'MINTA_BUKTI', 'BUKTI_DITERIMA'].indexOf(st) >= 0) {
+      if (!row.FOTOBUKTI) { lewat.push(nama + ': belum ada foto bukti'); return; }
+      const h = ccLaporLanjut_(row, cid, String(row.FOTOBUKTI)); ccStatusChatCid_(cid, 'LANJUT_DILAPOR');
+      tmLogChat_(phone, cid, 'OUT', '[admin ' + au.user + ' memasukkan ke laporan: lanjut] ' + h); ok++;
+    } else if (['MINTA_FOTO', 'FOTO_DITERIMA', 'BERHENTI', 'SIAP_DIAMBIL'].indexOf(st) >= 0) {
+      if (!row.FOTORUMAH || !row.SHERLOCK) { lewat.push(nama + ': foto rumah / lokasi belum lengkap'); return; }
+      if (ccMasukB1_(cid)) { tmLogChat_(phone, cid, 'OUT', '[admin ' + au.user + ' memasukkan ke laporan: Baris 1]'); ok++; } else lewat.push(nama + ': gagal masuk Baris 1');
+    } else lewat.push(nama + ': status ' + st + ' tidak bisa dilaporkan');
+  });
+  return { status: ok ? 'success' : 'error', diubah: ok, dilewati: lewat, message: ok + ' data dimasukkan ke laporan.' + (lewat.length ? ' Dilewati: ' + lewat.slice(0, 5).join('; ') : '') };
+}
+// admin mengambil alih chat: bot berhenti membalas client ini (pesan tetap dicatat)
+function ccAmbilAlih_(d, au) {
+  const phone = String(d.phone || '').trim(), cid = tmCidDigit_(d.cid);
+  if (!phone) return tmErr_('Nomor kosong.');
+  const ambil = d.ambil !== false;
+  const n = tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && (!cid || tmCidDigit_(r.CID) === cid), { AMBILALIH: ambil ? 'YA' : '' });
+  if (!n) return tmErr_('Client tidak ditemukan.');
+  tmLogChat_(phone, cid, 'OUT', '[admin ' + au.user + (ambil ? ' mengambil alih chat ini (bot berhenti membalas)]' : ' mengembalikan chat ini ke bot]'));
+  return { status: 'success', message: ambil ? 'Chat diambil alih admin. Bot tidak akan membalas client ini.' : 'Chat dikembalikan ke bot.' };
 }
 
 /* ---------- admin mengisi manual foto rumah + lokasi (Sherlock) dari client yang tidak tertangkap sistem ---------- */
@@ -340,8 +374,8 @@ function ccBuktiManual_(d, au) {
     if (!foto) return tmErr_('Pilih foto bukti dulu.');
     let link = ''; try { link = tmSimpanFoto_(foto, 'BUKTI_' + cid); } catch (e) { return tmErr_(e.message); }
     tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && tmCidDigit_(r.CID) === cid, { FOTOBUKTI: link, STATUS: 'BUKTI_DITERIMA', WAKTUBALAS: new Date() });
-    tmLogChat_(phone, cid, 'IN', '[admin ' + au.user + ' mengisi manual: foto bukti] ' + ccLaporLanjut_(row, cid, link));
-    return { status: 'success', message: 'Foto bukti tersimpan dan laporan lanjut dibuat otomatis (masuk sheet lanjut berlangganan).' };
+    tmLogChat_(phone, cid, 'IN', '[admin ' + au.user + ' mengisi manual: foto bukti]');
+    return { status: 'success', message: 'Foto bukti tersimpan. Client masuk "Lanjut - sudah ada bukti"; tekan "Masukkan ke laporan" bila sudah siap dilaporkan.' };
   }
   if (!lokIn && !foto) return tmErr_('Isi foto rumah atau lokasi dulu.');
   const lok = lokIn ? ccLokasi_({ lokasi: lokIn, pesan: lokIn }) : '';
@@ -357,5 +391,5 @@ function ccBuktiManual_(d, au) {
   tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === phone && tmCidDigit_(r.CID) === cid, ubah);
   tmLogChat_(phone, cid, 'IN', '[admin ' + au.user + ' mengisi manual:' + (foto ? ' foto rumah' : '') + (lok ? ' lokasi' : '') + ']');
   const siap = ccCekSiapB1_(cid);
-  return { status: 'success', siap: siap, message: siap ? 'Tersimpan. Foto & lokasi lengkap, client masuk Baris 1 (siap diambil).' : 'Tersimpan. ' + ((ubah.FOTORUMAH || row.FOTORUMAH) ? '' : 'Foto rumah ') + ((ubah.SHERLOCK || row.SHERLOCK) ? '' : 'Lokasi ') + 'masih kurang, belum masuk Baris 1.' };
+  return { status: 'success', siap: siap, message: siap ? 'Tersimpan. Foto & lokasi lengkap: client masuk "Berhenti - sudah ada bukti". Tekan "Masukkan ke laporan" untuk memasukkannya ke Baris 1.' : 'Tersimpan. ' + ((ubah.FOTORUMAH || row.FOTORUMAH) ? '' : 'Foto rumah ') + ((ubah.SHERLOCK || row.SHERLOCK) ? '' : 'Lokasi ') + 'masih kurang, belum masuk Baris 1.' };
 }

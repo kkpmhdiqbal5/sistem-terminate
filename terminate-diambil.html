@@ -58,13 +58,39 @@
       $('jumlah').textContent = data.length + ' perangkat';
       if (!data.length) { d.innerHTML = '<div class="text-center text-secondary py-4">Belum ada perangkat diambil hari ini.</div>'; return; }
       data.forEach(function (x, i) {
-        var w = document.createElement('div'); w.innerHTML = kartu(x, '<button class="btn btn-outline-info btn-sm py-0 mt-1" data-i="' + i + '">Salin caption</button>');
+        var w = document.createElement('div'); w.innerHTML = kartu(x, '<button class="btn btn-outline-info btn-sm py-0 mt-1" data-i="' + i + '">Salin caption</button> <button class="btn btn-outline-warning btn-sm py-0 mt-1" data-e="' + i + '">✏️ Edit</button> <button class="btn btn-outline-danger btn-sm py-0 mt-1" data-h="' + i + '">🗑 Hapus</button><div data-box="' + i + '"></div>');
         d.appendChild(w.firstChild);
       });
     }
+    var KOL = [['nama', 'Nama'], ['cid', 'CID'], ['odp', 'ODP'], ['pop', 'POP'], ['sn', 'SN'], ['psn', 'P-SN'], ['ket', 'Keterangan']];
     $('daftar').addEventListener('click', function (e) {
-      var i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i == null) return;
-      salin(caption(data[i])).then(function () { e.target.textContent = 'Tersalin ✔'; });
+      var t = e.target, g = function (k) { return t.getAttribute && t.getAttribute(k); };
+      if (g('data-i') != null) { salin(caption(data[g('data-i')])).then(function () { t.textContent = 'Tersalin ✔'; }); return; }
+      if (g('data-e') != null) {
+        var i = g('data-e'), x = data[i], box = t.parentNode.querySelector('[data-box="' + i + '"]');
+        if (box.innerHTML) { box.innerHTML = ''; return; }
+        box.innerHTML = '<div class="row g-2 mt-1">' + KOL.map(function (k) { return '<div class="col-6"><label class="kecil">' + k[1] + '</label><input class="form-control form-control-dark form-control-sm" data-f="' + k[0] + '" value="' + TMC.esc(x[k[0]]) + '"></div>'; }).join('') +
+          '</div><button class="btn btn-success btn-sm mt-2 fw-bold" data-s="' + i + '">Simpan</button> <span class="kecil" data-m></span>';
+        return;
+      }
+      if (g('data-s') != null) {
+        var j = g('data-s'), y = data[j], bx = t.parentNode, p = { id: y.id }, m = bx.querySelector('[data-m]');
+        KOL.forEach(function (k) { p[k[0]] = bx.querySelector('[data-f=' + k[0] + ']').value.trim(); });
+        if (p.cid && !/^\d{6,20}$/.test(p.cid.replace(/\s+/g, ''))) { m.textContent = 'CID harus angka 6-20 digit.'; return; }
+        t.disabled = true; m.textContent = 'Menyimpan...';
+        TMC.api('terminateEditLengkap', p).then(function (r) {
+          if (r.status === 'success') { KOL.forEach(function (k) { y[k[0]] = p[k[0]]; }); render(); pesan('Data tersimpan.', 'success'); } else { m.textContent = r.message; t.disabled = false; }
+        }).catch(function () { m.textContent = 'Gagal terhubung ke server.'; t.disabled = false; });
+        return;
+      }
+      if (g('data-h') != null) {
+        var z = data[g('data-h')];
+        if (!confirm('Hapus data ' + (z.nama || z.cid || z.sn) + ' (CID ' + (z.cid || '-') + ') dari SEMUA sheet?\nTidak bisa dibatalkan.')) return;
+        t.disabled = true;
+        TMC.api('terminateHapus', { id: z.id }).then(function (r) {
+          if (r.status === 'success') { data.splice(data.indexOf(z), 1); render(); pesan(r.message, 'success'); } else { pesan(r.message, 'danger'); t.disabled = false; }
+        }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); t.disabled = false; });
+      }
     });
     function muat() {
       var b = $('btnMuat'); b.disabled = true; pesan('Memuat...', 'secondary');

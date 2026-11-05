@@ -25,7 +25,7 @@ const CC = {
   TEKS_AWAL: 'Selamat siang Bapak/Ibu {nama}, kami dari ION Network. Mau memastikan sebentar, apakah internetnya masih lanjut berlangganan? ' +
              'Balas *LANJUT* kalau masih, atau *TIDAK* kalau mau berhenti ya. Terima kasih 🙏'
 };
-const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH', 'SHERLOCK', 'FOTOBUKTI', 'JMLINGAT', 'WAKTUINGAT', 'VERIFSTOP', 'VERIFAMBIL'];
+const CC_KEYS_CHAT = ['PHONE', 'CID', 'NAMA', 'ODP', 'POP', 'STATUS', 'WAKTUKIRIM', 'WAKTUBALAS', 'PESANTERAKHIR', 'FOTORUMAH', 'DIKIRIMOLEH', 'SHERLOCK', 'FOTOBUKTI', 'JMLINGAT', 'WAKTUINGAT', 'VERIFSTOP', 'VERIFAMBIL', 'AMBILALIH'];
 const CC_KEYS_LOG = ['WAKTU', 'PHONE', 'CID', 'ARAH', 'ISI'];
 
 /* ---------- pengaturan ---------- */
@@ -264,8 +264,13 @@ const CC_PENYEDIA = { GEMINI: { model: 'gemini-3.5-flash-lite' }, OPENAI: { mode
 function ccLlm_(ea, sistem, msgs, maxTok, img) {
   const p = String(ea.penyedia || 'CLAUDE').toUpperCase(), model = ea.model || (CC_PENYEDIA[p] || {}).model || '';
   const kirim = (url, headers, body) => {
-    const res = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: headers, payload: JSON.stringify(body) });
-    let j = {}; try { j = JSON.parse(res.getContentText()); } catch (x) {}
+    let res, j = {};
+    for (let i = 0; i < 3; i++) {                           // penyedia AI sering sesaat "high demand" (503/429): coba lagi dengan jeda
+      res = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: headers, payload: JSON.stringify(body) });
+      if ([429, 500, 502, 503, 504].indexOf(res.getResponseCode()) < 0) break;
+      if (i < 2) Utilities.sleep(1500 * (i + 1));
+    }
+    try { j = JSON.parse(res.getContentText()); } catch (x) {}
     return { kode: res.getResponseCode(), j: j };
   };
   try {
@@ -588,7 +593,7 @@ function ccStatus_(d) {
   const kumpul = (nm, f) => { const o = {}; try { (f ? tmRead_(nm).filter(f) : tmRead_(nm)).forEach(r => { const c = tmCidDigit_(r.CID); if (c) o[c] = 1; }); } catch (e) { /* sheet belum ada */ } return o; };
   const b1 = kumpul(TM.SH.B1), dm = kumpul(TM.SH.DIAMBIL), lp = kumpul(TM.SH.LOG, r => r.JENIS === 'LANJUT');
   const rows = tmRead_(CC.SH.CHAT).map(r => ({ phone: String(r.PHONE || ''), cid: tmCidDigit_(r.CID), nama: String(r.NAMA || ''), odp: String(r.ODP || ''), pop: String(r.POP || ''), status: String(r.STATUS || ''),
-    kirim: tmWaktuTxt_(r.WAKTUKIRIM), balas: tmWaktuTxt_(r.WAKTUBALAS), terakhir: String(r.PESANTERAKHIR || ''), foto: String(r.FOTORUMAH || ''), sherlock: String(r.SHERLOCK || ''), bukti: String(r.FOTOBUKTI || ''), ingat: Number(r.JMLINGAT) || 0, baris1: b1[tmCidDigit_(r.CID)] ? 'ya' : '', diambil: !!dm[tmCidDigit_(r.CID)], lapor: !!lp[tmCidDigit_(r.CID)], ts: r.WAKTUBALAS instanceof Date ? r.WAKTUBALAS.getTime() : (r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0) }));
+    kirim: tmWaktuTxt_(r.WAKTUKIRIM), balas: tmWaktuTxt_(r.WAKTUBALAS), terakhir: String(r.PESANTERAKHIR || ''), foto: String(r.FOTORUMAH || ''), sherlock: String(r.SHERLOCK || ''), bukti: String(r.FOTOBUKTI || ''), ingat: Number(r.JMLINGAT) || 0, baris1: b1[tmCidDigit_(r.CID)] ? 'ya' : '', diambil: !!dm[tmCidDigit_(r.CID)], lapor: !!lp[tmCidDigit_(r.CID)], ambil: String(r.AMBILALIH || '').toUpperCase() === 'YA', ts: r.WAKTUBALAS instanceof Date ? r.WAKTUBALAS.getTime() : (r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0) }));
   rows.sort((a, b) => b.ts - a.ts);
   return { status: 'success', data: rows.slice(0, 400) };
 }
@@ -706,7 +711,8 @@ function ccTerima_(m) {
   const lagi = new Date();
   const setS = (st, extra) => tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === m.phone && tmCidDigit_(r.CID) === cid,
     Object.assign({ STATUS: st, WAKTUBALAS: lagi, PESANTERAKHIR: String(m.pesan || (m.media ? '[foto]' : '')).slice(0, 120) }, extra || {}));
-  const balas = teks => { if (!teks || !ccBolehBalas_(m.phone)) return; const r = waKirim_(m.phone, teks); if (r.ok) tmLogChat_(m.phone, cid, 'OUT', teks); };
+  const ambilAlih = String(row.AMBILALIH || '').toUpperCase() === 'YA';     // admin sudah mengambil alih: bot tidak membalas apa pun
+  const balas = teks => { if (ambilAlih || !teks || !ccBolehBalas_(m.phone)) return; const r = waKirim_(m.phone, teks); if (r.ok) tmLogChat_(m.phone, cid, 'OUT', teks); };
 
   // 0) client membagikan LOKASI (Sherlock)
   const lok = ccLokasi_(m);
@@ -719,7 +725,7 @@ function ccTerima_(m) {
       const bukti = ccSimpanFotoRumah_(m.media, 'BUKTI_' + cid, row.NAMA);
       if (bukti) {
         setS('BUKTI_DITERIMA', { FOTOBUKTI: bukti });
-        tmLogChat_(m.phone, cid, 'IN', '[bukti] laporan otomatis: ' + ccLaporLanjut_(row, cid, bukti));
+        tmLogChat_(m.phone, cid, 'IN', '[bukti] foto bukti diterima (menunggu admin memasukkan ke laporan)');
         balas('Terima kasih, foto bukti sudah kami terima. 🙏'); return;
       }
       balas('Maaf, foto belum bisa kami simpan. Mohon kirim ulang ya.'); return;
@@ -741,6 +747,7 @@ function ccTerima_(m) {
   }
   const teks = String(m.pesan || '').trim();
   if (!teks) return;
+  if (ambilAlih) { tmLogChat_(m.phone, cid, 'IN', teks); setS(status); return; }     // dicatat saja, admin yang membalas
   const terakhir = tmRead_(CC.SH.LOG).filter(r => String(r.PHONE) === String(m.phone) && r.ARAH === 'IN').pop();      // pesan yang sama persis dalam 1 jam = kiriman ulang, sudah ditangani
   if (terakhir && String(terakhir.ISI) === teks && terakhir.WAKTU instanceof Date && Date.now() - terakhir.WAKTU.getTime() < 3600000) return;
   tmLogChat_(m.phone, cid, 'IN', teks);
@@ -872,6 +879,8 @@ function chatRoute_(d, au) {
     case 'terminateVerifBerhenti': return ccVerifBerhenti_(d, au);
     case 'terminateVerifAmbil': return ccVerifAmbil_(d, au);
     case 'terminateChatBukti': return ccBuktiManual_(d, au);
+    case 'terminateChatLapor': return ccMasukLaporan_(d, au);
+    case 'terminateChatAmbil': return ccAmbilAlih_(d, au);
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
     case 'terminateKirimTeks': return ccKirimTeks_(d, au);
     case 'terminateApiBaca': return ccApiBaca_();

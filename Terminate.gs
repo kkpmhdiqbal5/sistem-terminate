@@ -64,12 +64,12 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
-                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
+                    terminateEditSimpan: 'TEDIT', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
     const perlu = BUTUH[d.action];
-    const punya = d.action === 'terminateCek' ? (au.izin.TINPUT || au.izin.TEDIT) : (perlu ? au.izin[perlu] : TM_IZIN.some(k => au.izin[k]));
+    const punya = d.action === 'terminateCek' ? (au.izin.TINPUT || au.izin.TEDIT) : (d.action === 'terminateEditLengkap' || d.action === 'terminateHapus') ? (au.izin.TDIAMBIL || au.izin.TEDIT) : (perlu ? au.izin[perlu] : TM_IZIN.some(k => au.izin[k]));
     if (!punya) return tmJson_({ status: 'error', code: 'IZIN', message: 'Akun Anda tidak punya izin untuk halaman/fitur ini.' });
     switch (d.action) {
       case 'terminateOptions': return tmJson_(tmOptions_(au));
@@ -80,6 +80,8 @@ function terminateRoute_(d) {
       case 'terminateRekap': return tmJson_(tmRekap_(d, au));
       case 'terminateEditList': return tmJson_(tmEditList_(au, d));
       case 'terminateEditSimpan': return tmJson_(tmEditSimpan_(d, au));
+      case 'terminateEditLengkap': return tmJson_(tmEditLengkap_(d, au));
+      case 'terminateHapus': return tmJson_(tmHapus_(d, au));
       case 'terminateFotoSimpan': return tmJson_(tmFotoSimpan_(d, au));
       case 'terminateFull': return tmJson_(tmFull_(d));
       case 'terminateImporWA': return tmJson_(tmImporWA_(d, au));
@@ -778,6 +780,58 @@ function tmEditSimpan_(d, au) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Edit semua kolom satu data (halaman Sudah Diambil): hanya sel yang berubah yang ditulis
+function tmEditLengkap_(d, au) {
+  const id = String(d.id || '').trim(); if (!id) return tmErr_('ID data tidak ada.');
+  const t = k => String(d[k] == null ? '' : d[k]).trim();
+  const cid = t('cid').replace(/\s+/g, '');
+  if (cid && !/^\d{6,20}$/.test(cid)) return tmErr_('CID harus berupa angka (6-20 digit).');
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
+    if (!rec) return tmErr_('Data tidak ditemukan.');
+    if (au.role !== 'ADMIN' && !tmSame_(rec.ADMIN, au.user)) return tmErr_('Anda hanya boleh mengedit data milik sendiri.');
+    const f = { NAMA: t('nama'), CID: cid, ODP: t('odp'), SN: t('sn'), PSN: t('psn'), KET: t('ket') };
+    if (t('pop')) f.POP = tmPop_(t('pop')) || t('pop');
+    [TM.SH.LOG, TM.SH.TERMINATE].forEach(n => { const sh = tmSheet_(n); if (sh) tmEnsureCols_(sh, ['DIEDITOLEH', 'DIEDITWAKTU']); });
+    const sama = r => String(r.ID) === id, o = Object.assign({}, f, { DIEDITOLEH: au.user, DIEDITWAKTU: new Date() });
+    tmUpdateRows_(TM.SH.LOG, sama, o); tmUpdateRows_(TM.SH.TERMINATE, sama, o);
+    tmUpdateRows_(TM.SH.KUNJUNGAN, sama, f); tmUpdateRows_(TM.SH.LANJUT, sama, f);
+    const sn0 = tmNorm_(rec.SN);
+    if (rec.JENIS === 'TERMINATE' && sn0) {      // salinan di Baris 2 & sudah diambil (dicari lewat SN lama)
+      const bySN = r => tmNorm_(r.SN) === sn0;
+      tmUpdateRows_(TM.SH.B2, bySN, f); tmUpdateRows_(TM.SH.DIAMBIL, bySN, f);
+    }
+    return { status: 'success', message: 'Data tersimpan.' };
+  } finally { lock.releaseLock(); }
+}
+// Hapus satu data dari semua sheet (dicari lewat ID / SN). Dicatat di "LOG HAPUS BERSIH".
+function tmHapus_(d, au) {
+  const id = String(d.id || '').trim(); if (!id) return tmErr_('ID data tidak ada.');
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
+    if (!rec) return tmErr_('Data tidak ditemukan.');
+    if (au.role !== 'ADMIN' && !tmSame_(rec.ADMIN, au.user)) return tmErr_('Anda hanya boleh menghapus data milik sendiri.');
+    const sn0 = tmNorm_(rec.SN), logRows = []; let n = 0;
+    const hapusDi = (nama, cocok) => {
+      const sh = tmSheet_(nama); if (!sh || sh.getLastRow() < 2) return;
+      const v = sh.getDataRange().getValues(), canon = v[0].map(tmCanon_);
+      for (let r = v.length - 1; r >= 1; r--) {
+        const o = {}; canon.forEach((c, i) => { if (c && o[c] === undefined) o[c] = v[r][i]; });
+        if (!cocok(o)) continue;
+        logRows.push([Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss'), au.user, 'Hapus data', nama, tmCidDigit_(o.CID), 'dihapus manual', v[r].map(x => x instanceof Date ? tmWaktuTxt_(x) : String(x)).join(' | ').slice(0, 500)]);
+        sh.deleteRow(r + 1); n++;
+      }
+    };
+    const byId = o => String(o.ID) === id, bySN = o => sn0 && tmNorm_(o.SN) === sn0;
+    [TM.SH.LOG, TM.SH.TERMINATE, TM.SH.KUNJUNGAN, TM.SH.LANJUT].forEach(nm => hapusDi(nm, byId));
+    if (rec.JENIS === 'TERMINATE') { hapusDi(TM.SH.B2, bySN); hapusDi(TM.SH.DIAMBIL, bySN); }
+    tmBersihLog_(logRows);
+    return { status: 'success', message: 'Data dihapus (' + n + ' baris di semua sheet).' };
+  } finally { lock.releaseLock(); }
 }
 
 /* ===================== DATA LENGKAP (ADMIN) ===================== */
