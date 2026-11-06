@@ -569,7 +569,11 @@ function getDataLengkap() {
   const sheetKunjungan = ss.getSheetByName("kunjungan");
   const dataKunjungan = sheetKunjungan ? parseSheetDataDinamis(sheetKunjungan, "SUDAH KUNJUNGAN") : [];
   
-  return { status: "success", data: [].concat(dataFull, dataTarget, dataBaris1, dataBaris2, dataSudah, dataKunjungan) };
+  // Pencarian client: sheet Instalasi dan MT
+  const dataInstalasi = parseSheetDataDinamis(ss.getSheetByName("Instalasi"), "INSTALASI");
+  const dataMT = parseSheetDataDinamis(ss.getSheetByName("MT"), "MT");
+
+  return { status: "success", data: [].concat(dataFull, dataTarget, dataBaris1, dataBaris2, dataSudah, dataKunjungan, dataInstalasi, dataMT) };
 }
 
 function parseSheetDataDinamis(sheet, labelFilter) {
@@ -590,7 +594,7 @@ function parseSheetDataDinamis(sheet, labelFilter) {
       return "";
     };
 
-    item.timestamp = getVal(["TIME", "WAKTU", "TIMESTAMP"]);
+    item.timestamp = getVal(["TIME", "WAKTU", "TIMESTAMP", "TANGGAL"]);
     item.odp = getVal(["ODP"]);
     item.pop = getVal(["POP"]);
     item.cid_lama = String(getVal(["CID"])); 
