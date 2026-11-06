@@ -44,19 +44,29 @@
 
     <!-- Filter & Action Controls -->
     <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
             
+            <!-- 0. Dropdown Sumber Data (Terminate = data lama, Client = Instalasi & MT) -->
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">SUMBER DATA</label>
+                <select id="filterGrup" onchange="gantiGrup()" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
+                    <option value="Semua">Semua Sumber</option>
+                    <option value="TERMINATE">Terminate (pengambilan perangkat)</option>
+                    <option value="CLIENT">Client (Instalasi &amp; MT)</option>
+                </select>
+            </div>
+
             <!-- 1. Dropdown Sumber Sheet -->
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">PILIH SUMBER SHEET</label>
                 <select id="filterSheet" onchange="applyFilter()" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-sm focus:outline-none focus:border-blue-500">
                     <option value="Semua Sheet">Semua Sheet</option>
-                    <option value="MENUNGGU DIAMBIL">MENUNGGU DIAMBIL</option>
-                    <option value="SUDAH DIAMBIL">SUDAH DIAMBIL</option>
-                    <option value="SUDAH KUNJUNGAN">SUDAH KUNJUNGAN</option>
-                    <option value="LANJUT BERLANGGANAN">LANJUT BERLANGGANAN</option>
-                    <option value="INSTALASI">INSTALASI (client)</option>
-                    <option value="MT">MT (client)</option>
+                    <option data-g="TERMINATE" value="MENUNGGU DIAMBIL">MENUNGGU DIAMBIL</option>
+                    <option data-g="TERMINATE" value="SUDAH DIAMBIL">SUDAH DIAMBIL</option>
+                    <option data-g="TERMINATE" value="SUDAH KUNJUNGAN">SUDAH KUNJUNGAN</option>
+                    <option data-g="TERMINATE" value="LANJUT BERLANGGANAN">LANJUT BERLANGGANAN</option>
+                    <option data-g="CLIENT" value="INSTALASI">INSTALASI (client)</option>
+                    <option data-g="CLIENT" value="MT">MT (client)</option>
                 </select>
             </div>
 
@@ -173,6 +183,12 @@
             }
         }
 
+        const GRUP_CLIENT = ["INSTALASI", "MT"];
+        function gantiGrup() {                                   // dropdown sheet hanya menampilkan sheet milik sumber yang dipilih
+            let g = document.getElementById("filterGrup").value, sel = document.getElementById("filterSheet");
+            Array.prototype.forEach.call(sel.options, function (o) { let og = o.getAttribute("data-g"); o.hidden = o.disabled = !!(og && g !== "Semua" && og !== g); });
+            sel.value = "Semua Sheet"; applyFilter();
+        }
         function applyFilter() {
             let filterSheet = document.getElementById("filterSheet").value;
             let filterKriteria = document.getElementById("filterKriteria").value;
@@ -180,6 +196,8 @@
             let filterKeyword = document.getElementById("filterKeyword").value.toLowerCase();
 
             filteredDataList = globalDataList.filter(row => {
+                let grup = document.getElementById("filterGrup").value, adaClient = GRUP_CLIENT.indexOf(row.sumber_sheet) >= 0;
+                if((grup === "CLIENT" && !adaClient) || (grup === "TERMINATE" && adaClient)) return false;
                 let matchSheet = true;
                 if(filterSheet !== "Semua Sheet") {
                     if(filterSheet === "MENUNGGU DIAMBIL") {
