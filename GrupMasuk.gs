@@ -16,6 +16,12 @@ function gmSumber_(grup) {
   return !!g && ccTujuanList_().some(x => x.sumber && String(x.nomor).toLowerCase() === g);
 }
 
+// tugas grup: SEMUA (default) | TERMINATE (laporan pengambilan perangkat + DOCX) | CLIENT (laporan Instalasi & MT teknisi)
+function gmTugas_(grup) {
+  const g = String(grup || '').toLowerCase(), x = ccTujuanList_().filter(y => y.sumber && String(y.nomor).toLowerCase() === g)[0];
+  return x && x.tugas || 'SEMUA';
+}
+
 /* ---------- baca laporan teks ---------- */
 function gmParse_(teks) {
   const lines = String(teks || '').replace(/[‎‏‪-‮]/g, '').split(/\r?\n/);
@@ -194,8 +200,8 @@ function gmMasukSheet_(hasil) {
 
 /* ---------- pintu masuk dari webhook ---------- */
 function gmTerima_(m) {
-  const nama = String(m.filename || '').toLowerCase();
-  if (m.media && (/^docx?$/i.test(m.ext || '') || /\.docx$/.test(nama))) {
+  const nama = String(m.filename || '').toLowerCase(), tugas = gmTugas_(m.grup), bolehT = tugas !== 'CLIENT', bolehC = tugas !== 'TERMINATE';
+  if (m.media && bolehT && (/^docx?$/i.test(m.ext || '') || /\.docx$/.test(nama))) {
     const d = gmDocx_(m.media, nama);
     if (d.err) { ccHookLog_(m.grup, '[docx] ' + nama, 'GAGAL: ' + d.err); return; }
     const h = d.tabel.length ? gmKunci(() => gmMasukSheet_(d)) : null;
@@ -207,8 +213,8 @@ function gmTerima_(m) {
   const ringkas = teks.slice(0, 80);
   const terminate = /LAPORAN HARIAN TERMINATE|BERHENTI BERLANGGANAN|MASIH LANJUT BERLANGGANAN|TIDAK ADA ?DI ?RUMAH|PERANGKAT SUDAH DIAMBIL/i.test(teks);
   let hasil = [];
-  if (!terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks));          // laporan Instalasi / MT teknisi
-  const items = gmParse_(teks); items.forEach(it => { it.tanggal = tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
+  if (bolehC && !terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks));          // laporan Instalasi / MT teknisi
+  const items = bolehT ? gmParse_(teks) : []; items.forEach(it => { it.tanggal = tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
   ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
