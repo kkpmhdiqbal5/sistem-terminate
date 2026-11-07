@@ -318,8 +318,9 @@
         let t = dipilihSearch(); if (!t.length) return alert("Silakan centang data yang ingin dikirim via WhatsApp terlebih dahulu!");
         window.open(`https://wa.me/?text=${encodeURIComponent(`📋 *REKAP GABUNGAN (${t.length} DATA LAPANGAN)*\n====================================\n\n` + t.join("\n\n"))}`, '_blank');
     }
-    function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksSearch(filteredDataList[index], 1)], 'GABUNG'); }
-    function apiPilih(mode) { let t = dipilihSearch(); if (!t.length) return alert("Silakan centang data yang ingin dikirim terlebih dahulu!"); KirimApi.buka(SCRIPT_URL, t, mode); }
+    function fotoSearch(row) { let f = String(row.foto_alat_url || row.foto_rumah_url || ""); return /^https?:\/\//.test(f) ? f : ""; }
+    function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksSearch(filteredDataList[index], 1)], 'GABUNG', [fotoSearch(filteredDataList[index])]); }
+    function apiPilih(mode) { let t = dipilihSearch(); if (!t.length) return alert("Silakan centang data yang ingin dikirim terlebih dahulu!"); KirimApi.buka(SCRIPT_URL, t, mode, Array.prototype.map.call(document.querySelectorAll('.row-check:checked'), function (cb) { return fotoSearch(filteredDataList[cb.value]); })); }
 
         function logout() {
             localStorage.clear();

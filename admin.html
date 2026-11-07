@@ -426,8 +426,9 @@ TS   : ${row.ts || row.sales || "-"}`;
       let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!");
       window.open(`https://wa.me/?text=${encodeURIComponent(t.join("\n\n"))}`, '_blank');
     }
-    function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksAdmin(globalDataList[index])], 'GABUNG'); }
-    function apiPilih(mode) { let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!"); KirimApi.buka(SCRIPT_URL, t, mode); }
+    function fotoAdmin(row) { let f = String(row.foto_alat_url || row.foto_rumah_url || ""); return /^https?:\/\//.test(f) ? f : ""; }
+    function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksAdmin(globalDataList[index])], 'GABUNG', [fotoAdmin(globalDataList[index])]); }
+    function apiPilih(mode) { let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!"); KirimApi.buka(SCRIPT_URL, t, mode, Array.prototype.map.call(document.querySelectorAll('.row-check:checked'), function (cb) { return fotoAdmin(globalDataList[cb.value]); })); }
 
     function searchTable() {
       let input = document.getElementById("searchInput").value.toLowerCase();
