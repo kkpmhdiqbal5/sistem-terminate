@@ -200,6 +200,13 @@ function gmMasukSheet_(hasil) {
 
 /* ---------- pintu masuk dari webhook ---------- */
 function gmTerima_(m) {
+  { // file KMZ / KML daftar ODP (mis. "ION SERDANG BEDAGAI.kmz"): langsung memperbarui sheet ODP
+    const fn = String(m.filename || ''), isKm = /\.(kmz|kml)$/i.test(fn) || /^(kmz|kml)$/i.test(m.ext || '');
+    if (isKm) {
+      if (!m.media) { ccHookLog_(m.grup, '[kmz] ' + fn, 'GAGAL: file tidak ikut terkirim dari Fonnte. Unggah manual di Admin > Sumber Grup.'); return; }
+      ccHookLog_(m.grup, '[kmz] ' + fn, gmKmz_(m.media, fn)); return;
+    }
+  }
   const nama = String(m.filename || '').toLowerCase(), tugas = gmTugas_(m.grup), bolehT = tugas !== 'CLIENT', bolehC = tugas !== 'TERMINATE';
   if (m.media && bolehT && (/^docx?$/i.test(m.ext || '') || /\.docx$/.test(nama))) {
     const d = gmDocx_(m.media, nama);
@@ -219,6 +226,34 @@ function gmTerima_(m) {
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
   ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
+}
+// baca file .kmz / .kml (daftar ODP) dari URL lalu perbarui sheet ODP
+function gmKmz_(url, nama) {
+  try {
+    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return 'GAGAL unduh (HTTP ' + res.getResponseCode() + ')';
+    let blob = res.getBlob(), xml = '';
+    if (/\.kmz$/i.test(nama) || String(blob.getContentType()).indexOf('zip') >= 0 || blob.getBytes()[0] === 0x50) {
+      const f = Utilities.unzip(blob.setContentType('application/zip')).filter(b => /\.kml$/i.test(b.getName()))[0];
+      if (!f) return 'GAGAL: tidak ada .kml di dalam KMZ';
+      xml = f.getDataAsString('UTF-8');
+    } else xml = blob.getDataAsString('UTF-8');
+    const rows = [];
+    const jalan = (el, jalur) => {
+      const kids = el.getChildren(); let nm = '';
+      kids.forEach(k => { if (k.getName() === 'name') nm = k.getText().trim(); });
+      if (el.getName() === 'Placemark') {
+        let koor = ''; const cari = e => e.getChildren().forEach(c => { if (!koor && c.getName() === 'coordinates') { const p = c.getText().trim().split(/\s+/)[0].split(','); if (p.length >= 2) koor = p[1] + ',' + p[0]; } else cari(c); });
+        cari(el); if (nm) rows.push({ odp: nm, olt: jalur.join(' / '), pop: jalur.join(' / '), koordinat: koor }); return;
+      }
+      const j = nm && el.getName() !== 'kml' ? jalur.concat(nm) : jalur;
+      kids.forEach(k => { if (k.getName() !== 'name') jalan(k, j); });
+    };
+    jalan(XmlService.parse(xml).getRootElement(), []);
+    if (!rows.length) return 'tidak ada titik ODP di file';
+    const h = gmKunci(() => tmOdpSimpan_(rows, nama.slice(0, 60)));
+    return rows.length + ' titik ODP dibaca: ' + h.tambah + ' baru, ' + h.ubah + ' diperbarui';
+  } catch (e) { return 'GAGAL: ' + e.message; }
 }
 // "UPDATE ODP BARU ... OLT PERBAUNGAN1 / ODP-PRBGN-20985-206 ( Jl.Perbatasan 01B )" -> sheet ODP (supaya POP bisa dikenali lewat nama ODP)
 function gmOdpTeks_(teks) {
