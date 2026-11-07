@@ -132,7 +132,7 @@
         if (!n.length) return m('Nomor tujuan wajib diisi (minimal 1).', 'warning');
         var bt = ov.querySelector('#dKirim'); bt.disabled = true; bt.textContent = 'Mengirim...'; m('', '');
         TMC.api('terminateKirimLaporan', { teks: l.teksList || l.teks, foto: l.fotoList || [], nomor: n, tautan: !!(ov.querySelector('#dTautan') && ov.querySelector('#dTautan').checked) }).then(function (r) {
-          if (r.status === 'success') { lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (r.hasil && r.hasil.gagal.length) alert(r.message); }
+          if (r.status === 'success') { lsSet('nol', JSON.stringify(n)); tombol.textContent = 'Terkirim ✔'; ov.remove(); if (l.teksList || (r.hasil && r.hasil.gagal.length)) alert(r.message); }
           else { m(r.message, 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; }
         }).catch(function () { m('Gagal terhubung ke server.', 'danger'); bt.disabled = false; bt.textContent = 'Kirim'; });
       };
