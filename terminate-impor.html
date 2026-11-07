@@ -36,7 +36,7 @@
           <select id="ragu" class="form-select form-select-dark">
             <option value="lewati">Lewati</option><option value="Instalasi">Anggap Instalasi</option><option value="MT">Anggap MT</option></select></div>
       </div>
-      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mtGanti" checked>
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="mtGanti">
         <label class="form-check-label small" for="mtGanti">MT: hanya yang ganti perangkat (harus ada SN)</label>
       <label class="form-check mb-2"><input class="form-check-input" type="checkbox" id="cariSn"> <span class="form-check-label small">Terminate tanpa SN: lengkapi SN / P-SN dari data yang sudah ada (cocok lewat CID). Biarkan kosong bila SN hanya boleh dari laporan.</span></label></div>
       <div class="form-check mb-2" id="aiBox" style="display:none"><input class="form-check-input" type="checkbox" id="pakaiAi" checked>
@@ -96,9 +96,12 @@
       }).then(function (r) {
         var kunciOdp = function (v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
         baris.forEach(function (x) { if (!x.pop && x.odp) { var p = odpPeta[kunciOdp(x.odp)] || odpPeta[kunciOdp(String(x.odp).replace(/^ODP[\s\-]+[A-Za-z]+[\s\-]+\d+[\s\-]+\d+\s*(?:[-–·•:]\s*)?/i, ''))]; if (p) { x.pop = p; x.popOdp = true; } } });   // POP tidak ditulis: dikenali lewat nama ODP (sheet ODP / data lama)
-        var luarPop = baris.length; baris = baris.filter(function (x) { return x.pop === 'PERBAUNGAN' || x.pop === 'PANTAI CERMIN'; }); luarPop -= baris.length;   // hanya POP/OLT Perbaungan & Pantai Cermin
+        var luarPop = baris.length; baris = baris.filter(function (x) {
+          if (x.pop !== 'PERBAUNGAN' && x.pop !== 'PANTAI CERMIN') { var k = /PRBGN/i.test(x.odp) ? 'PERBAUNGAN' : /PTCRMN/i.test(x.odp) ? 'PANTAI CERMIN' : ''; if (!k) return false; x.pop = k; }   // kode ODP PRBGN / PTCRMN juga cukup
+          return true;
+        }); luarPop -= baris.length;   // hanya POP/OLT Perbaungan & Pantai Cermin
         var n0 = baris.length; baris = gabungDobel(baris);
-        baris.forEach(function (x) { x.pilih = !((x.sheet === 'Instalasi' || x.sheet === 'MT') && !x.sn && !x.psn); });   // Instalasi/MT tanpa SN & P-SN tidak dicentang otomatis
+        baris.forEach(function (x) { x.pilih = true; });   // Instalasi/MT tanpa SN & P-SN tidak dicentang otomatis
         pesan('', '');
         var kosongSn = baris.filter(function (x) { return !x.pilih; }).length;
         if (n0 !== baris.length || kosongSn) setTimeout(function () { pesan((n0 !== baris.length ? (n0 - baris.length) + ' data dobel digabung (dipakai yang paling akhir dikirim). ' : '') + (kosongSn ? kosongSn + ' data Instalasi/MT tanpa SN dan P-SN tidak dicentang otomatis; periksa dulu sebelum dikirim.' : ''), 'info'); }, 0);

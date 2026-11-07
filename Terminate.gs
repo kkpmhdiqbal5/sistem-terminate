@@ -1005,7 +1005,8 @@ function tmImporWA_(d, au) {
       const nama = x.sheet === 'MT' ? 'MT' : (x.sheet === 'Instalasi' ? 'Instalasi' : '');
       const s = k => String(x[k] == null ? '' : x[k]).trim();
       const tglIso = /^\d{4}-\d{2}-\d{2}$/.test(s('tanggal')) ? s('tanggal') : tmTglParse_(s('tanggal'));
-      const rec = { NAMA: s('nama'), CID: s('cid').replace(/\s+/g, ''), ODP: tmOdpAkhir_(s('odp')), POP: tmPop_(s('pop')),
+      const rec = { NAMA: s('nama'), CID: s('cid').replace(/\s+/g, ''), ODP: tmOdpAkhir_(s('odp')), POP: tmPop_(s('pop')) || tmPop_(s('odp')) || tmPop_(tmOdpAkhir_(s('odp'))),   // POP/OLT, atau kode ODP PRBGN / PTCRMN, atau nama ODP di sheet ODP
+                   
                     SN: tmCleanCode_(s('sn')), PSN: tmCleanCode_(s('psn')), KET: s('ket'), TANGGAL: tglIso ? tmTglIndo_(tglIso) : s('tanggal') };
       const snLama = tmNorm_(s('snlama'));
       if (!nama || (!rec.CID && !rec.SN && !rec.PSN)) { lewati(x, 'tidak ada CID / SN', 'ditolak'); return; }

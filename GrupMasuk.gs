@@ -266,7 +266,7 @@ function gmOdpTeks_(teks) {
 }
 // Instalasi / MT: dibaca pembaca laporan teknisi (WaParser.gs) lalu diimpor dengan aturan anti-dobel yang sama dengan halaman Impor
 function gmInstMt_(teks) {
-  let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: true }); } catch (e) { return 'pembaca gagal: ' + e.message; }
+  let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: false }); } catch (e) { return 'pembaca gagal: ' + e.message; }
   const hariIni = tmIso_(new Date());
   const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: hariIni }));
   if (!rows.length) return '';
