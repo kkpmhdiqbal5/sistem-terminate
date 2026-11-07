@@ -1038,7 +1038,10 @@ function tmImporWA_(d, au) {
         const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN));
         if (cocok.length) {
           const terbaru = cocok.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
-          if ((terbaru.tgl || '') > tglIso) { lewati(x, 'SN sama, di sheet sudah ada data yang lebih baru', 'dobel'); return; }                 // data di sheet lebih baru: lewati
+          if ((terbaru.tgl || '') > tglIso) {                                            // data di sheet lebih baru: dipertahankan, kolom kosongnya dilengkapi dari data ini (satu data paling lengkap)
+            ['NAMA', 'CID', 'ODP', 'POP', 'PSN'].forEach(k => { if (!String(terbaru.o[k] || '').trim() && rec[k]) { terbaru.o[k] = rec[k]; terbaru.upd[k] = rec[k]; } });
+            lewati(x, 'SN sama, di sheet sudah ada data yang lebih baru', 'dobel'); return;
+          }
           if ((terbaru.tgl || '') === tglIso) {                                          // sama persis: hanya lengkapi yang kosong
             ['NAMA', 'CID', 'ODP', 'POP', 'PSN'].forEach(k => { if (!String(terbaru.o[k] || '').trim() && rec[k]) { terbaru.o[k] = rec[k]; terbaru.upd[k] = rec[k]; } });
             lewati(x, 'SN dan tanggal sama dengan data yang sudah ada (duplikat)', 'dobel'); return;

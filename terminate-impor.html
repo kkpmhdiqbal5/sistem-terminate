@@ -164,7 +164,12 @@
         var k = x.sheet + '|' + (im ? (x.sn ? 'S' + x.sn : 'C' + cid + '|' + String(x.nama || '').toLowerCase()) : (cid || x.sn || x.psn || x.nama));
         var lama = peta[k], k2 = x.sheet + '|' + cid;
         if (!lama && im && cid && peta2[k2] && (!x.sn || !peta2[k2].sn)) lama = peta2[k2];   // satu pesan terbaca parser (ada SN) & AI (tanpa SN) = satu data
-        if (lama) { ['nama', 'cid', 'odp', 'pop', 'sn', 'psn', 'ket'].forEach(function (f) { if (!x[f] && lama[f]) x[f] = lama[f]; }); x.kali = (lama.kali || 1) + 1; out[out.indexOf(lama)] = x; Object.keys(peta).forEach(function (q) { if (peta[q] === lama) peta[q] = x; }); }
+        if (lama) {   // satu data saja: yang paling lengkap menang (sama lengkap: yang terbaru), kolom kosongnya dilengkapi dari yang lain
+          var F = ['nama', 'cid', 'odp', 'pop', 'sn', 'psn', 'ket'], skor = function (o) { return F.filter(function (f) { return o[f]; }).length; };
+          var pakai = skor(lama) > skor(x) ? lama : x, lain = pakai === x ? lama : x;
+          F.forEach(function (f) { if (!pakai[f] && lain[f]) pakai[f] = lain[f]; });
+          pakai.kali = (lama.kali || 1) + 1; out[out.indexOf(lama)] = pakai; Object.keys(peta).forEach(function (q) { if (peta[q] === lama) peta[q] = pakai; }); x = pakai;
+        }
         else { x.kali = 1; out.push(x); }
         peta[k] = x; if (im && cid) peta2[k2] = x;
       });
@@ -172,7 +177,7 @@
     }
     function hitung() {
       var a = 0, b = 0, t = 0; baris.forEach(function (x) { if (x.pilih) { if (x.sheet === 'MT') b++; else if (x.sheet === 'Instalasi') a++; else t++; } });
-      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + ', Terminate/Kunjungan/Lanjut ' + t + '. SN sama: yang terbaru dipakai. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
+      $('ringkas').textContent = baris.length + ' data ditemukan. Dipilih: Instalasi ' + a + ', MT ' + b + ', Terminate/Kunjungan/Lanjut ' + t + '. Data sama: hanya 1 yang dipakai, yang paling lengkap. MT ganti perangkat: hanya perangkat baru ditulis, baris Instalasi perangkat lama dihapus.';
     }
     function tampil() {
       $('pratinjau').classList.remove('d-none'); hitung();
