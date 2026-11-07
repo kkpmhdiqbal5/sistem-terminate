@@ -19,6 +19,7 @@
     { id: "admin", ic: "⚙️", t: "Admin", admin: true, items: [            // sisa fitur admin
       { h: "terminate-impor.html", ic: "📥", t: "Impor WhatsApp", p: "TIMPOR" },
       { h: "bersih-data.html", ic: "🧹", t: "Bersihkan Data", p: "TIMPOR" },
+      { h: "sumber-grup.html", ic: "📡", t: "Sumber Grup", p: "TCHAT" },
       { h: "laporan.html", ic: "📑", t: "Laporan & Input Massal", p: "DATAADMIN", alt: ["laporan50.html"] }] },
     { id: "profil", ic: "👤", t: "Profil", admin: true, items: [
       { h: "profil.html", ic: "🪪", t: "Profil Saya" },
