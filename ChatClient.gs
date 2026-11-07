@@ -111,7 +111,8 @@ function ccWaKirimE_(e, target, pesan, foto) {
     const res = UrlFetchApp.fetch('https://api.fonnte.com/send', { method: 'post', headers: { Authorization: e.token },
       payload: pl, muteHttpExceptions: true });
     let j = {}; try { j = JSON.parse(res.getContentText()); } catch (x) {}
-    return j.status === true ? { ok: true } : { ok: false, msg: String(j.reason || j.detail || ('HTTP ' + res.getResponseCode())) };
+    const raw = res.getContentText().slice(0, 200);
+    return j.status === true ? { ok: true, raw: raw } : { ok: false, msg: String(j.reason || j.detail || ('HTTP ' + res.getResponseCode())), raw: raw };
   } catch (x) { return { ok: false, msg: x.message }; }
 }
 function ccTgKirimE_(e, teks) {
@@ -254,13 +255,14 @@ function ccKirimLaporan_(d, au) {
       let r = waKirim_(tujuan, (d.tautan && fotoList[i] ? t + '\nFoto : ' + fotoList[i] : t).slice(0, 6000), 'LAPORAN', blob || foto);
       // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
       if (!r.ok && (blob || foto)) { r = waKirim_(tujuan, (t + '\nFoto : ' + (fotoList[i] || foto)).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
+      if (n <= 3) (hasil.diag = hasil.diag || []).push('#' + n + ': foto ' + (blob ? 'file Drive' : foto ? 'url ' + String(foto).slice(0, 45) : fotoList[i] ? 'ADA di data tapi tidak bisa dibaca' : 'TIDAK ADA di data') + ' -> Fonnte: ' + String(r.raw || r.msg || '').slice(0, 160));
       if (r.ok) { ok++; const p = PropertiesService.getScriptProperties(), k = 'LAP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); } else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
     });
     if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
   });
   tmLogChat_(hasil.terkirim.join(','), '', 'OUT', '[WA laporan, ' + teksList.length + ' pesan, oleh ' + au.user + ']');
   return { status: hasil.terkirim.length ? 'success' : 'error', hasil: hasil,
-    message: teksList.length + ' pesan dikirim ke ' + hasil.terkirim.length + ' tujuan' + (hasil.tanpaFoto ? '. ' + hasil.tanpaFoto + ' pesan terkirim tanpa gambar (tautan foto ada di teks)' : '') + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
+    message: (hasil.diag ? '[' + hasil.diag.join(' | ') + '] ' : '') + teksList.length + ' pesan dikirim ke ' + hasil.terkirim.length + ' tujuan' + (hasil.tanpaFoto ? '. ' + hasil.tanpaFoto + ' pesan terkirim tanpa gambar (tautan foto ada di teks)' : '') + (hasil.gagal.length ? '. Gagal: ' + hasil.gagal.join('; ') : '.') };
 }
 
 /* ---------- PENGATURAN API (admin tertinggi, dari Profil > Pengaturan API) ---------- */
