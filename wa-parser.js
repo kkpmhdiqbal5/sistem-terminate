@@ -3,6 +3,7 @@
                 (2) teks laporan biasa yang ditempel/disimpan tanpa stempel waktu.
    Berjalan di browser; foto/media diabaikan. */
 (function (root) {
+  var HEAD2 = /^\u200e?\[(\d{1,2})[\/.](\d{1,2})\s+(\d{1,2})[.:](\d{2})(?:[.:]\d{2})?\]\s*([^:]{1,80}?):\s?(.*)$/;
   var HEAD = /^\u200e?\[?(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4}),?\s+(\d{1,2})[.:](\d{2})(?:[.:]\d{2})?(?:\s?[APap]\.?[Mm]\.?)?\]?\s*(?:-\s*)?([^:]{1,80}?):\s?(.*)$/;
   var MT_WORDS = /(ganti|penggantian|tukar|swap|replace|rusak)\s*(perangkat|ont|modem|stb|onu|router|unit)?/i;
   var MT_HINT = /(maintenance|\bmt\b|tiket|gangguan|troubleshoot|ganti|penggantian)/i;
@@ -39,9 +40,12 @@
     var out = [], cur = null, lines = String(txt || "").split(/\r?\n/);
     lines.forEach(function (raw) {
       var line = raw.replace(/^\u200e/, "");
-      var m = HEAD.exec(line);
+      var m = HEAD.exec(line), m2 = !m && HEAD2.exec(line);
       if (m) {
         cur = { tanggal: iso(m[1], m[2], m[3]), jam: m[4] + ":" + m[5], pengirim: bersih(m[6]), teks: bersih(m[7]) };
+        out.push(cur);
+      } else if (m2) {   // salinan dari WhatsApp tanpa tahun: "[7/11 16.08] iqbal: ..." (tanggal dikosongkan, dipakai tanggal di isi laporan)
+        cur = { tanggal: "", jam: m2[3] + ":" + m2[4], pengirim: bersih(m2[5]), teks: bersih(m2[6]) };
         out.push(cur);
       } else if (cur) cur.teks += "\n" + bersih(raw);
     });
@@ -111,7 +115,7 @@
       if (/^LANJUT\.?$/.test(j)) { tutup(); return; }
       if (/^UPDATE LAPORAN/.test(j) || /^LAPORAN[\s\-]*SELESAI/.test(j)) { var tj = tglDari(l), pj = popNorm(l); if (tj) ctx.tgl = tj; if (pj && !ctx.pop) ctx.pop = pj; tutup(); sec = ""; return; }
       // keterangan header (bukan milik blok pelanggan)
-      var h = /^\*?\s*(?:hari\s*\/?\s*tanggal)\s*[:=]\s*(.*)$/i.exec(l);
+      var h = /^\*?\s*(?:hari\s*[\/,]?\s*tanggal)\s*[:=]\s*(.*)$/i.exec(l);
       if (h) { tutup(); var t = tglDari(h[1]); if (t) ctx.tgl = t; return; }
       var lk = /^\*?\s*lokasi\s*[:=]\s*(.*)$/i.exec(l);
       if (lk) { ctx.pop = popNorm(lk[1]) || ctx.pop; return; }
