@@ -70,7 +70,7 @@
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:4000;display:flex;align-items:center;justify-content:center;padding:14px';
       ov.innerHTML = '<div class="card-custom p-3" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">' +
-        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan, 1 data 1 pesan + foto. ' : '1 pesan laporan gabungan. ') + 'Lewat WhatsApp API. Pilih satu atau lebih grup tersimpan, atau isi nomor sendiri.</div>' +
+        '<div class="fw-bold text-white mb-1">📤 Kirim Laporan</div><div class="kecil mb-3">' + (l.teksList ? l.teksList.length + ' pesan (1 data 1 pesan). ' + (function () { var k = (l.fotoList || []).filter(Boolean).length; return k + ' data ada fotonya (foto + keterangan jadi satu pesan)' + (k < l.teksList.length ? ', <b class="text-warning">' + (l.teksList.length - k) + ' data belum ada foto sehingga hanya teks</b> (tambah lewat tombol "📷 Tambah foto" di kartu)' : '') + '. '; })() : '1 pesan laporan gabungan. ') + 'Lewat WhatsApp API. Pilih satu atau lebih grup tersimpan, atau isi nomor sendiri.</div>' +
         '<label class="form-label small text-secondary fw-bold mb-1">Grup / tujuan tersimpan <span class="fw-normal">(boleh pilih lebih dari satu)</span></label>' +
         '<input id="dCari" class="form-control form-control-dark mb-1" placeholder="Cari nama grup...">' +
         '<div id="dDaftar" style="max-height:170px;overflow:auto" class="mb-1"></div>' +

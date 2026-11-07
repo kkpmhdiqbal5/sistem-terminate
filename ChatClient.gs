@@ -97,10 +97,17 @@ function ccFotoUrl_(u) {
   }
   return /^https:\/\//.test(u) ? u : '';
 }
+// foto dari Drive -> file langsung (blob), tidak perlu tautan publik / imgbb; null bila bukan tautan Drive atau gagal
+function ccFotoBlob_(u) {
+  u = String(u || '').trim();
+  const m = /drive\.google\.com/.test(u) && (/\/d\/([^/?]+)/.exec(u) || /[?&]id=([^&]+)/.exec(u));
+  if (!m) return null;
+  try { const b = DriveApp.getFileById(m[1]).getBlob(); if (b.getBytes().length > 15 * 1024 * 1024) return null; return b.setName('laporan.jpg').setContentType(/^image\//.test(b.getContentType()) ? b.getContentType() : 'image/jpeg'); } catch (x) { Logger.log('foto blob: ' + x.message); return null; }
+}
 function ccWaKirimE_(e, target, pesan, foto) {
   try {
     const pl = { target: String(target), message: String(pesan), countryCode: '62' };
-    if (foto) pl.url = foto;
+    if (foto && typeof foto === 'object') pl.file = foto; else if (foto) pl.url = foto;
     const res = UrlFetchApp.fetch('https://api.fonnte.com/send', { method: 'post', headers: { Authorization: e.token },
       payload: pl, muteHttpExceptions: true });
     let j = {}; try { j = JSON.parse(res.getContentText()); } catch (x) {}
@@ -243,10 +250,10 @@ function ccKirimLaporan_(d, au) {
     let ok = 0;
     teksList.forEach((t, i) => {
       if (n++) Utilities.sleep(700);
-      const foto = ccFotoUrl_(fotoList[i]);
-      let r = waKirim_(tujuan, (d.tautan && foto ? t + '\nFoto : ' + foto : t).slice(0, 6000), 'LAPORAN', foto);
+      const blob = ccFotoBlob_(fotoList[i]), foto = blob ? '' : ccFotoUrl_(fotoList[i]);     // foto + teks = SATU pesan (foto dengan keterangan)
+      let r = waKirim_(tujuan, (d.tautan && fotoList[i] ? t + '\nFoto : ' + fotoList[i] : t).slice(0, 6000), 'LAPORAN', blob || foto);
       // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
-      if (!r.ok && foto) { r = waKirim_(tujuan, (t + '\nFoto : ' + foto).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
+      if (!r.ok && (blob || foto)) { r = waKirim_(tujuan, (t + '\nFoto : ' + (fotoList[i] || foto)).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
       if (r.ok) { ok++; const p = PropertiesService.getScriptProperties(), k = 'LAP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); } else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
     });
     if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
