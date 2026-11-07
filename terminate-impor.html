@@ -65,7 +65,8 @@
     var S = TMC.init({ active: 'impor', title: '💬 Impor WhatsApp' });
     var $ = function (id) { return document.getElementById(id); };
     function pesan(t, j) { $('pesan').innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>' : ''; }
-    var baris = [];
+    var baris = [], odpPeta = {};
+    TMC.api('terminateOdpPeta').then(function (r) { if (r && r.status === 'success') odpPeta = r.data || {}; }).catch(function () {});
 
     function bacaTeks(file) {
       if (/\.zip$/i.test(file.name)) {
@@ -93,6 +94,8 @@
         baris = r.baris.filter(function (x) { return (!dari || x.tanggal >= dari) && (!sampai || x.tanggal <= sampai); });
         return (aiAktif && $('pakaiAi').checked ? bacaAi(txt) : Promise.resolve()).then(function () { return r; });
       }).then(function (r) {
+        var kunciOdp = function (v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+        baris.forEach(function (x) { if (!x.pop && x.odp) { var p = odpPeta[kunciOdp(x.odp)] || odpPeta[kunciOdp(String(x.odp).replace(/^ODP[\s\-]+[A-Za-z]+[\s\-]+\d+[\s\-]+\d+\s*(?:[-–·•:]\s*)?/i, ''))]; if (p) { x.pop = p; x.popOdp = true; } } });   // POP tidak ditulis: dikenali lewat nama ODP (sheet ODP / data lama)
         var luarPop = baris.length; baris = baris.filter(function (x) { return x.pop === 'PERBAUNGAN' || x.pop === 'PANTAI CERMIN'; }); luarPop -= baris.length;   // hanya POP/OLT Perbaungan & Pantai Cermin
         var n0 = baris.length; baris = gabungDobel(baris);
         baris.forEach(function (x) { x.pilih = !((x.sheet === 'Instalasi' || x.sheet === 'MT') && !x.sn && !x.psn); });   // Instalasi/MT tanpa SN & P-SN tidak dicentang otomatis

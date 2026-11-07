@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -85,6 +85,8 @@ function terminateRoute_(d) {
       case 'terminateFotoSimpan': return tmJson_(tmFotoSimpan_(d, au));
       case 'terminateFull': return tmJson_(tmFull_(d));
       case 'terminateImporWA': return tmJson_(tmImporWA_(d, au));
+      case 'terminateOdpPeta': return tmJson_(tmOdpPetaApi_());
+      case 'terminateOdpImpor': return tmJson_(tmOdpImporApi_(d, au));
       case 'terminateSnCid': return tmJson_(tmSnCid_(d));
       case 'terminateBersih1': return tmJson_(tmBersih_(d, au, 1));
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
@@ -108,11 +110,60 @@ function tmTglIndo_(iso) { const t = tmDateParts_(iso); return TM_HARI[t.w] + ',
 function tmTglUpper_(iso) { return tmTglIndo_(iso).toUpperCase(); }
 function tmSame_(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
 function tmCleanCode_(s) { return String(s || '').toUpperCase().replace(/\s+/g, ''); }
-function tmPop_(v) {
+function tmPopKode_(v) {
   const n = tmNorm_(v);
   if (n.indexOf('PERBAUNGAN') >= 0 || n.indexOf('PRBGN') >= 0) return 'PERBAUNGAN';
   if (n.indexOf('PANTAICERMIN') >= 0 || n.indexOf('PTCRMN') >= 0) return 'PANTAI CERMIN';
   return '';
+}
+// POP dari teks (nama POP/OLT atau kode ODP); bila tidak ada, dicari lewat nama ODP di sheet "ODP" (dari KMZ / pesan UPDATE ODP)
+function tmPop_(v) { return tmPopKode_(v) || tmOdpPeta_()[tmNorm_(v)] || ''; }
+let TM_ODP_CACHE = null;
+function tmOdpPeta_() {
+  if (TM_ODP_CACHE) return TM_ODP_CACHE;
+  const m = {};
+  try { tmRead_('ODP').forEach(r => { const p = tmPopKode_(r.POP) || tmPopKode_(r.OLT) || tmPopKode_(r.KODE); if (!p) return; [r.ODP, r.KODE].forEach(x => { const k = tmNorm_(x); if (k) m[k] = p; }); }); } catch (e) {}
+  return (TM_ODP_CACHE = m);
+}
+// simpan daftar ODP (dari KMZ atau pesan "UPDATE ODP BARU") ke sheet "ODP": satu nama ODP satu baris, yang berubah saja diperbarui
+function tmOdpSimpan_(rows, sumber) {
+  const sh = tmSheetEnsure_('ODP', ['ODP', 'KODE', 'POP', 'OLT', 'KOORDINAT', 'SUMBER', 'TANGGAL']);
+  const v = sh.getLastRow() > 1 ? sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues() : [sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]];
+  const canon = v[0].map(tmCanon_), ix = {}; ['ODP', 'KODE', 'POP', 'OLT', 'KOORDINAT', 'SUMBER'].forEach(k => { ix[k] = canon.indexOf(k); });
+  const ada = {}; for (let r = 1; r < v.length; r++) { const k = tmNorm_(v[r][ix.ODP]) || tmNorm_(v[r][ix.KODE]); if (k) ada[k] = r; }
+  const baru = []; let ubah = 0, tambah = 0;
+  rows.forEach(x => {
+    const odp = tmOdpAkhir_(x.odp || ''), kode = String(x.kode || '').trim().toUpperCase(), olt = String(x.olt || '').trim().toUpperCase();
+    const pop = tmPopKode_(x.pop) || tmPopKode_(olt) || tmPopKode_(kode) || String(x.pop || '').trim().toUpperCase();
+    const k = tmNorm_(odp) || tmNorm_(kode); if (!k) return;
+    const nilai = { ODP: odp, KODE: kode, POP: pop, OLT: olt, KOORDINAT: String(x.koordinat || '').trim(), SUMBER: sumber || '' };
+    if (ada[k] !== undefined) {
+      const r = ada[k]; let beda = false;
+      Object.keys(nilai).forEach(c => { if (ix[c] >= 0 && nilai[c] && String(v[r][ix[c]]) !== nilai[c]) { sh.getRange(r + 1, ix[c] + 1).setValue(nilai[c]); v[r][ix[c]] = nilai[c]; beda = true; } });
+      if (beda) ubah++;
+    } else {
+      const baris = v[0].map(h => { const c = tmCanon_(h); return c === 'TANGGAL' ? tmTglIndo_(tmIso_(new Date())) : (nilai[c] !== undefined ? nilai[c] : ''); });
+      baru.push(baris); ada[k] = v.length + baru.length - 1; tambah++;
+    }
+  });
+  if (baru.length) sh.getRange(sh.getLastRow() + 1, 1, baru.length, baru[0].length).setValues(baru);
+  TM_ODP_CACHE = null;
+  return { tambah: tambah, ubah: ubah };
+}
+// ODP -> POP untuk halaman Impor: sheet "ODP" + ODP yang sudah ada di sheet data (yang POP-nya sudah jelas)
+function tmOdpPetaApi_() {
+  const m = Object.assign({}, tmOdpPeta_());
+  [TM.SH.INSTALASI, TM.SH.MT, TM.SH.B1, TM.SH.B2, TM.SH.DIAMBIL].forEach(nm => {
+    try { tmRead_(nm).forEach(r => { const p = tmPopKode_(r.POP) || tmPopKode_(r.ODP), k = tmNorm_(tmOdpAkhir_(r.ODP)); if (p && k && !m[k]) m[k] = p; }); } catch (e) {}
+  });
+  return { status: 'success', data: m };
+}
+function tmOdpImporApi_(d, au) {
+  const rows = (Array.isArray(d.rows) ? d.rows : []).slice(0, 5000);
+  if (!rows.length) return tmErr_('Tidak ada ODP.');
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try { const h = tmOdpSimpan_(rows, String(d.sumber || 'KMZ').slice(0, 60)); return { status: 'success', message: h.tambah + ' ODP baru, ' + h.ubah + ' diperbarui.' }; }
+  finally { lock.releaseLock(); }
 }
 function tmErr_(m) { return { status: 'error', message: m }; }
 

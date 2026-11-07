@@ -7,6 +7,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="terminate-core.js"></script>
 </head>
 <body>
@@ -21,6 +22,12 @@
       </div>
       <div id="daftar"></div>
       <div id="pesan" class="mt-2"></div>
+    </div>
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">🗺️ Daftar ODP dari file KMZ (Serdang Bedagai)</div>
+      <div class="kecil mb-2">Unduh file .kmz dari grup (mis. "ION SERDANG BEDAGAI.kmz"), lalu pilih di sini. Nama ODP + POP disimpan di sheet <b>ODP</b>, sehingga data yang tidak menulis POP/OLT tetap dikenali Perbaungan / Pantai Cermin lewat nama ODP-nya. Pesan "UPDATE ODP BARU" di grup yang dinyalakan juga ditambahkan otomatis.</div>
+      <input id="kmz" type="file" accept=".kmz,.kml" class="form-control form-control-dark mb-2">
+      <button id="bKmz" class="btn btn-success w-100 fw-bold">Baca &amp; simpan ODP</button><div id="hKmz" class="mt-2"></div>
     </div>
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">Tambah manual</div>
@@ -61,6 +68,30 @@
     $('bFonnte').onclick = function () {
       var b = this; b.disabled = true; b.textContent = 'Mengambil...';
       TMC.api('terminateTujuanFonnte').then(set).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); }).finally(function () { b.disabled = false; b.textContent = '⬇ Ambil grup dari Fonnte'; });
+    };
+    function bacaKml(xml) {
+      var doc = new DOMParser().parseFromString(xml, 'text/xml'), out = [];
+      var nm = function (el) { var n = el.getElementsByTagName('name')[0]; return n && n.parentNode === el ? n.textContent.trim() : ''; };
+      Array.prototype.forEach.call(doc.getElementsByTagName('Placemark'), function (pm) {
+        var p = pm.parentNode, jalur = []; while (p && p.nodeType === 1) { var n = nm(p); if (n && p.nodeName !== 'kml') jalur.unshift(n); p = p.parentNode; }
+        var c = pm.getElementsByTagName('coordinates')[0], k = c ? c.textContent.trim().split(/[\s]+/)[0].split(',') : [];
+        var name = nm(pm); if (!name) return;
+        out.push({ odp: name, olt: jalur.join(' / '), pop: jalur.join(' / '), koordinat: k.length >= 2 ? k[1] + ',' + k[0] : '' });
+      });
+      return out;
+    }
+    $('bKmz').onclick = function () {
+      var f = $('kmz').files[0], h = $('hKmz'); if (!f) { h.innerHTML = '<div class="alert alert-warning py-2 mb-0 small">Pilih file .kmz / .kml dulu.</div>'; return; }
+      h.innerHTML = '<div class="kecil">Membaca...</div>';
+      var ambil = /\.kmz$/i.test(f.name) ? JSZip.loadAsync(f).then(function (z) { var k = Object.keys(z.files).filter(function (n) { return /\.kml$/i.test(n); })[0]; if (!k) throw new Error('Tidak ada file .kml di dalam KMZ.'); return z.files[k].async('string'); }) : f.text();
+      ambil.then(function (xml) {
+        var rows = bacaKml(xml); if (!rows.length) throw new Error('Tidak ada titik ODP (Placemark) di file ini.');
+        h.innerHTML = '<div class="kecil">' + rows.length + ' titik terbaca, menyimpan...</div>';
+        var bagi = [], i = 0; for (; i < rows.length; i += 1500) bagi.push(rows.slice(i, i + 1500));
+        return bagi.reduce(function (p, b) { return p.then(function () { return TMC.api('terminateOdpImpor', { rows: b, sumber: f.name }); }); }, Promise.resolve()).then(function (r) {
+          h.innerHTML = '<div class="alert alert-' + (r && r.status === 'success' ? 'success' : 'danger') + ' py-2 mb-0 small">' + TMC.esc(rows.length + ' titik ODP dibaca. ' + (r && r.message || '')) + '</div>';
+        });
+      }).catch(function (e) { h.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">' + TMC.esc(e.message || 'Gagal membaca file.') + '</div>'; });
     };
     $('bTambah').onclick = function () {
       var no = $('mNomor').value.trim(), nm = $('mNama').value.trim();

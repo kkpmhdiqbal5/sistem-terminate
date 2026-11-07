@@ -209,6 +209,7 @@ function gmTerima_(m) {
     const t = gmKunci(() => gmProses_(gmParse_(d.teks), '')); ccHookLog_(m.grup, '[docx teks] ' + nama, (h && h.err ? h.err + '; ' : 'tidak ada tabel; ') + gmRingkas_(t)); return;
   }
   const teks = String(m.pesan || '');
+  if (/UPDATE\s+ODP/i.test(teks)) { ccHookLog_(m.grup, teks.slice(0, 80), 'update ODP: ' + gmOdpTeks_(teks)); return; }
   const isiFoto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
   const ringkas = teks.slice(0, 80);
   const terminate = /LAPORAN HARIAN TERMINATE|BERHENTI BERLANGGANAN|MASIH LANJUT BERLANGGANAN|TIDAK ADA ?DI ?RUMAH|PERANGKAT SUDAH DIAMBIL/i.test(teks);
@@ -218,6 +219,15 @@ function gmTerima_(m) {
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
   ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
+}
+// "UPDATE ODP BARU ... OLT PERBAUNGAN1 / ODP-PRBGN-20985-206 ( Jl.Perbatasan 01B )" -> sheet ODP (supaya POP bisa dikenali lewat nama ODP)
+function gmOdpTeks_(teks) {
+  const olt = (/OLT\s+([A-Za-z ]+?)\s*\d*\s*$/im.exec(teks) || [])[1] || '', rows = [];
+  const re = /(ODP[\s\-]+[A-Za-z]+[\s\-]+\d+[\s\-]+\d+)\s*(?:\(\s*([^)]*?)\s*\))?/gi; let m;
+  while ((m = re.exec(teks))) rows.push({ kode: m[1].replace(/\s+/g, ''), odp: m[2] || '', olt: olt });
+  if (!rows.length) return 'tidak ada ODP terbaca';
+  const h = gmKunci(() => tmOdpSimpan_(rows.map(r => ({ odp: r.odp || r.kode, kode: r.kode, olt: r.olt })), 'UPDATE ODP GRUP'));
+  return h.tambah + ' ODP baru, ' + h.ubah + ' diperbarui';
 }
 // Instalasi / MT: dibaca pembaca laporan teknisi (WaParser.gs) lalu diimpor dengan aturan anti-dobel yang sama dengan halaman Impor
 function gmInstMt_(teks) {
