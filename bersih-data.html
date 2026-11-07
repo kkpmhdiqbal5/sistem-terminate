@@ -35,6 +35,15 @@
       <button id="b2" class="btn btn-danger w-100 fw-bold">Cek &amp; Hapus yang Sudah Diambil</button>
       <div id="h2" class="mt-2"></div>
     </div>
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">3️⃣ Rapikan Instalasi &amp; MT</div>
+      <ul class="kecil ps-3 mb-2">
+        <li>Baris dengan CID sama yang saling melengkapi (SN / P-SN sama atau salah satunya kosong) digabung jadi <b>1 baris</b>: yang terbaru dipakai, kolom kosong diisi dari baris lain.</li>
+        <li>Perangkat berbeda (SN / P-SN berbeda) tidak digabung. Data baru yang masuk dirapikan otomatis dengan aturan yang sama.</li>
+      </ul>
+      <button id="b3" class="btn btn-info w-100 fw-bold">Cek &amp; Rapikan Instalasi &amp; MT</button>
+      <div id="h3" class="mt-2"></div>
+    </div>
   </div>
   <script>
     var S = TMC.init({ active: 'bersih', title: '🧹 Bersihkan Data' });
@@ -57,6 +66,20 @@
       };
     }
     jalan(1); jalan(2);
+    (function () {
+      var btn = document.getElementById('b3'), out = document.getElementById('h3');
+      function pesan(t, j) { out.innerHTML = '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>'; }
+      btn.onclick = function () {
+        btn.disabled = true; pesan('Memeriksa data...', 'secondary');
+        TMC.api('terminateRapikan', { dry: true }).then(function (r) {
+          if (r.status !== 'success') { pesan(r.message, 'danger'); btn.disabled = false; return; }
+          if (!r.total) { pesan('Sudah rapi, tidak ada yang perlu digabung.', 'success'); btn.disabled = false; return; }
+          if (!confirm(r.total + ' baris akan digabung ke baris lain (CID sama).\nBaris yang digabung dicatat di LOG HAPUS BERSIH. Lanjutkan?')) { pesan('Dibatalkan.', 'secondary'); btn.disabled = false; return; }
+          pesan('Merapikan...', 'secondary');
+          return TMC.api('terminateRapikan', { dry: false }).then(function (r2) { pesan(r2.message, r2.status === 'success' ? 'success' : 'danger'); btn.disabled = false; });
+        }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); btn.disabled = false; });
+      };
+    })();
   </script>
 </body>
 </html>

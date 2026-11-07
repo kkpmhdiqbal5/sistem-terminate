@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -89,6 +89,7 @@ function terminateRoute_(d) {
       case 'terminateOdpImpor': return tmJson_(tmOdpImporApi_(d, au));
       case 'terminateSnCid': return tmJson_(tmSnCid_(d));
       case 'terminateBersih1': return tmJson_(tmBersih_(d, au, 1));
+      case 'terminateRapikan': return tmJson_(tmRapikanApi_(d, au));
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
     }
     if (typeof chatRoute_ === 'function') { const c = chatRoute_(d, au); if (c) return tmJson_(c); }
@@ -118,11 +119,11 @@ function tmPopKode_(v) {
 }
 // POP dari teks (nama POP/OLT atau kode ODP); bila tidak ada, dicari lewat nama ODP di sheet "ODP" (dari KMZ / pesan UPDATE ODP)
 function tmPop_(v) { return tmPopKode_(v) || tmOdpPeta_()[tmNorm_(v)] || ''; }
-let TM_ODP_CACHE = null;
+let TM_ODP_CACHE = null;   // semua ODP di sheet ODP (KMZ Serdang Bedagai) diterima; POP bukan Perbaungan/Pantai Cermin memakai nama POP dari KMZ
 function tmOdpPeta_() {
   if (TM_ODP_CACHE) return TM_ODP_CACHE;
   const m = {};
-  try { tmRead_('ODP').forEach(r => { const p = tmPopKode_(r.POP) || tmPopKode_(r.OLT) || tmPopKode_(r.KODE); if (!p) return; [r.ODP, r.KODE].forEach(x => { const k = tmNorm_(x); if (k) m[k] = p; }); }); } catch (e) {}
+  try { tmRead_('ODP').forEach(r => { const p = tmPopKode_(r.POP) || tmPopKode_(r.OLT) || tmPopKode_(r.KODE) || String(r.POP || '').trim().toUpperCase() || 'SERDANG BEDAGAI'; if (!tmNorm_(r.ODP) && !tmNorm_(r.KODE)) return; [r.ODP, r.KODE].forEach(x => { const k = tmNorm_(x); if (k) m[k] = p; }); }); } catch (e) {}
   return (TM_ODP_CACHE = m);
 }
 // simpan daftar ODP (dari KMZ atau pesan "UPDATE ODP BARU") ke sheet "ODP": satu nama ODP satu baris, yang berubah saja diperbarui
@@ -134,7 +135,7 @@ function tmOdpSimpan_(rows, sumber) {
   const baru = []; let ubah = 0, tambah = 0;
   rows.forEach(x => {
     const odp = tmOdpAkhir_(x.odp || ''), kode = String(x.kode || '').trim().toUpperCase(), olt = String(x.olt || '').trim().toUpperCase();
-    const pop = tmPopKode_(x.pop) || tmPopKode_(olt) || tmPopKode_(kode) || String(x.pop || '').trim().toUpperCase();
+    const pop = tmPopKode_(x.pop) || tmPopKode_(olt) || tmPopKode_(kode) || String(x.pop || '').trim().toUpperCase() || 'SERDANG BEDAGAI';
     const k = tmNorm_(odp) || tmNorm_(kode); if (!k) return;
     const nilai = { ODP: odp, KODE: kode, POP: pop, OLT: olt, KOORDINAT: String(x.koordinat || '').trim(), SUMBER: sumber || '' };
     if (ada[k] !== undefined) {
@@ -1066,18 +1067,65 @@ function tmImporWA_(d, au) {
       hasil[nama]++; if (nama === 'Instalasi') lepas.push({ rec: rec, tgl: tglIso });
     });
 
-    // tulis: perbarui di tempat -> tambah baris -> hapus (dari bawah)
-    ['Instalasi', 'MT'].forEach(n => {
-      const m = M[n];
-      m.rows.forEach(r => Object.keys(r.upd).forEach(k => { const c = m.canon.indexOf(k) + 1; if (c > 0) m.sh.getRange(r.row, c).setValue(tmCell_(k, r.upd[k])); }));
-      m.baru.filter(r => !r.del).forEach(r => tmAppendObj_(m.sh, r.o));
-      m.rows.filter(r => r.del).map(r => r.row).sort((a, b) => b - a).forEach(r => m.sh.deleteRow(r));
-    });
+    // satu CID = satu baris: data yang saling melengkapi digabung otomatis
+    hasil.digabung = tmRapikanIW_(M, au).length;
+    tmTulisIW_(M);
     hasil.perangkatDipakaiUlang = tmLepasDiambil_(lepas, au);
     return { status: 'success', hasil: hasil, message: 'Instalasi +' + hasil.Instalasi + ', MT +' + hasil.MT + ', diperbarui ' + hasil.diperbarui + ', dobel/lebih lama dilewati ' + hasil.dobel + ', baris lama dihapus ' + hasil.dihapus + ', ditolak ' + hasil.ditolak + ', POP salah ' + hasil.pop };
   } finally {
     lock.releaseLock();
   }
+}
+
+// tulis: perbarui di tempat -> tambah baris -> hapus (dari bawah)
+function tmTulisIW_(M) {
+  ['Instalasi', 'MT'].forEach(n => {
+    const m = M[n];
+    m.rows.forEach(r => Object.keys(r.upd).forEach(k => { const c = m.canon.indexOf(k) + 1; if (c > 0) m.sh.getRange(r.row, c).setValue(tmCell_(k, r.upd[k])); }));
+    m.baru.filter(r => !r.del).forEach(r => tmAppendObj_(m.sh, r.o));
+    m.rows.filter(r => r.del).map(r => r.row).sort((a, b) => b - a).forEach(r => m.sh.deleteRow(r));
+  });
+}
+// Rapikan sheet Instalasi + MT: baris dengan CID sama yang tidak bertentangan (SN / P-SN sama atau salah satunya kosong) digabung jadi SATU baris.
+// Yang dipakai: baris paling baru (tanggal), kolom kosongnya dilengkapi dari baris lain. Baris yang digabung ditandai del dan dikembalikan sebagai daftar log.
+function tmRapikanIW_(M, au, kering) {
+  const ent = [];
+  ['Instalasi', 'MT'].forEach(n => M[n].rows.concat(M[n].baru).filter(r => !r.del).forEach((r, i) => ent.push({ n: n, r: r, i: i })));
+  const kosong = v => !String(v == null ? '' : v).trim();
+  const kunci = e => tmNorm_(e.r.o.CID) || (tmNorm_(e.r.o.SN) ? 'S' + tmNorm_(e.r.o.SN) : '');
+  const grup = {}; ent.forEach(e => { const k = kunci(e); if (k) (grup[k] = grup[k] || []).push(e); });
+  const bentrok = (c, e) => ['SN', 'PSN'].some(f => !kosong(c[f]) && !kosong(e.r.o[f]) && tmNorm_(c[f]) !== tmNorm_(e.r.o[f]));
+  const log = [], waktu = Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss');
+  Object.keys(grup).forEach(k => {
+    const g = grup[k]; if (g.length < 2) return;
+    g.sort((a, b) => String(a.r.tgl || '').localeCompare(String(b.r.tgl || '')) || (a.n === b.n ? a.i - b.i : (a.n === 'Instalasi' ? -1 : 1)));
+    const kl = [];   // kluster: { c: SN/PSN gabungan, m: anggota }
+    g.forEach(e => { let c = kl.filter(x => !bentrok(x.c, e))[0]; if (!c) { c = { c: {}, m: [] }; kl.push(c); } c.m.push(e); ['SN', 'PSN'].forEach(f => { if (kosong(c.c[f]) && !kosong(e.r.o[f])) c.c[f] = e.r.o[f]; }); });
+    kl.forEach(c => {
+      if (c.m.length < 2) return;
+      const menang = c.m[c.m.length - 1];                        // paling baru
+      c.m.slice(0, -1).reverse().forEach(e => {
+        TM_KEYS_IW.forEach(f => { if (f !== 'TANGGAL' && kosong(menang.r.o[f]) && !kosong(e.r.o[f])) { menang.r.o[f] = e.r.o[f]; if (menang.r.row) menang.r.upd[f] = e.r.o[f]; } });
+        e.r.del = true;
+        log.push([waktu, au && au.user || '', 'Rapikan Instalasi/MT', e.n, tmCidDigit_(e.r.o.CID), 'digabung ke 1 baris (CID sama, saling melengkapi)', TM_KEYS_IW.map(f => String(e.r.o[f] == null ? '' : e.r.o[f])).join(' | ').slice(0, 500)]);
+      });
+    });
+  });
+  if (!kering) tmBersihLog_(log);
+  return log;
+}
+// tombol "Rapikan Instalasi & MT" (dry = pratinjau)
+function tmRapikanApi_(d, au) {
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const M = { Instalasi: tmModelIW_(TM.SH.INSTALASI), MT: tmModelIW_(TM.SH.MT) };
+    if (d.dry) {
+      const hitung = tmRapikanIW_(M, au, true).length;
+      return { status: 'success', total: hitung, message: hitung + ' baris akan digabung.' };
+    }
+    const log = tmRapikanIW_(M, au); tmTulisIW_(M);
+    return { status: 'success', total: log.length, message: log.length + ' baris digabung. Tercatat di sheet LOG HAPUS BERSIH.' };
+  } finally { lock.releaseLock(); }
 }
 
 /* ===================== BERSIHKAN DATA (admin) ===================== */
