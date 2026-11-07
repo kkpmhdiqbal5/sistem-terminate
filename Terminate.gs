@@ -1131,6 +1131,14 @@ function tmBersih_(d, au, tombol) {
 /* ===================== OTOMATIS HARIAN ===================== */
 function jalankanHarian() {
   const baru = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' && !r.ARSIP && tmNorm_(r.CID));
+  // semua baris di sheet "Terminate" (termasuk dari impor / grup WA) yang belum dipindah: ikut dipindah ke "sudah diambil"
+  const sudahId = {}; baru.forEach(r => { sudahId[String(r.ID)] = true; });
+  tmRead_(TM.SH.TERMINATE).forEach(r => {
+    if (r.ARSIP || sudahId[String(r.ID)] || !(tmNorm_(r.CID) || tmNorm_(r.SN))) return;
+    if (r.STATUS && String(r.STATUS).toUpperCase() !== 'TERMINATE') return;               // baris lanjut berlangganan tidak ikut
+    if (!r.ID) r.ID = 'T' + Date.now() + Math.floor(Math.random() * 1000);
+    baru.push(r);
+  });
   if (baru.length) {
     // Format sama dengan teks WhatsApp yang dibaca handleHapusArsip (tanggal + blok An/Cid/Sn/P-Sn/Odp/Ket)
     const ket = r => /perangkat\s+sudah\s+di\s?ambil/i.test(r.KET || '') ? r.KET : ((r.KET ? r.KET + '. ' : '') + 'Perangkat sudah diambil');

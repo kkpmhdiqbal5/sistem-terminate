@@ -631,6 +631,14 @@ function waHookRoute_(e) {
     const grup = !!sender && (!!g('member') || /@g\.us|-/.test(sender));
     if (!sender) { ccHookLog_(sender, pesan, 'diabaikan (tanpa pengirim)'); return out({ status: 'ok', abaikan: 'kosong' }); }
     if (grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
+    // pesan yang diketik admin langsung dari HP / WhatsApp Web (bukan dari sistem): jangan dibaca sebagai balasan client
+    const flagKu = ['fromme', 'from_me', 'isfromme', 'outgoing', 'sent', 'direction', 'type'].some(k => { const v = String(b[k] != null ? b[k] : (e.parameter[k] != null ? e.parameter[k] : '')).toLowerCase(); return k === 'direction' || k === 'type' ? /^(out|outgoing|sent|send)$/.test(v) : v === 'true' || v === '1'; });
+    const dariDevice = !grup && g('device') && ccNoHp_(g('device')) === ccNoHp_(sender);
+    if (!grup && (flagKu || dariDevice)) {
+      const hp = ccNoHp_(sender), baris = ccBarisChat_(hp, '');
+      if (baris && pesan) { tmLogChat_(hp, tmCidDigit_(baris.CID), 'OUT', '[admin mengetik dari HP] ' + pesan); tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === hp, { AMBILALIH: 'YA' }); }
+      ccHookLog_(sender, pesan, 'pesan admin dari HP: dicatat sebagai pesan kami, chat diambil alih admin (bot diam)'); return out({ status: 'ok', abaikan: 'admin' });
+    }
     if (!grup && ccGemaKeluar_(ccNoHp_(sender), pesan)) { ccHookLog_(sender, pesan, 'diabaikan (gema pesan keluar kita sendiri)'); return out({ status: 'ok', abaikan: 'gema' }); }
     const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media)).slice(0, 16);
     const cache = CacheService.getScriptCache();
@@ -644,7 +652,7 @@ function waHookRoute_(e) {
       else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
       else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
-    if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses');
+    if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses [kunci: ' + Object.keys(b).join(',') + ']');
     return out({ status: 'ok' });
   } catch (err) { ccHookLog_('', '', 'ERROR: ' + err.message); Logger.log('webhook gagal: ' + err.message); return out({ status: 'error', message: String(err.message) }); }
 }
