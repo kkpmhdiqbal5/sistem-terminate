@@ -88,7 +88,7 @@
     String(teks || "").split("\n").forEach(function (ln) {
       var l = bersih(ln).replace(/[*~]/g, "").trim();                  // tanda tebal WhatsApp (*SN :*) dibuang
       l = l.replace(/^[\-\u2022\u00b7\u25aa\u25ba>]+\s*/, "");                    // bullet di depan baris
-      if (/^\d+\s*[.)]\s*\S[^:=]*[:=]/.test(l)) l = l.replace(/^\d+\s*[.)]\s*/, "");   // penomoran "2. SN : ..."
+      if (/^\d+\s*[.):]+\s*\S[^:=]*[:=]/.test(l)) l = l.replace(/^\d+\s*[.):]+\s*/, "");   // penomoran "2. SN : ..."
       if (!l) return;
       var j = judul(l);
       // judul bagian
@@ -109,7 +109,7 @@
       if (/^TIM\s*[:=]?$/.test(j)) { tutup(); inTim = true; return; }
       if (inTim && !/[:=]/.test(l)) return;                              // daftar nama tim di kepala laporan
       if (/^LANJUT\.?$/.test(j)) { tutup(); return; }
-      if (/^UPDATE LAPORAN/.test(j) || /^LAPORAN[\s\-]*SELESAI/.test(j)) { tutup(); sec = ""; return; }
+      if (/^UPDATE LAPORAN/.test(j) || /^LAPORAN[\s\-]*SELESAI/.test(j)) { var tj = tglDari(l), pj = popNorm(l); if (tj) ctx.tgl = tj; if (pj && !ctx.pop) ctx.pop = pj; tutup(); sec = ""; return; }
       // keterangan header (bukan milik blok pelanggan)
       var h = /^\*?\s*(?:hari\s*\/?\s*tanggal)\s*[:=]\s*(.*)$/i.exec(l);
       if (h) { tutup(); var t = tglDari(h[1]); if (t) ctx.tgl = t; return; }
