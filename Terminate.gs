@@ -839,27 +839,44 @@ function tmEditSimpan_(d, au) {
 // Edit semua kolom satu data (halaman Sudah Diambil): hanya sel yang berubah yang ditulis
 // POP hanya nama resmi (PERBAUNGAN / PANTAI CERMIN); nama umum dari peta ODP (KMZ) diganti POP resmi dari data lain yang ODP-nya sama, atau dikosongkan
 function tmPopResmi_(p, odp) { return tmPopKode_(p) || (p && typeof gmPopDariOdp_ === 'function' ? gmPopDariOdp_(odp) : ''); }
-// Rapikan sheet "sudah diambil": (1) POP -> nama resmi, (2) buang baris yang sebenarnya lanjut/kunjungan (tanpa SN dan tidak pernah tercatat TERMINATE). dry = pratinjau.
+// Rapikan sheet "sudah diambil": hanya perangkat yang ada SN / P-SN yang boleh di sini.
+// (1) POP -> nama resmi; (2) SN / P-SN / ODP yang kosong dilengkapi dari data lain; (3) baris tanpa SN yang di LOG tercatat lanjut / kunjungan (bukan terminate)
+// dipindah ke sheet "lanjut berlanganan" / "kunjungan" lengkap dengan datanya. dry = pratinjau.
 function tmRapikanDiambil_(d, au) {
   const lock = LockService.getScriptLock(); lock.waitLock(25000);
   try {
     const sh = tmSheet_(TM.SH.DIAMBIL); if (!sh || sh.getLastRow() < 2) return { status: 'success', pop: 0, salah: [], message: 'Sheet kosong.' };
-    const rows = tmRead_(TM.SH.DIAMBIL), hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(tmCanon_), iPop = hdr.indexOf('POP') + 1;
-    const jenis = {}; tmRead_(TM.SH.LOG).forEach(r => { const c = tmCidDigit_(r.CID); if (c) (jenis[c] = jenis[c] || {})[r.JENIS] = true; });
-    const salah = [], ubah = [];
+    const rows = tmRead_(TM.SH.DIAMBIL), hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(tmCanon_);
+    const kol = k => hdr.indexOf(k) + 1;
+    const lastLog = {}, adaT = {};                                        // CID -> catatan LOG terakhir bertipe LANJUT/KUNJUNGAN ; CID yang pernah TERMINATE
+    tmRead_(TM.SH.LOG).forEach(r => { const c = tmCidDigit_(r.CID); if (!c) return; if (r.JENIS === 'TERMINATE') adaT[c] = true; else if (r.JENIS === 'LANJUT' || r.JENIS === 'KUNJUNGAN') lastLog[c] = r; });
+    const snPeta = {};                                                    // CID -> SN/P-SN dari sheet lain (yang terakhir menimpa)
+    [TM.SH.TARGET, TM.SH.FULL, TM.SH.B2, TM.SH.B1, TM.SH.MT, TM.SH.INSTALASI].forEach(n => { let rr = []; try { rr = tmRead_(n); } catch (e) { rr = []; } rr.forEach(r => { const c = tmCidDigit_(r.CID); if (c && (String(r.SN || '').trim() || String(r.PSN || '').trim())) snPeta[c] = { sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim(), odp: tmOdpAkhir_(String(r.ODP || '')) }; }); });
+    const pindah = [], isi = [];
     rows.forEach(r => {
-      const c = tmCidDigit_(r.CID), j = jenis[c] || {}, adaSn = String(r.SN || '').trim() || String(r.PSN || '').trim();
-      if (!adaSn && (j.LANJUT || j.KUNJUNGAN) && !j.TERMINATE) { salah.push(r); return; }
-      const lama = String(r.POP || '').trim(), baru = tmPopKode_(lama) || gmPopDariOdp_(r.ODP) || tmPopKode_(r.ODP) || '';
-      if (baru !== lama) ubah.push({ r: r, baru: baru });
+      const c = tmCidDigit_(r.CID); let sn = String(r.SN || '').trim(), psn = String(r.PSN || '').trim(), odp = String(r.ODP || '').trim();
+      const lama = String(r.POP || '').trim(), baruPop = tmPopKode_(lama) || gmPopDariOdp_(odp) || tmPopKode_(odp) || '';
+      const ubah = {};
+      if (!sn && !psn && snPeta[c]) { ubah.SN = snPeta[c].sn; ubah.PSN = snPeta[c].psn; sn = ubah.SN; psn = ubah.PSN; }
+      if (!odp && snPeta[c] && snPeta[c].odp) { ubah.ODP = snPeta[c].odp; odp = ubah.ODP; }
+      const pop2 = baruPop || tmPopKode_(odp) || gmPopDariOdp_(odp) || ''; if (pop2 !== lama) ubah.POP = pop2;
+      if (!sn && !psn && !adaT[c] && lastLog[c]) { pindah.push({ r: r, log: lastLog[c], odp: odp, pop: pop2 }); return; }
+      if (Object.keys(ubah).length) isi.push({ r: r, ubah: ubah });
     });
-    const ringkas = 'POP diperbaiki: ' + ubah.length + ' baris. Salah masuk (sebenarnya lanjut/kunjungan): ' + salah.length + ' baris.';
-    if (d.dry) return { status: 'success', pop: ubah.length, salah: salah.map(r => r.NAMA + ' (' + r.CID + ')'), message: ringkas };
-    if (iPop > 0) ubah.forEach(u => sh.getRange(u.r._row, iPop).setValue(u.baru));
-    const waktu = Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss');
-    tmBersihLog_(salah.map(r => [waktu, au.user, 'Rapikan sudah diambil', TM.SH.DIAMBIL, tmCidDigit_(r.CID), 'bukan terminate (lanjut/kunjungan), dihapus dari sudah diambil', [r.NAMA, r.CID, r.ODP, r.POP, r.TANGGAL].join(' | ')]));
-    salah.map(r => r._row).sort((a, b) => b - a).forEach(n => sh.deleteRow(n));
-    return { status: 'success', pop: ubah.length, salah: [], message: ringkas + ' Selesai (baris yang dibuang tercatat di LOG HAPUS BERSIH).' };
+    const tujuan = x => x.log.JENIS === 'LANJUT' ? TM.SH.LANJUT : TM.SH.KUNJUNGAN;
+    const ringkas = 'Data dilengkapi / POP dirapikan: ' + isi.length + ' baris. Dipindah ke lanjut/kunjungan: ' + pindah.length + ' baris.';
+    if (d.dry) return { status: 'success', pop: isi.length, salah: pindah.map(x => x.r.NAMA + ' (' + x.r.CID + ') -> ' + (x.log.JENIS === 'LANJUT' ? 'lanjut berlangganan' : 'kunjungan')), message: ringkas };
+    isi.forEach(x => Object.keys(x.ubah).forEach(k => { const i = kol(k); if (i > 0) sh.getRange(x.r._row, i).setValue(x.ubah[k]); }));
+    const waktu = Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss'), logHapus = [];
+    pindah.forEach(x => {
+      const l = x.log, kerja = { ID: l.ID, WAKTU: l.WAKTU, TANGGAL: l.TANGGAL, ADMIN: l.ADMIN, TIM: l.TIM, NAMA: x.r.NAMA || l.NAMA, CID: tmCidDigit_(x.r.CID) || l.CID, ODP: x.odp || l.ODP, POP: x.pop || l.POP,
+        KET: l.KET, VERIF: l.VERIF, FOTO: l.FOTO || x.r.FOTO, SUMBER: l.SUMBER };
+      tmUpsertCid_(tujuan(x), TM_LOG_KEYS, kerja);
+      logHapus.push([waktu, au.user, 'Rapikan sudah diambil', TM.SH.DIAMBIL, tmCidDigit_(x.r.CID), 'dipindah ke ' + tujuan(x), [x.r.NAMA, x.r.CID, x.r.ODP, x.r.POP, x.r.TANGGAL].join(' | ')]);
+    });
+    tmBersihLog_(logHapus);
+    pindah.map(x => x.r._row).sort((a, b) => b - a).forEach(n => sh.deleteRow(n));
+    return { status: 'success', pop: isi.length, salah: [], message: ringkas + ' Selesai (pemindahan tercatat di LOG HAPUS BERSIH).' };
   } finally { lock.releaseLock(); }
 }
 function tmEditLengkap_(d, au) {
@@ -1266,6 +1283,7 @@ function jalankanHarian() {
   tmRead_(TM.SH.TERMINATE).forEach(r => {
     if (r.ARSIP || sudahId[String(r.ID)] || !(tmNorm_(r.CID) || tmNorm_(r.SN))) return;
     if (r.STATUS && String(r.STATUS).toUpperCase() !== 'TERMINATE') return;               // baris lanjut berlangganan tidak ikut
+    if (!tmNorm_(r.SN) && !tmNorm_(r.PSN) && String(r.KET || '').match(/lanjut|tidak ada ?di ?rumah/i)) return;   // lanjut / kunjungan (tanpa SN) bukan perangkat diambil
     if (!r.ID) r.ID = 'T' + Date.now() + Math.floor(Math.random() * 1000);
     baru.push(r);
   });
@@ -1325,6 +1343,7 @@ function tmGabungDiambil_(d, au) {
     for (let r = 1; r < v.length; r++) {
       const o = {}; canon.forEach((c, i) => { if (c && o[c] === undefined) o[c] = v[r][i]; });
       if (!(tmNorm_(o.CID) || tmNorm_(o.SN))) continue;                                           // tanpa CID & SN: dibiarkan
+      if (!tmNorm_(o.SN) && !tmNorm_(o.PSN) && /lanjut|tidak ada ?di ?rumah/i.test(String(o.KET || ''))) continue;   // lanjut / kunjungan bukan perangkat diambil
       if (o.STATUS && String(o.STATUS).toUpperCase() !== 'TERMINATE') continue;                    // lanjut berlangganan dll. tidak ikut
       const tg = tmTglParse_(o.TANGGAL) || (o.WAKTU instanceof Date ? tmIso_(o.WAKTU) : tmTglParse_(o.WAKTU)) || hariIni;
       baris.push({ r: r, rec: { NAMA: o.NAMA, CID: tmCidDigit_(o.CID), ODP: o.ODP, POP: o.POP, SN: o.SN, PSN: o.PSN, ADMIN: o.ADMIN, FOTO: o.FOTO, WAKTU: tg }, o: o });
