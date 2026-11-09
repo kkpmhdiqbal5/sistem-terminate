@@ -431,7 +431,7 @@ function gmPrTerima_(m) {
   const foto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
   const nm = /nama\s*lama\s*[:\-]?\s*(.+)/i.exec(teks) || /^(?:a\/n|an|nama)\s*[:\-]\s*(.+)/im.exec(teks);
   const cidM = /\b(\d{12})\b/.exec(teks);
-  if (!lok && !foto && !nm && !cidM && (teks.length < 2 || /^non-text message$/i.test(teks))) { ccHookLog_(m.grup, teks, 'grup PR: tanpa isi yang bisa dibaca (media tidak ikut terkirim dari Fonnte?)'); return; }
+  if (!lok && !foto && !nm && !cidM && (teks.length < 2 || /^non-text message$/i.test(teks))) { ccHookLog_(m.grup, teks, 'grup PR: tanpa isi yang bisa dibaca (lokasi=' + (m.lokasi || 'kosong') + ', url=' + (m.media ? 'ada' : 'kosong') + ', tipe=' + (m.ext || '-') + ') - Fonnte tidak mengirim isi pin/foto?'); return; }
   const fotoDrive = foto ? gmFoto_(foto) : '';
   let hasil = '';
   gmKunci(() => {

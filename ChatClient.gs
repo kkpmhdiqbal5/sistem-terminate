@@ -649,7 +649,7 @@ function waHookRoute_(e) {
       ccHookLog_(sender, pesan, 'pesan admin dari HP: dicatat sebagai pesan kami, chat diambil alih admin (bot diam)'); return out({ status: 'ok', abaikan: 'admin' });
     }
     if (!grup && ccGemaKeluar_(ccNoHp_(sender), pesan)) { ccHookLog_(sender, pesan, 'diabaikan (gema pesan keluar kita sendiri)'); return out({ status: 'ok', abaikan: 'gema' }); }
-    const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media)).slice(0, 16);
+    const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media + (/^non-text message$/i.test(pesan) && !media ? '|' + (g('inboxid') || g('timestamp') || g('id')) : ''))).slice(0, 16);
     const cache = CacheService.getScriptCache();
     // cek dobel DI DALAM kunci: kiriman ulang serentak dari Fonnte diproses bergiliran, jadi hanya yang pertama lolos
     const lock = LockService.getScriptLock(); lock.waitLock(25000);
