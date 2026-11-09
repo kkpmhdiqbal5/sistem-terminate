@@ -122,9 +122,9 @@
                     <th class="w-10 text-center"><input type="checkbox" id="checkAll" onchange="toggleAllCheckboxes(this)"></th>
                     <th>SHEET</th>
                     <th>WAKTU</th>
-                    <th>ODP / POP</th>
-                    <th>CID / NAMA</th>
-                    <th>SN / P-SN</th>
+                    <th class="cursor-pointer select-none hover:text-sky-400" onclick="urutKolom('odp')" title="Klik untuk urutkan kecil → besar / besar → kecil">ODP / POP <span data-u="odp"></span></th>
+                    <th class="cursor-pointer select-none hover:text-sky-400" onclick="urutKolom('cid_lama')" title="Klik untuk urutkan kecil → besar / besar → kecil">CID / NAMA <span data-u="cid_lama"></span></th>
+                    <th class="cursor-pointer select-none hover:text-sky-400" onclick="urutKolom('sn')" title="Klik untuk urutkan kecil → besar / besar → kecil">SN / P-SN <span data-u="sn"></span></th>
                     <th>PAKET / NO HP</th>
                     <th>SHERLOCK</th>
                     <th>SALES / TS</th>
@@ -191,6 +191,8 @@
             Array.prototype.forEach.call(sel.options, function (o) { let og = o.getAttribute("data-g"); o.hidden = o.disabled = !!(og && g !== "Semua" && og !== g); });
             sel.value = "Semua Sheet"; applyFilter();
         }
+        let urut = { k: "", d: 1 };
+        function urutKolom(k) { urut = { k: k, d: urut.k === k ? -urut.d : 1 }; applyFilter(); }
         function applyFilter() {
             let filterSheet = document.getElementById("filterSheet").value;
             let filterKriteria = document.getElementById("filterKriteria").value;
@@ -244,6 +246,11 @@
                 return matchSheet && matchTanggal && matchKeyword;
             });
 
+            if (urut.k) {                                    // urut natural: DEPAN POP 2 sebelum DEPAN POP 10; kosong selalu di bawah
+                let k = urut.k, h = (r) => String(r[k] == null ? "" : r[k]).trim();
+                filteredDataList.sort((a, b) => { let x = h(a), y = h(b); if (!x || !y) return (x ? 0 : 1) - (y ? 0 : 1); return x.localeCompare(y, "id", { numeric: true, sensitivity: "base" }) * urut.d; });
+            }
+            document.querySelectorAll("[data-u]").forEach(e => e.textContent = e.dataset.u === urut.k ? (urut.d > 0 ? "▲" : "▼") : "");
             document.getElementById("totalDataText").innerText = filteredDataList.length + " Data Ditampilkan";
             renderTable(filteredDataList);
         }
