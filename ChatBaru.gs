@@ -250,7 +250,7 @@ function ccTujuanHapus_(d) {
 function ccTujuanSumber_(d) {
   const nomor = String(d.nomor || '').toLowerCase();
   const a = ccTujuanList_(); let ada = false;
-  a.forEach(x => { if (String(x.nomor).toLowerCase() === nomor) { if (d.nyala !== undefined) x.sumber = !!d.nyala; if (d.tugas) x.tugas = ['SEMUA', 'TERMINATE', 'CLIENT'].indexOf(d.tugas) >= 0 ? d.tugas : 'SEMUA'; ada = true; } });
+  a.forEach(x => { if (String(x.nomor).toLowerCase() === nomor) { if (d.nyala !== undefined) x.sumber = !!d.nyala; if (d.tugas) x.tugas = ['SEMUA', 'TERMINATE', 'CLIENT', 'PR'].indexOf(d.tugas) >= 0 ? d.tugas : 'SEMUA'; ada = true; } });
   if (!ada) return tmErr_('Tujuan tidak ditemukan.');
   PropertiesService.getScriptProperties().setProperty('TUJUAN_LIST', JSON.stringify(a));
   return { status: 'success', data: a, message: d.tugas && d.nyala === undefined ? 'Tugas grup disimpan.' : (d.nyala ? 'Grup ini sekarang dibaca otomatis.' : 'Grup ini tidak lagi dibaca.') };

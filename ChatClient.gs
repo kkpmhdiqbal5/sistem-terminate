@@ -50,7 +50,7 @@ function ccKonfig_() {
 
 /* ---------- REGISTRI API: tiap token punya JENIS & FUNGSI yang dipilih admin (Profil > Pengaturan API) ---------- */
 const CC_FUNGSI = {
-  WA:       [['CHAT_CLIENT', 'Chat client & balasan bot'], ['TEKNISI', 'Data pengambilan ke teknisi'], ['LAPORAN', 'Kirim laporan'], ['NOTIF', 'Notifikasi calon pelanggan / perlu admin']],
+  WA:       [['CHAT_CLIENT', 'Chat client & balasan bot'], ['TEKNISI', 'Data pengambilan ke teknisi'], ['LAPORAN', 'Kirim laporan'], ['NOTIF', 'Notifikasi calon pelanggan / perlu admin'], ['PR_GRUP', 'Grup PR (tanya ODP ke tim instalasi)']],
   TELEGRAM: [['TEKNISI', 'Data pengambilan ke teknisi'], ['NOTIF', 'Notifikasi calon pelanggan / perlu admin']],
   AI:       [['AI_CHAT', 'AI chat client (balas otomatis)'], ['AI_LAPANGAN', 'AI form lapangan (isi kolom otomatis)'], ['AI_MASSAL', 'AI input massal (rapikan teks)'], ['AI_IMPOR', 'AI impor WhatsApp (baca pesan yang tak terbaca)']]
 };
@@ -657,7 +657,7 @@ function waHookRoute_(e) {
     try {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
-      if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
+      if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
       else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
       else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
