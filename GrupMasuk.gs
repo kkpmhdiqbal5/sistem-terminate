@@ -234,8 +234,8 @@ function gmTerima_(m) {
   const ringkas = teks.slice(0, 80);
   const terminate = /LAPORAN HARIAN TERMINATE|BERHENTI BERLANGGANAN|MASIH LANJUT BERLANGGANAN|TIDAK ADA ?DI ?RUMAH|PERANGKAT SUDAH DIAMBIL/i.test(teks);
   let hasil = [];
-  if (bolehC && !terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks));          // laporan Instalasi / MT teknisi
-  const items = bolehT ? gmParse_(teks) : []; items.forEach(it => { it.tanggal = tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
+  if (bolehC && !terminate && typeof WAParser !== 'undefined') hasil.push(gmInstMt_(teks, m.tanggal));          // laporan Instalasi / MT teknisi
+  const items = bolehT ? gmParse_(teks) : []; items.forEach(it => { it.tanggal = m.tanggal || tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
   ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
@@ -278,9 +278,9 @@ function gmOdpTeks_(teks) {
   return h.tambah + ' ODP baru, ' + h.ubah + ' diperbarui';
 }
 // Instalasi / MT: dibaca pembaca laporan teknisi (WaParser.gs) lalu diimpor dengan aturan anti-dobel yang sama dengan halaman Impor
-function gmInstMt_(teks) {
+function gmInstMt_(teks, tgl) {
   let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: false }); } catch (e) { return 'pembaca gagal: ' + e.message; }
-  const hariIni = tmIso_(new Date());
+  const hariIni = tgl || tmIso_(new Date());
   const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: hariIni }));
   if (!rows.length) return '';
   const r = tmImporWA_({ rows: rows }, { user: 'GRUP WA' });
@@ -293,6 +293,32 @@ function gmUjiTeks_(d) {
   if (!items.length) return tmErr_('Tidak ada data yang terbaca. Pastikan format "Nama : … CID : …".');
   const lock = LockService.getScriptLock(); lock.waitLock(25000);
   try { const h = gmProses_(items, ''); return { status: 'success', message: items.length + ' data terbaca: ' + gmRingkas_(h) + '.' }; } finally { lock.releaseLock(); }
+}
+
+/* ---------- simpan pesan grup mentah + "Ambil ulang yang terlewat" ---------- */
+const GM_SH_MENTAH = 'GRUP MENTAH', GM_KOLOM = ['WAKTU', 'GRUP', 'PESAN', 'MEDIA', 'EXT', 'FILENAME'];
+// dipanggil webhook untuk tiap pesan grup sumber; log webhook hanya menyimpan 200 huruf, jadi teks utuh disimpan di sini
+function gmSimpan_(m) {
+  const teks = String(m.pesan || '');
+  if (teks.length < 40 && !m.filename) return;
+  const sh = tmSheetEnsure_(GM_SH_MENTAH, GM_KOLOM);
+  tmAppendObj_(sh, { WAKTU: new Date(), GRUP: m.grup, PESAN: teks.slice(0, 45000), MEDIA: m.media || '', EXT: m.ext || '', FILENAME: m.filename || '' });
+  if (sh.getLastRow() > 400) sh.deleteRows(2, 150);
+}
+// proses ulang pesan grup yang tersimpan (hari terakhir); aman diulang karena data yang sudah ada dilewati sebagai dobel
+function gmAmbilUlang_(d) {
+  const hari = Math.min(14, Math.max(1, Number(d.hari) || 3)), batas = Date.now() - hari * 86400000, mulai = Date.now();
+  const sh = tmSheetEnsure_(GM_SH_MENTAH, GM_KOLOM), rows = tmRead_(GM_SH_MENTAH).filter(r => r.WAKTU instanceof Date && r.WAKTU.getTime() >= batas);
+  const hitung = () => [TM.SH.LOG, TM.SH.INSTALASI, TM.SH.MT].map(n => { const x = tmSheet_(n); return x ? x.getLastRow() : 0; });
+  const awal = hitung(); let n = 0, lewat = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (Date.now() - mulai > 240000) { lewat = rows.length - i; break; }              // batas waktu Apps Script
+    if (!gmSumber_(r.GRUP)) { continue; }
+    try { gmTerima_({ grup: r.GRUP, pesan: r.PESAN, media: r.MEDIA, ext: r.EXT, filename: r.FILENAME, tanggal: tmIso_(r.WAKTU) }); n++; } catch (e) { Logger.log('ambil ulang: ' + e.message); }
+  }
+  const akhir = hitung();
+  return { status: 'success', message: n + ' pesan grup (' + hari + ' hari terakhir) diperiksa ulang. Baris baru: Terminate/Kunjungan/Lanjut +' + (akhir[0] - awal[0]) + ', Instalasi +' + (akhir[1] - awal[1]) + ', MT +' + (akhir[2] - awal[2]) + '.' + (lewat ? ' ' + lewat + ' pesan belum sempat, tekan lagi.' : '') + (rows.length ? '' : ' Belum ada pesan grup tersimpan (mulai tersimpan setelah versi ini dipasang).') };
 }
 
 /* ---------- daftar grup dari Fonnte ---------- */

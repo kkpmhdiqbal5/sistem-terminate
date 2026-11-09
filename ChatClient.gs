@@ -657,7 +657,7 @@ function waHookRoute_(e) {
     try {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
-      if (grup) { rel(); gmTerima_({ grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }); }   // mengunci sendiri
+      if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
       else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
       else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
@@ -889,6 +889,7 @@ function chatRoute_(d, au) {
     case 'terminateTujuanFonnte': return ccTujuanFonnte_();
     case 'terminateTujuanSumber': return ccTujuanSumber_(d);
     case 'terminateGrupUji': return gmUjiTeks_(d);
+    case 'terminateAmbilUlang': return gmAmbilUlang_(d);
     case 'terminateTujuanBaca': return { status: 'success', data: ccTujuanList_() };
     case 'terminateTujuanSimpan': return ccTujuanSimpan_(d);
     case 'terminateTujuanHapus': return ccTujuanHapus_(d);

@@ -18,6 +18,11 @@
       <div class="kecil mb-2">Format "LAPORAN HARIAN TERMINATE" atau "Nama : … CID : …". Hanya POP / OLT Perbaungan dan Pantai Cermin. Diambil → sudah diambil, tidak ada di rumah → kunjungan, lanjut → lanjut berlanganan. Sama dengan yang dibaca otomatis dari grup.</div>
       <textarea id="teksGrup" rows="5" class="form-control form-control-dark mb-2"></textarea>
       <button id="btnGrup" class="btn btn-success w-100 fw-bold">Proses ke sheet</button><div id="hGrup" class="mt-2"></div>
+      <hr class="my-3">
+      <div class="fw-bold text-white mb-1">🔄 Ambil ulang data yang terlewat</div>
+      <div class="kecil mb-2">Membaca ulang pesan laporan dari grup sumber yang tersimpan, lalu memasukkan yang belum ada. Data yang sudah ada dilewati (tidak dobel). Hanya pesan yang diterima setelah versi ini dipasang yang tersimpan.</div>
+      <div class="d-flex gap-2"><select id="hariUlang" class="form-select form-select-dark" style="max-width:140px"><option value="1">1 hari</option><option value="3" selected>3 hari</option><option value="7">7 hari</option></select>
+      <button id="btnUlang" class="btn btn-warning fw-bold flex-grow-1">Ambil ulang</button></div><div id="hUlang" class="mt-2"></div>
     </div>
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">💬 Impor Data dari WhatsApp <span class="badge bg-warning text-dark">Khusus Admin</span></div>
@@ -83,6 +88,11 @@
       var b = this; b.disabled = true; $('hGrup').innerHTML = '<div class="alert alert-secondary py-2 small mb-0">Memproses...</div>';
       TMC.api('terminateGrupUji', { teks: t }).then(function (r) { $('hGrup').innerHTML = '<div class="alert alert-' + (r.status === 'success' ? 'success' : 'danger') + ' py-2 small mb-0">' + TMC.esc(r.message) + '</div>'; })
         .catch(function () { $('hGrup').innerHTML = '<div class="alert alert-danger py-2 small mb-0">Gagal terhubung ke server.</div>'; }).finally(function () { b.disabled = false; });
+    };
+    $('btnUlang').onclick = function () {
+      var b = this; b.disabled = true; $('hUlang').innerHTML = '<div class="alert alert-secondary py-2 small mb-0">Memproses ulang, mohon tunggu...</div>';
+      TMC.api('terminateAmbilUlang', { hari: $('hariUlang').value }).then(function (r) { $('hUlang').innerHTML = '<div class="alert alert-' + (r.status === 'success' ? 'success' : 'danger') + ' py-2 small mb-0">' + TMC.esc(r.message) + '</div>'; })
+        .catch(function () { $('hUlang').innerHTML = '<div class="alert alert-danger py-2 small mb-0">Gagal terhubung ke server.</div>'; }).finally(function () { b.disabled = false; });
     };
     $('btnBaca').onclick = function () {
       var f = $('berkas').files[0], tm = $('teksManual').value.trim();
