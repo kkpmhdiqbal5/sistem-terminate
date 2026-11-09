@@ -27,21 +27,23 @@ function gmParse_(teks) {
   const lines = String(teks || '').replace(/[‎‏‪-‮]/g, '').split(/\r?\n/);
   const tglm = String(teks).match(/(\d{1,2})\s*[,.]?\s*(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s*[,.]?\s*(\d{4})/i);
   const tanggal = tglm ? tmTglParse_(tglm[1] + ' ' + tglm[2] + ' ' + tglm[3]) : '';
+  const popHead = tmPopKode_(lines.slice(0, 4).join(' '));            // judul laporan menyebut Perbaungan / Pantai Cermin
   const out = []; let jenis = '', cur = null, abaikan = false;
   const tutup = () => { if (cur && (cur.cid || cur.sn || cur.psn)) out.push(cur); cur = null; };
   lines.forEach(raw => {
     const t = raw.replace(/\*/g, '').trim();
     if (!t) { abaikan = false; return; }
-    const kv = /^(?:\d+\s*[.)]\s*)?([A-Za-z\- ]{2,12}?)\s*[:：]\s*(.*)$/.exec(t);
+    const kv = /^(?:\d+\s*[.)]\s*)?([A-Za-z\/\- ]{2,12}?)\s*[:：]\s*(.*)$/.exec(t);
     if (!kv) {                                                      // judul bagian
       const u = t.toUpperCase();
-      if (/BERHENTI BERLANGGANAN|PERANGKAT SUDAH DIAMBIL/.test(u)) { tutup(); jenis = 'TERMINATE'; abaikan = false; return; }
-      if (/LANJUT BERLANGGANAN/.test(u)) { tutup(); jenis = 'LANJUT'; abaikan = false; return; }
+      if (/MASIH ?(MAU )?LANJUT/.test(u) && /TIDAK ADA ?DI ?RUMAH/.test(u)) { tutup(); jenis = ''; abaikan = false; return; }   // judul gabungan: jenis ditentukan dari Ket tiap data
+      if (/BERHENTI BERLANGGANAN|PERANGKAT SUDAH (DIJEMPUT|DIAMBIL)/.test(u)) { tutup(); jenis = 'TERMINATE'; abaikan = false; return; }
+      if (/LANJUT BERLANGGANAN|MASIH ?(MAU )?LANJUT/.test(u)) { tutup(); jenis = 'LANJUT'; abaikan = false; return; }
       if (/TIDAK ADA ?DI ?RUMAH/.test(u)) { tutup(); jenis = 'KUNJUNGAN'; abaikan = false; return; }
       return;                                                       // baris nama TS/TIM dan lainnya diabaikan
     }
     const k = tmNorm_(kv[1]), v = kv[2].trim();
-    if (k === 'NAMA' || k === 'AN') { tutup(); cur = { jenis: jenis, nama: v, cid: '', odp: '', sn: '', psn: '', ket: '', tanggal: tanggal }; abaikan = false; return; }
+    if (k === 'NAMA' || k === 'AN') { tutup(); cur = { jenis: jenis, nama: v, cid: '', odp: '', sn: '', psn: '', ket: '', tanggal: tanggal, pop: popHead }; abaikan = false; return; }
     if (!cur) return;
     if (k === 'TS' || k === 'TIM') { abaikan = true; return; }
     if (abaikan) return;
@@ -84,6 +86,16 @@ function gmPopCari_(x) {
   }
   return { pop: '' };
 }
+// POP resmi (Perbaungan / Pantai Cermin) dari data lain yang ODP-nya sama; dipakai bila POP dari peta ODP (KMZ) hanya nama umum
+function gmPopDariOdp_(odp) {
+  const o = tmNorm_(tmOdpAkhir_(odp)); if (!o) return '';
+  const sheets = [TM.SH.INSTALASI, TM.SH.MT, TM.SH.LOG, TM.SH.FULL, TM.SH.TARGET];
+  for (let i = 0; i < sheets.length; i++) {
+    let rows = []; try { rows = tmRead_(sheets[i]); } catch (e) { rows = []; }
+    for (let k = rows.length - 1; k >= 0; k--) { if (tmNorm_(tmOdpAkhir_(rows[k].ODP)) === o) { const p = tmPopKode_(rows[k].POP); if (p) return p; } }
+  }
+  return '';
+}
 function gmFoto_(url) {
   try {
     const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
@@ -106,6 +118,7 @@ function gmProses_(items, fotoUrl, opt) {
     if (gmSisa_() < 1) { h.batas++; return; }
     const info = gmPopCari_(x);
     if (!info.pop) { h.bukanPop++; return; }
+    if (info.pop && !tmPopKode_(info.pop)) info.pop = gmPopDariOdp_(x.odp || info.odp) || info.pop;
     if (!x.nama && info.nama) x.nama = info.nama;
     if (!x.cid && info.cid) x.cid = info.cid;
     if (x.cariSn && x.jenis === 'TERMINATE' && x.cid && !x.sn && !x.psn) { const s = gmSnDariCid_(x.cid); x.sn = s.sn; x.psn = s.psn; }   // laporan tanpa SN: lengkapi dari data yang sudah ada
