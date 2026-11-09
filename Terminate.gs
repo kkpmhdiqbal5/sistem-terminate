@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateGabungDiambil: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -90,6 +90,7 @@ function terminateRoute_(d) {
       case 'terminateSnCid': return tmJson_(tmSnCid_(d));
       case 'terminateBersih1': return tmJson_(tmBersih_(d, au, 1));
       case 'terminateRapikan': return tmJson_(tmRapikanApi_(d, au));
+      case 'terminateGabungDiambil': return tmJson_(tmGabungDiambil_(d, au));
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
     }
     if (typeof chatRoute_ === 'function') { const c = chatRoute_(d, au); if (c) return tmJson_(c); }
@@ -1287,6 +1288,30 @@ function tmPanggilHapusArsip_(teks) {
   return { ok: false, msg: 'Aksi Hapus & Arsip tidak ditemukan di Code.gs.' };
 }
 // Tulis siapa yang mengambil di sheet "sudah diambil" (perbarui baris bila CID sudah ada, kalau belum tambah baris)
+// Gabungkan sekali: semua baris sheet "Terminate" (perangkat sudah diambil) -> "sudah diambil" (satu CID satu baris), lalu baris itu dihapus dari "Terminate". dry = pratinjau.
+function tmGabungDiambil_(d, au) {
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const sh = tmSheet_(TM.SH.TERMINATE);
+    if (!sh || sh.getLastRow() < 2) return { status: 'success', total: 0, message: 'Sheet Terminate kosong.' };
+    const v = sh.getDataRange().getValues(), canon = v[0].map(tmCanon_), hariIni = tmIso_(new Date());
+    const baris = [];
+    for (let r = 1; r < v.length; r++) {
+      const o = {}; canon.forEach((c, i) => { if (c && o[c] === undefined) o[c] = v[r][i]; });
+      if (!(tmNorm_(o.CID) || tmNorm_(o.SN))) continue;                                           // tanpa CID & SN: dibiarkan
+      if (o.STATUS && String(o.STATUS).toUpperCase() !== 'TERMINATE') continue;                    // lanjut berlangganan dll. tidak ikut
+      const tg = tmTglParse_(o.TANGGAL) || (o.WAKTU instanceof Date ? tmIso_(o.WAKTU) : tmTglParse_(o.WAKTU)) || hariIni;
+      baris.push({ r: r, rec: { NAMA: o.NAMA, CID: tmCidDigit_(o.CID), ODP: o.ODP, POP: o.POP, SN: o.SN, PSN: o.PSN, ADMIN: o.ADMIN, FOTO: o.FOTO, WAKTU: tg }, o: o });
+    }
+    if (d.dry) return { status: 'success', total: baris.length, message: baris.length + ' baris akan dipindah dari Terminate ke sudah diambil.' };
+    if (!baris.length) return { status: 'success', total: 0, message: 'Tidak ada baris yang bisa dipindah.' };
+    tmTandaiDiambil_(baris.map(b => b.rec));
+    const waktu = Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss');
+    tmBersihLog_(baris.map(b => [waktu, au.user, 'Gabung Terminate ke sudah diambil', TM.SH.TERMINATE, tmCidDigit_(b.o.CID), 'dipindah ke sudah diambil', v[b.r].map(x => x instanceof Date ? tmWaktuTxt_(x) : String(x)).join(' | ').slice(0, 500)]));
+    baris.map(b => b.r).sort((a, b) => b - a).forEach(r => sh.deleteRow(r + 1));
+    return { status: 'success', total: baris.length, message: baris.length + ' baris dipindah ke sudah diambil dan dihapus dari Terminate (tercatat di LOG HAPUS BERSIH).' };
+  } finally { lock.releaseLock(); }
+}
 function tmTandaiDiambil_(recs) {
   const sh = tmSheetEnsure_(TM.SH.DIAMBIL, ['NAMA', 'CID', 'ODP', 'SN', 'PSN', 'POP', 'TANGGAL']);
   const cAdm = tmColByLabel_(sh, 'DIAMBIL OLEH'), cFoto = tmColByLabel_(sh, 'FOTO');
