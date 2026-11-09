@@ -15,7 +15,8 @@
       { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT", admin: true }] },
     { id: "dashboard", ic: "📊", t: "Dashboard", items: [
       { h: "admin.html", ic: "📊", t: "Dashboard", p: "DASHBOARD" },
-      { h: "search.html", ic: "🔎", t: "Pencarian", p: "DATAADMIN" }] },
+      { h: "search.html?sumber=TERMINATE", ic: "🔎", t: "Cari Terminate", p: "DATAADMIN" },
+      { h: "search.html?sumber=CLIENT", ic: "👥", t: "Cari Client", p: "DATAADMIN" }] },
     { id: "admin", ic: "⚙️", t: "Admin", admin: true, items: [            // sisa fitur admin
       { h: "terminate-impor.html", ic: "📥", t: "Impor WhatsApp", p: "TIMPOR" },
       { h: "bersih-data.html", ic: "🧹", t: "Bersihkan Data", p: "TIMPOR" },
@@ -53,7 +54,10 @@
       var it = g.items.filter(function (x) { return tamu || ((!x.admin || admin) && (!x.p || Auth.can(x.p))); });
       return it.length ? { id: g.id, ic: g.ic, t: g.t, items: it } : null;
     }).filter(Boolean);
-    function cocok(x) { return x.h === now || (x.alt || []).indexOf(now) >= 0; }
+    function cocok(x) {
+      var a = x.h.split("?"), q = a[1] || "";
+      return (a[0] === now && (!q || location.search.indexOf(q) >= 0 || (location.search.indexOf("sumber=") < 0 && q === "sumber=TERMINATE"))) || (x.alt || []).indexOf(now) >= 0;
+    }
     var aktif = null;
     grup.forEach(function (g) { if (g.items.some(cocok)) aktif = g; });
     var tampil = aktif || grup[0] || null;

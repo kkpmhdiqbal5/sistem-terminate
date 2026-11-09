@@ -174,7 +174,9 @@
                 
                 if(result.status === "success") {
                     globalDataList = result.data;
-                    applyFilter(); 
+                    let pre = new URLSearchParams(location.search).get("sumber");   // dari menu: Cari Terminate / Cari Client
+                    if (pre === "TERMINATE" || pre === "CLIENT") { let g = document.getElementById("filterGrup"); g.value = pre; gantiGrup(); g.parentNode.style.display = "none"; }
+                    else applyFilter();
                 } else {
                     document.getElementById("tBody").innerHTML = `<tr><td colspan="11" class="text-center py-4 text-red-500">Error: ${result.message}</td></tr>`;
                 }
