@@ -67,7 +67,7 @@
     nav.innerHTML = (tampil ? '<div class="mg-r2">' + tampil.items.map(function (x) { return '<a class="mg-lk' + (cocok(x) ? " on" : "") + '" href="' + x.h + '">' + x.ic + " " + esc(x.t) + "</a>"; }).join("") + "</div>" : "") +
       '<div class="mg-r1">' + grup.map(function (g) {
         var ikon = g.id === "profil" ? '<span class="mg-av">' + ini + "</span>" : g.ic;
-        return '<a class="mg-tab' + (aktif === g ? " on" : "") + '" href="' + g.items[0].h + '"' + (g.id === "profil" ? ' title="Sesi ' + Math.floor(m / 60) + "j " + (m % 60) + 'm"' : "") + '><span class="ic">' + ikon + "</span>" + g.t + "</a>"; }).join("") +
+        return '<a class="mg-tab' + (aktif === g ? " on" : "") + '" href="' + (g.items.filter(function (x) { return x.h !== "index.html"; })[0] || g.items[0]).h + '"' + (g.id === "profil" ? ' title="Sesi ' + Math.floor(m / 60) + "j " + (m % 60) + 'm"' : "") + '><span class="ic">' + ikon + "</span>" + g.t + "</a>"; }).join("") +
       (tamu ? '<a class="mg-tab" href="login.html"><span class="ic">🔑</span>Masuk</a>' : '<button type="button" class="mg-tab out" id="mg-out"><span class="ic">⎋</span>Keluar</button>') + '</div>';
     document.body.appendChild(nav);
     document.body.style.paddingBottom = (nav.offsetHeight + 16) + "px";
