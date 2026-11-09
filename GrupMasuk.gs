@@ -388,34 +388,40 @@ function gmPrKonfirmasi_(tanya, teks, siapa) {
   tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(tanya.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(tanya.PENGIRIM), { ODP: odpFinal, KET: 'ODP dikonfirmasi ' + siapa + ': ' + odpFinal });
   return 'ODP dikonfirmasi ' + siapa + ' -> ' + odpFinal;
 }
-// pertanyaan konfirmasi ODP: ke grup / pengirim (GRUP), ke admin pribadi (ADMIN), atau keduanya (KEDUANYA); diatur di Admin > Sumber Grup
-function gmPrKirim_(tujuan, teks) {
+// pertanyaan konfirmasi ODP. Mode (Admin > Sumber Grup): PENGIRIM = chat pribadi pengirim (bawaan), GRUP, ADMIN = chat pribadi admin,
+// PENGIRIM_ADMIN, KEDUANYA = grup + admin, MATI = bot tidak bertanya (data tetap dicatat)
+function gmPrKirim_(tujuan, teks, member) {
+  const mode = ccProp_('PR_TANYA') || 'PENGIRIM';
+  if (mode === 'MATI') return 'bot pertanyaan dinonaktifkan admin, tidak bertanya';
   const e = ccApiPilih_('PR_GRUP', 'WA');
   if (!e) return 'API khusus "Grup PR" belum diatur (Profil > Pengaturan API, centang fungsi "Grup PR"), pertanyaan tidak terkirim';
-  const mode = ccProp_('PR_TANYA') || 'GRUP', hp = ccNoHp_(ccProp_('PR_ADMIN_HP')), target = [];
-  if (mode !== 'ADMIN' || !hp) target.push(tujuan);
-  if (mode !== 'GRUP' && hp && hp !== tujuan) target.push(hp);
-  return target.map(t => { const r = ccWaKirimE_(e, t, teks); return (t === hp ? 'ke admin: ' : 'ke ' + (/@g\.us$/.test(t) ? 'grup: ' : 'pengirim: ')) + (r.ok ? 'terkirim' : 'gagal ' + r.msg); }).join('; ');
+  const hp = ccNoHp_(ccProp_('PR_ADMIN_HP')), pribadi = ccNoHp_(member) || '', target = [];
+  if (mode === 'PENGIRIM' || mode === 'PENGIRIM_ADMIN') target.push(pribadi || tujuan);
+  if (mode === 'GRUP' || mode === 'KEDUANYA') target.push(tujuan);
+  if ((mode === 'ADMIN' || mode === 'PENGIRIM_ADMIN' || mode === 'KEDUANYA') && hp) target.push(hp);
+  if (!target.length) target.push(tujuan);
+  return target.filter((t, k, a) => a.indexOf(t) === k).map(t => { const r = ccWaKirimE_(e, t, teks); return (t === hp ? 'ke admin: ' : /@g\.us$/.test(t) ? 'ke grup: ' : 'ke pribadi pengirim: ') + (r.ok ? 'terkirim' : 'gagal ' + r.msg); }).join('; ');
 }
-// balasan admin lewat chat pribadi (nomor admin diisi di Sumber Grup): menjawab pertanyaan ODP terbaru yang belum dikonfirmasi
+// balasan lewat chat pribadi: dari admin (pertanyaan terbaru) atau dari pengirim data itu sendiri (pertanyaannya sendiri)
 function gmPrAdmin_(hp, teks) {
   const adm = ccNoHp_(ccProp_('PR_ADMIN_HP')); teks = String(teks || '').trim();
-  if (!adm || hp !== adm || !teks || teks.length > 80 || /^🤖/.test(teks)) return false;
-  const batas = Date.now() - 24 * 3600000, r = tmRead_(GM_SH_PR).filter(x => x.STATUS === 'TANYA' && x.WAKTU instanceof Date && x.WAKTU.getTime() >= batas).pop();
+  if (!hp || !teks || teks.length > 80 || /^🤖/.test(teks) || ccProp_('PR_TANYA') === 'MATI') return false;
+  const batas = Date.now() - 24 * 3600000, rows = tmRead_(GM_SH_PR).filter(x => x.STATUS === 'TANYA' && x.WAKTU instanceof Date && x.WAKTU.getTime() >= batas);
+  const r = (hp === adm ? rows : rows.filter(x => ccNoHp_(x.MEMBER) === hp)).pop();
   if (!r) return false;
-  const h = gmKunci(() => gmPrKonfirmasi_(r, teks, 'admin'));
+  const h = gmKunci(() => gmPrKonfirmasi_(r, teks, hp === adm ? 'admin' : r.PENGIRIM));
   ccHookLog_(hp, teks, 'grup PR -> ' + h); return true;
 }
 // pengaturan tujuan pertanyaan (halaman Sumber Grup)
 function gmPrAtur_(d) {
   const p = PropertiesService.getScriptProperties();
   if (d.mode !== undefined) {
-    const mode = ['GRUP', 'ADMIN', 'KEDUANYA'].indexOf(d.mode) >= 0 ? d.mode : 'GRUP', hp = d.hp ? ccNoHp_(d.hp) : '';
+    const mode = ['PENGIRIM', 'GRUP', 'ADMIN', 'PENGIRIM_ADMIN', 'KEDUANYA', 'MATI'].indexOf(d.mode) >= 0 ? d.mode : 'PENGIRIM', hp = d.hp ? ccNoHp_(d.hp) : '';
     if (d.hp && !hp) return tmErr_('Nomor HP admin tidak valid (pakai 08xx / 628xx).');
-    if (mode !== 'GRUP' && !hp) return tmErr_('Isi nomor HP Anda untuk pertanyaan lewat chat pribadi.');
+    if (['ADMIN', 'PENGIRIM_ADMIN', 'KEDUANYA'].indexOf(mode) >= 0 && !hp) return tmErr_('Isi nomor HP Anda untuk pertanyaan lewat chat pribadi admin.');
     p.setProperty('PR_TANYA', mode); p.setProperty('PR_ADMIN_HP', hp);
   }
-  return { status: 'success', mode: ccProp_('PR_TANYA') || 'GRUP', hp: ccProp_('PR_ADMIN_HP'), message: 'Pengaturan pertanyaan Grup PR disimpan.' };
+  return { status: 'success', mode: ccProp_('PR_TANYA') || 'PENGIRIM', hp: ccProp_('PR_ADMIN_HP'), message: 'Pengaturan pertanyaan Grup PR disimpan.' };
 }
 function gmPrTerima_(m) {
   const teks = String(m.pesan || '').replace(/[\u200e\u200f]/g, '').trim();
@@ -459,7 +465,7 @@ function gmPrTerima_(m) {
       let sudah = false; try { sudah = !!cid && tmBacaCid_(TM.SH.B1).list.some(x => x.cid === cid); } catch (e) { sudah = false; }
       if (!sudah) tmAppendObj_(tmSheetEnsure_(TM.SH.B1, ['NAMA', 'CID', 'ODP', 'POP']), { NAMA: namaF, CID: cid, ODP: odp, POP: tmPopKode_(t && t.pop) || (k && k.pop) || gmPopDariOdp_(odp) || '', SN: k ? k.sn : '', PSN: k ? k.psn : '', KOORDINAT: lat + ',' + lng, LINKMAPS: 'https://maps.google.com/?q=' + lat + ',' + lng, KET: catatan, FOTORUMAH: row.FOTO || '', NAMATS: row.PENGIRIM });
       tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, { STATUS: 'TANYA', ODP_TERDEKAT: odp, JARAK_M: jarak, ODP_DATA: k ? k.odp : '', NAMA: namaF, CID: cid });
-      const kirim = gmPrKirim_(m.grup, '🤖 @' + row.PENGIRIM + ' data *' + namaF + '* masuk daftar pengambilan.\nODP terdekat dari lokasi: *' + (odp || 'tidak ketemu') + '*' + (jarak !== '' ? ' (' + jarak + ' m)' : '') + (k && k.odp && t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? '\nODP di data client: ' + k.odp : '') + '\nBenar? Balas *ya*, atau tulis ODP yang benar.');
+      const kirim = gmPrKirim_(m.grup, '🤖 Halo ' + row.PENGIRIM + ' data *' + namaF + '* masuk daftar pengambilan.\nODP terdekat dari lokasi: *' + (odp || 'tidak ketemu') + '*' + (jarak !== '' ? ' (' + jarak + ' m)' : '') + (k && k.odp && t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? '\nODP di data client: ' + k.odp : '') + '\nBenar? Balas *ya*, atau tulis ODP yang benar.', row.MEMBER);
       hasil = 'masuk Baris 1: ' + namaF + ' / ODP ' + (odp || '-') + ' (' + catatan + '); ' + kirim;
     } else hasil = 'dicatat dari ' + pengirim + ' (' + [row.LAT !== '' ? 'lokasi' : '', row.NAMA || row.CID ? 'nama/CID' : '', row.FOTO ? 'foto' : ''].filter(Boolean).join(', ') + '), menunggu pasangan datanya';
   });

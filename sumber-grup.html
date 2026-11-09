@@ -31,8 +31,8 @@
     </div>
     <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">🤖 Pertanyaan konfirmasi ODP (Grup PR)</div>
-      <div class="kecil mb-2">Setelah data masuk dari tim instalasi, bot menanyakan apakah ODP terdekat benar. Pilih ke mana pertanyaan dikirim (memakai API WhatsApp khusus "Grup PR"). Bila ke chat pribadi Anda, jawab "ya" atau tulis ODP yang benar langsung ke nomor sistem.</div>
-      <div class="row g-2"><div class="col-12 col-md-5"><select id="prMode" class="form-select form-select-dark"><option value="GRUP">Ke grup / pengirim</option><option value="ADMIN">Ke chat pribadi saya</option><option value="KEDUANYA">Keduanya</option></select></div>
+      <div class="kecil mb-2">Setelah data masuk dari tim instalasi, bot menanyakan apakah ODP terdekat benar. Pilih ke mana pertanyaan dikirim (memakai API WhatsApp khusus "Grup PR"), atau nonaktifkan bot. Pengirim cukup membalas "ya" atau menulis ODP yang benar lewat chat pribadi. Nomor HP Anda hanya perlu diisi bila memilih opsi yang memakai chat pribadi admin.</div>
+      <div class="row g-2"><div class="col-12 col-md-5"><select id="prMode" class="form-select form-select-dark"><option value="PENGIRIM">Otomatis ke chat pribadi pengirim (bawaan)</option><option value="GRUP">Ke grup</option><option value="ADMIN">Ke chat pribadi saya (admin)</option><option value="PENGIRIM_ADMIN">Pribadi pengirim + saya</option><option value="KEDUANYA">Grup + saya</option><option value="MATI">Nonaktif: bot tidak bertanya</option></select></div>
         <div class="col-8 col-md-5"><input id="prHp" class="form-control form-control-dark" placeholder="Nomor HP saya (08xx / 628xx)"></div>
         <div class="col-4 col-md-2"><button id="prSimpan" class="btn btn-success w-100 fw-bold">Simpan</button></div></div><div id="hPr" class="mt-2"></div>
     </div>
