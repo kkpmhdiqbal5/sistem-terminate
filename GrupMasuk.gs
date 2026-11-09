@@ -380,6 +380,8 @@ function gmCariKlien_(nama, cid) {
   const lengkap = kandidat.filter(x => String(x.SN || '').trim())[0] || r;
   return { nama: String(r.NAMA || '').trim(), cid: tmCidDigit_(r.CID), sn: String(lengkap.SN || '').trim(), psn: String(lengkap.PSN || '').trim(), odp: tmOdpAkhir_(String(r.ODP || '')), pop: tmPopKode_(r.POP) };
 }
+// chat pribadi dari nomor anggota tim yang didaftarkan di Sumber Grup dengan tugas PR diperlakukan sama seperti grup PR
+function gmPrPribadi_(hp) { return !!hp && gmSumber_(hp) && gmTugas_(hp) === 'PR'; }
 function gmPrKirim_(grup, teks) {
   const e = ccApiPilih_('PR_GRUP', 'WA');
   if (!e) return 'API khusus "Grup PR" belum diatur (Profil > Pengaturan API, centang fungsi "Grup PR"), pertanyaan tidak terkirim';

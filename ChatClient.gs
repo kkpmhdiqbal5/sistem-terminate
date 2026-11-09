@@ -658,6 +658,7 @@ function waHookRoute_(e) {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
       if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
+      else if (typeof gmPrPribadi_ === 'function' && gmPrPribadi_(ccNoHp_(sender))) { rel(); gmPrTerima_({ grup: ccNoHp_(sender), member: ccNoHp_(sender), nama: g('name') || g('pushname'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi }); }   // chat pribadi anggota tim instalasi (tugas PR)
       else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
       else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
