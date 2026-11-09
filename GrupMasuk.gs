@@ -382,10 +382,40 @@ function gmCariKlien_(nama, cid) {
 }
 // chat pribadi dari nomor anggota tim yang didaftarkan di Sumber Grup dengan tugas PR diperlakukan sama seperti grup PR
 function gmPrPribadi_(hp) { return !!hp && gmSumber_(hp) && gmTugas_(hp) === 'PR'; }
-function gmPrKirim_(grup, teks) {
+function gmPrKonfirmasi_(tanya, teks, siapa) {
+  const ya = /^(ya|iya|y|ok|oke|benar|betul|sesuai)\b/i.test(teks), odpFinal = ya ? tanya.ODP_TERDEKAT : tmOdpAkhir_(teks);
+  tmUpdateRows_(GM_SH_PR, r => r.ID === tanya.ID, { STATUS: 'KONFIRMASI', ODP_DATA: odpFinal });
+  tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(tanya.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(tanya.PENGIRIM), { ODP: odpFinal, KET: 'ODP dikonfirmasi ' + siapa + ': ' + odpFinal });
+  return 'ODP dikonfirmasi ' + siapa + ' -> ' + odpFinal;
+}
+// pertanyaan konfirmasi ODP: ke grup / pengirim (GRUP), ke admin pribadi (ADMIN), atau keduanya (KEDUANYA); diatur di Admin > Sumber Grup
+function gmPrKirim_(tujuan, teks) {
   const e = ccApiPilih_('PR_GRUP', 'WA');
   if (!e) return 'API khusus "Grup PR" belum diatur (Profil > Pengaturan API, centang fungsi "Grup PR"), pertanyaan tidak terkirim';
-  const r = ccWaKirimE_(e, grup, teks); return r.ok ? 'pertanyaan terkirim' : 'gagal kirim: ' + r.msg;
+  const mode = ccProp_('PR_TANYA') || 'GRUP', hp = ccNoHp_(ccProp_('PR_ADMIN_HP')), target = [];
+  if (mode !== 'ADMIN' || !hp) target.push(tujuan);
+  if (mode !== 'GRUP' && hp && hp !== tujuan) target.push(hp);
+  return target.map(t => { const r = ccWaKirimE_(e, t, teks); return (t === hp ? 'ke admin: ' : 'ke ' + (/@g\.us$/.test(t) ? 'grup: ' : 'pengirim: ')) + (r.ok ? 'terkirim' : 'gagal ' + r.msg); }).join('; ');
+}
+// balasan admin lewat chat pribadi (nomor admin diisi di Sumber Grup): menjawab pertanyaan ODP terbaru yang belum dikonfirmasi
+function gmPrAdmin_(hp, teks) {
+  const adm = ccNoHp_(ccProp_('PR_ADMIN_HP')); teks = String(teks || '').trim();
+  if (!adm || hp !== adm || !teks || teks.length > 80 || /^🤖/.test(teks)) return false;
+  const batas = Date.now() - 24 * 3600000, r = tmRead_(GM_SH_PR).filter(x => x.STATUS === 'TANYA' && x.WAKTU instanceof Date && x.WAKTU.getTime() >= batas).pop();
+  if (!r) return false;
+  const h = gmKunci(() => gmPrKonfirmasi_(r, teks, 'admin'));
+  ccHookLog_(hp, teks, 'grup PR -> ' + h); return true;
+}
+// pengaturan tujuan pertanyaan (halaman Sumber Grup)
+function gmPrAtur_(d) {
+  const p = PropertiesService.getScriptProperties();
+  if (d.mode !== undefined) {
+    const mode = ['GRUP', 'ADMIN', 'KEDUANYA'].indexOf(d.mode) >= 0 ? d.mode : 'GRUP', hp = d.hp ? ccNoHp_(d.hp) : '';
+    if (d.hp && !hp) return tmErr_('Nomor HP admin tidak valid (pakai 08xx / 628xx).');
+    if (mode !== 'GRUP' && !hp) return tmErr_('Isi nomor HP Anda untuk pertanyaan lewat chat pribadi.');
+    p.setProperty('PR_TANYA', mode); p.setProperty('PR_ADMIN_HP', hp);
+  }
+  return { status: 'success', mode: ccProp_('PR_TANYA') || 'GRUP', hp: ccProp_('PR_ADMIN_HP'), message: 'Pengaturan pertanyaan Grup PR disimpan.' };
 }
 function gmPrTerima_(m) {
   const teks = String(m.pesan || '').replace(/[\u200e\u200f]/g, '').trim();
@@ -405,11 +435,7 @@ function gmPrTerima_(m) {
     const tanya = milik.filter(r => r.STATUS === 'TANYA').pop(), baru = milik.filter(r => r.STATUS === 'BARU').pop();
     const jawab = tanya && !lok && !foto && !nm && !cidM && teks.length > 0 && teks.length <= 80;
     if (jawab) {                                                    // balasan atas pertanyaan konfirmasi ODP dari orang yang sama
-      const ya = /^(ya|iya|y|ok|oke|benar|betul|sesuai)\b/i.test(teks);
-      const odpFinal = ya ? tanya.ODP_TERDEKAT : tmOdpAkhir_(teks);
-      tmUpdateRows_(GM_SH_PR, r => r.ID === tanya.ID, { STATUS: 'KONFIRMASI', ODP_DATA: odpFinal });
-      tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(tanya.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(tanya.PENGIRIM), { ODP: odpFinal, KET: 'ODP dikonfirmasi ' + pengirim + ': ' + odpFinal });
-      hasil = 'ODP dikonfirmasi ' + pengirim + ' -> ' + odpFinal; return;
+      hasil = gmPrKonfirmasi_(tanya, teks, pengirim); return;
     }
     let row = baru || (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null);       // foto susulan: ke data terakhir orang yang sama
     if (!row) {

@@ -30,6 +30,13 @@
       <button id="bKmz" class="btn btn-success w-100 fw-bold">Baca &amp; simpan ODP</button><div id="hKmz" class="mt-2"></div>
     </div>
     <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">🤖 Pertanyaan konfirmasi ODP (Grup PR)</div>
+      <div class="kecil mb-2">Setelah data masuk dari tim instalasi, bot menanyakan apakah ODP terdekat benar. Pilih ke mana pertanyaan dikirim (memakai API WhatsApp khusus "Grup PR"). Bila ke chat pribadi Anda, jawab "ya" atau tulis ODP yang benar langsung ke nomor sistem.</div>
+      <div class="row g-2"><div class="col-12 col-md-5"><select id="prMode" class="form-select form-select-dark"><option value="GRUP">Ke grup / pengirim</option><option value="ADMIN">Ke chat pribadi saya</option><option value="KEDUANYA">Keduanya</option></select></div>
+        <div class="col-8 col-md-5"><input id="prHp" class="form-control form-control-dark" placeholder="Nomor HP saya (08xx / 628xx)"></div>
+        <div class="col-4 col-md-2"><button id="prSimpan" class="btn btn-success w-100 fw-bold">Simpan</button></div></div><div id="hPr" class="mt-2"></div>
+    </div>
+    <div class="card-custom p-3 mb-3">
       <div class="fw-bold text-white mb-1">Tambah manual</div>
       <div class="kecil mb-2">Bila grup belum muncul dari Fonnte: isi ID grup (berakhiran @g.us, lihat kolom PHONE di sheet WEBHOOK LOG) dan namanya. Untuk <b>chat pribadi</b> anggota tim instalasi, isi nomor HP-nya (628xxx), simpan, lalu nyalakan sebagai sumber dan pilih tugas <b>PR</b>.</div>
       <div class="row g-2">
@@ -93,9 +100,12 @@
         });
       }).catch(function (e) { h.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">' + TMC.esc(e.message || 'Gagal membaca file.') + '</div>'; });
     };
+    function prTampil(r) { if (r && r.mode) { $('prMode').value = r.mode; $('prHp').value = r.hp || ''; } if (r && r.message) $('hPr').innerHTML = '<div class="alert alert-' + (r.status === 'success' ? 'success' : 'danger') + ' py-2 mb-0 small">' + TMC.esc(r.message) + '</div>'; }
+    $('prSimpan').onclick = function () { TMC.api('terminatePrAtur', { mode: $('prMode').value, hp: $('prHp').value.trim() }).then(prTampil).catch(function () { $('hPr').innerHTML = '<div class="alert alert-danger py-2 mb-0 small">Gagal terhubung ke server.</div>'; }); };
+    TMC.api('terminatePrAtur', {}).then(function (r) { if (r && r.mode) { $('prMode').value = r.mode; $('prHp').value = r.hp || ''; } }).catch(function () {});
     $('bTambah').onclick = function () {
       var no = $('mNomor').value.trim(), nm = $('mNama').value.trim();
-      if (!/@g\.us$/i.test(no) || !nm) return pesan('Isi ID grup (berakhiran @g.us) dan nama.', 'warning');
+      if (!(/@g\.us$/i.test(no) || /^\+?[\d\s\-]{9,}$/.test(no)) || !nm) return pesan('Isi ID grup (berakhiran @g.us) atau nomor HP, dan nama.', 'warning');
       TMC.api('terminateTujuanSimpan', { nama: nm, nomor: no }).then(function (r) { set(r); if (r.status === 'success') { $('mNomor').value = ''; $('mNama').value = ''; } });
     };
     TMC.api('terminateTujuanBaca').then(set).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
