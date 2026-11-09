@@ -53,6 +53,15 @@
       <button id="b4" class="btn btn-warning w-100 fw-bold">Cek &amp; Gabungkan</button>
       <div id="h4" class="mt-2"></div>
     </div>
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-1">5️⃣ Rapikan sheet sudah diambil</div>
+      <ul class="kecil ps-3 mb-2">
+        <li>POP yang tertulis "ION SERDANG BEDAGAI / ODP…", huruf kecil, atau kosong diganti POP resmi (Perbaungan / Pantai Cermin) dari data lain yang ODP-nya sama.</li>
+        <li>Baris tanpa SN yang di LOG hanya tercatat lanjut/kunjungan (bukan terminate) dibuang dari sheet ini.</li>
+      </ul>
+      <button id="b5" class="btn btn-warning w-100 fw-bold">Cek &amp; Rapikan</button>
+      <div id="h5" class="mt-2"></div>
+    </div>
   </div>
   <script>
     var S = TMC.init({ active: 'bersih', title: '🧹 Bersihkan Data' });
@@ -75,6 +84,20 @@
       };
     }
     jalan(1); jalan(2);
+    (function () {
+      var btn = document.getElementById('b5'), out = document.getElementById('h5');
+      function pesan(t, j) { out.innerHTML = '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>'; }
+      btn.onclick = function () {
+        btn.disabled = true; pesan('Memeriksa data...', 'secondary');
+        TMC.api('terminateRapikanDiambil', { dry: true }).then(function (r) {
+          if (r.status !== 'success') { pesan(r.message, 'danger'); btn.disabled = false; return; }
+          if (!r.pop && !r.salah.length) { pesan('Sudah rapi, tidak ada yang perlu diubah.', 'success'); btn.disabled = false; return; }
+          if (!confirm(r.message + '\n\nBaris yang akan dibuang:\n' + r.salah.slice(0, 25).join('\n') + (r.salah.length > 25 ? '\n... dan ' + (r.salah.length - 25) + ' lagi' : '') + '\n\nLanjutkan?')) { pesan('Dibatalkan.', 'secondary'); btn.disabled = false; return; }
+          pesan('Merapikan...', 'secondary');
+          return TMC.api('terminateRapikanDiambil', { dry: false }).then(function (r2) { pesan(r2.message, r2.status === 'success' ? 'success' : 'danger'); btn.disabled = false; });
+        }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); btn.disabled = false; });
+      };
+    })();
     (function () {
       var btn = document.getElementById('b4'), out = document.getElementById('h4');
       function pesan(t, j) { out.innerHTML = '<div class="alert alert-' + j + ' py-2 mb-0 small">' + TMC.esc(t) + '</div>'; }

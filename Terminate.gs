@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
     const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
-                    terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateGabungDiambil: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
+                    terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateGabungDiambil: 'TIMPOR', terminateRapikanDiambil: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminateAmbilUlang: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
     if (d.action === 'terminateGantiPassword') return tmJson_(tmGantiPassword_(d, au));
@@ -90,6 +90,7 @@ function terminateRoute_(d) {
       case 'terminateSnCid': return tmJson_(tmSnCid_(d));
       case 'terminateBersih1': return tmJson_(tmBersih_(d, au, 1));
       case 'terminateRapikan': return tmJson_(tmRapikanApi_(d, au));
+      case 'terminateRapikanDiambil': return tmJson_(tmRapikanDiambil_(d, au));
       case 'terminateGabungDiambil': return tmJson_(tmGabungDiambil_(d, au));
       case 'terminateBersih2': return tmJson_(tmBersih_(d, au, 2));
     }
@@ -836,6 +837,31 @@ function tmEditSimpan_(d, au) {
 }
 
 // Edit semua kolom satu data (halaman Sudah Diambil): hanya sel yang berubah yang ditulis
+// POP hanya nama resmi (PERBAUNGAN / PANTAI CERMIN); nama umum dari peta ODP (KMZ) diganti POP resmi dari data lain yang ODP-nya sama, atau dikosongkan
+function tmPopResmi_(p, odp) { return tmPopKode_(p) || (p && typeof gmPopDariOdp_ === 'function' ? gmPopDariOdp_(odp) : ''); }
+// Rapikan sheet "sudah diambil": (1) POP -> nama resmi, (2) buang baris yang sebenarnya lanjut/kunjungan (tanpa SN dan tidak pernah tercatat TERMINATE). dry = pratinjau.
+function tmRapikanDiambil_(d, au) {
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const sh = tmSheet_(TM.SH.DIAMBIL); if (!sh || sh.getLastRow() < 2) return { status: 'success', pop: 0, salah: [], message: 'Sheet kosong.' };
+    const rows = tmRead_(TM.SH.DIAMBIL), hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(tmCanon_), iPop = hdr.indexOf('POP') + 1;
+    const jenis = {}; tmRead_(TM.SH.LOG).forEach(r => { const c = tmCidDigit_(r.CID); if (c) (jenis[c] = jenis[c] || {})[r.JENIS] = true; });
+    const salah = [], ubah = [];
+    rows.forEach(r => {
+      const c = tmCidDigit_(r.CID), j = jenis[c] || {}, adaSn = String(r.SN || '').trim() || String(r.PSN || '').trim();
+      if (!adaSn && (j.LANJUT || j.KUNJUNGAN) && !j.TERMINATE) { salah.push(r); return; }
+      const lama = String(r.POP || '').trim(), baru = tmPopKode_(lama) || gmPopDariOdp_(r.ODP) || tmPopKode_(r.ODP) || '';
+      if (baru !== lama) ubah.push({ r: r, baru: baru });
+    });
+    const ringkas = 'POP diperbaiki: ' + ubah.length + ' baris. Salah masuk (sebenarnya lanjut/kunjungan): ' + salah.length + ' baris.';
+    if (d.dry) return { status: 'success', pop: ubah.length, salah: salah.map(r => r.NAMA + ' (' + r.CID + ')'), message: ringkas };
+    if (iPop > 0) ubah.forEach(u => sh.getRange(u.r._row, iPop).setValue(u.baru));
+    const waktu = Utilities.formatDate(new Date(), TM.TZ, 'dd/MM/yyyy HH:mm:ss');
+    tmBersihLog_(salah.map(r => [waktu, au.user, 'Rapikan sudah diambil', TM.SH.DIAMBIL, tmCidDigit_(r.CID), 'bukan terminate (lanjut/kunjungan), dihapus dari sudah diambil', [r.NAMA, r.CID, r.ODP, r.POP, r.TANGGAL].join(' | ')]));
+    salah.map(r => r._row).sort((a, b) => b - a).forEach(n => sh.deleteRow(n));
+    return { status: 'success', pop: ubah.length, salah: [], message: ringkas + ' Selesai (baris yang dibuang tercatat di LOG HAPUS BERSIH).' };
+  } finally { lock.releaseLock(); }
+}
 function tmEditLengkap_(d, au) {
   const id = String(d.id || '').trim(); if (!id) return tmErr_('ID data tidak ada.');
   const t = k => String(d[k] == null ? '' : d[k]).trim();
@@ -1007,7 +1033,7 @@ function tmImporWA_(d, au) {
       const nama = x.sheet === 'MT' ? 'MT' : (x.sheet === 'Instalasi' ? 'Instalasi' : '');
       const s = k => String(x[k] == null ? '' : x[k]).trim();
       const tglIso = /^\d{4}-\d{2}-\d{2}$/.test(s('tanggal')) ? s('tanggal') : tmTglParse_(s('tanggal'));
-      const rec = { NAMA: s('nama'), CID: s('cid').replace(/\s+/g, ''), ODP: tmOdpAkhir_(s('odp')), POP: tmPop_(s('pop')) || tmPop_(s('odp')) || tmPop_(tmOdpAkhir_(s('odp'))),   // POP/OLT, atau kode ODP PRBGN / PTCRMN, atau nama ODP di sheet ODP
+      const rec = { NAMA: s('nama'), CID: s('cid').replace(/\s+/g, ''), ODP: tmOdpAkhir_(s('odp')), POP: tmPopResmi_(tmPop_(s('pop')) || tmPop_(s('odp')) || tmPop_(tmOdpAkhir_(s('odp'))), s('odp')),   // POP/OLT, atau kode ODP PRBGN / PTCRMN, atau nama ODP di sheet ODP
                    
                     SN: tmCleanCode_(s('sn')), PSN: tmCleanCode_(s('psn')), KET: s('ket'), TANGGAL: tglIso ? tmTglIndo_(tglIso) : s('tanggal') };
       const snLama = tmNorm_(s('snlama'));

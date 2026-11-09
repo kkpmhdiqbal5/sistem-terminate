@@ -87,14 +87,17 @@ function gmPopCari_(x) {
   return { pop: '' };
 }
 // POP resmi (Perbaungan / Pantai Cermin) dari data lain yang ODP-nya sama; dipakai bila POP dari peta ODP (KMZ) hanya nama umum
+let GM_PODP = null;                                   // peta nama ODP -> POP resmi, dibangun sekali per eksekusi
 function gmPopDariOdp_(odp) {
   const o = tmNorm_(tmOdpAkhir_(odp)); if (!o) return '';
-  const sheets = [TM.SH.INSTALASI, TM.SH.MT, TM.SH.LOG, TM.SH.FULL, TM.SH.TARGET];
-  for (let i = 0; i < sheets.length; i++) {
-    let rows = []; try { rows = tmRead_(sheets[i]); } catch (e) { rows = []; }
-    for (let k = rows.length - 1; k >= 0; k--) { if (tmNorm_(tmOdpAkhir_(rows[k].ODP)) === o) { const p = tmPopKode_(rows[k].POP); if (p) return p; } }
+  if (!GM_PODP) {
+    GM_PODP = {};
+    [TM.SH.TARGET, TM.SH.FULL, TM.SH.LOG, TM.SH.MT, TM.SH.INSTALASI].forEach(n => {     // yang terakhir (paling baru) menimpa
+      let rows = []; try { rows = tmRead_(n); } catch (e) { rows = []; }
+      rows.forEach(r => { const k = tmNorm_(tmOdpAkhir_(r.ODP)), p = tmPopKode_(r.POP); if (k && p) GM_PODP[k] = p; });
+    });
   }
-  return '';
+  return GM_PODP[o] || '';
 }
 function gmFoto_(url) {
   try {
@@ -131,7 +134,7 @@ function gmProses_(items, fotoUrl, opt) {
     const sekarang = tgl === tmIso_(new Date()), waktu = sekarang ? new Date() : new Date(tgl + 'T12:00:00+07:00');
     const T = x.jenis === 'TERMINATE';
     const rec = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: waktu, TANGGAL: tmTglIndo_(tgl), ADMIN: opt.admin || 'GRUP WA', TIM: opt.admin || 'GRUP WA', JENIS: x.jenis,
-      NAMA: x.nama, CID: x.cid, ODP: T ? tmOdpAkhir_(x.odp || info.odp || '') : '', POP: T ? info.pop : '', SN: T ? tmCleanCode_(x.sn) : '', PSN: T ? tmCleanCode_(x.psn) : '',
+      NAMA: x.nama, CID: x.cid, ODP: T ? tmOdpAkhir_(x.odp || info.odp || '') : '', POP: T ? (tmPopKode_(info.pop) || tmPopKode_(x.pop) || '') : '', SN: T ? tmCleanCode_(x.sn) : '', PSN: T ? tmCleanCode_(x.psn) : '',
       KET: x.ket || TM.KET[x.jenis], VERIF: opt.verif || 'DARI GRUP WA', SUMBER: opt.sumber || 'GRUP_WA', FOTO: foto };
     let bersih = 0;
     try {
