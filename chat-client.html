@@ -336,7 +336,7 @@
       $('daftarStatus').innerHTML = '<div class="p-3 kecil">Memuat...</div>';
       TMC.api('terminateChatStatus').then(function (r) {
         if (r.status !== 'success') { $('daftarStatus').innerHTML = '<div class="p-3 text-danger">' + esc(r.message) + '</div>'; return; }
-        statusData = r.data; gambarStatus();
+        statusData = (r.data || []).filter(function (x) { return x.status !== 'CHAT_LAIN'; }); gambarStatus();   // chat selain client tidak ditampilkan
       });
     }
     var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_bukti', 'Berhenti - sudah ada bukti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['ambil', 'Ditangani admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';

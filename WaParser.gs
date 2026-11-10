@@ -25,6 +25,8 @@
     if (m) return iso(m[1], BULAN.indexOf(m[2].toLowerCase()) + 1, m[3]);
     m = /(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/.exec(s);
     if (m) return iso(m[1], m[2], m[3]);
+    m = /(\d{1,2})\s*[\/.,\-]?\s*(jan|feb|mar|apr|mei|jun|jul|agu|agt|sep|okt|nov|des)[a-z]*\.?\s*[\/.,\-]?\s*(\d{4})/i.exec(s);     // "10/Nov/2025", "9 Nov 2025"
+    if (m) return iso(m[1], ["jan", "feb", "mar", "apr", "mei", "jun", "jul", "agu", "sep", "okt", "nov", "des"].indexOf(m[2].toLowerCase().replace("agt", "agu")) + 1, m[3]);
     return "";
   }
   function odpNama(v) {

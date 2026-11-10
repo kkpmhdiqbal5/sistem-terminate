@@ -639,7 +639,10 @@ function waHookRoute_(e) {
     const media = g('url'), lokasi = g('location');
     const grup = !!sender && (!!g('member') || /@g\.us|-/.test(sender));
     if (!sender) { ccHookLog_(sender, pesan, 'diabaikan (tanpa pengirim)'); return out({ status: 'ok', abaikan: 'kosong' }); }
-    if (grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
+    // satu webhook satu tugas: tambahkan &tugas=PR | LAPORAN | CHAT pada alamat webhook (tanpa tugas = perilaku biasa)
+    const tugasHook = String(e.parameter.tugas || '').toUpperCase();
+    if (tugasHook === 'CHAT' && grup) { ccHookLog_(sender, pesan, 'diabaikan (webhook khusus chat client, grup tidak dibaca)'); return out({ status: 'ok', abaikan: 'grup' }); }
+    if (!tugasHook && grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
     // pesan yang diketik admin langsung dari HP / WhatsApp Web (bukan dari sistem): jangan dibaca sebagai balasan client
     const flagKu = ['fromme', 'from_me', 'isfromme', 'outgoing', 'sent', 'direction', 'type'].some(k => { const v = String(b[k] != null ? b[k] : (e.parameter[k] != null ? e.parameter[k] : '')).toLowerCase(); return k === 'direction' || k === 'type' ? /^(out|outgoing|sent|send)$/.test(v) : v === 'true' || v === '1'; });
     const dariDevice = !grup && g('device') && ccNoHp_(g('device')) === ccNoHp_(sender);
@@ -657,6 +660,11 @@ function waHookRoute_(e) {
     try {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
+      if (tugasHook === 'PR' || tugasHook === 'LAPORAN') {            // webhook khusus: semua pesan lewat webhook ini ditangani satu tugas saja
+        rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') };
+        if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
+        ccHookLog_(sender, 'webhook tugas ' + tugasHook, 'selesai'); return out({ status: 'ok', tugas: tugasHook });
+      }
       if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
       else if (!media && !lokasi && typeof gmPrAdmin_ === 'function' && gmPrAdmin_(ccNoHp_(sender), pesan)) { /* jawaban admin atas pertanyaan ODP */ }
       else if (typeof gmPrPribadi_ === 'function' && gmPrPribadi_(ccNoHp_(sender))) { rel(); gmPrTerima_({ grup: ccNoHp_(sender), member: ccNoHp_(sender), nama: g('name') || g('pushname'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi }); }   // chat pribadi anggota tim instalasi (tugas PR)
