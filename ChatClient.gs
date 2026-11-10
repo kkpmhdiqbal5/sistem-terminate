@@ -661,7 +661,7 @@ function waHookRoute_(e) {
       else if (!media && !lokasi && typeof gmPrAdmin_ === 'function' && gmPrAdmin_(ccNoHp_(sender), pesan)) { /* jawaban admin atas pertanyaan ODP */ }
       else if (typeof gmPrPribadi_ === 'function' && gmPrPribadi_(ccNoHp_(sender))) { rel(); gmPrTerima_({ grup: ccNoHp_(sender), member: ccNoHp_(sender), nama: g('name') || g('pushname'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi }); }   // chat pribadi anggota tim instalasi (tugas PR)
       else if (!media && !lokasi && /^non-text message$/i.test(pesan)) ccTerimaMediaKosong_(ccNoHp_(sender), 'kunci: ' + Object.keys(b).join(','));
-      else ccTerima_({ phone: ccNoHp_(sender), pesan: pesan, media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
+      else ccTerima_({ phone: ccNoHp_(sender), pesan: (/^non-text message$/i.test(pesan) ? (lokasi ? '[lokasi] ' + lokasi : media ? '[foto]' : pesan) : pesan), media: media, lokasi: lokasi, ext: g('extension'), nama: g('name') || g('pushname') });
     } finally { rel(); }
     if (!grup) ccHookLog_(sender, (pesan || (media ? '[media]' : '') || (lokasi ? '[lokasi]' : '')), 'diproses [kunci: ' + Object.keys(b).join(',') + ']');
     return out({ status: 'ok' });
