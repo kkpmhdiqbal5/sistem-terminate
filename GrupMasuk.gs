@@ -355,6 +355,17 @@ function ccTujuanFonnte_() {
 const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'LAT', 'LNG', 'FOTO', 'KET', 'ODP_TERDEKAT', 'JARAK_M', 'ODP_DATA', 'STATUS'];
 const GM_PR_MENIT = 60;
 function gmKoordinat_(t) { const m = /(-?\d{1,3}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/.exec(String(t || '')); return m ? { lat: +m[1], lng: +m[2] } : null; }
+// lokasi dari tautan Google Maps yang ditempel di chat (tautan pendek diikuti dulu; gratis, tanpa Fonnte lokasi)
+function gmKoordinatTautan_(t) {
+  let u = (/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)\S*/i.exec(String(t || '')) || [])[0];
+  for (let i = 0; u && i < 4; i++) {
+    u = decodeURIComponent(u.replace(/[)\].,]+$/, '')).replace(/%2C/gi, ',');
+    const d = /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/.exec(u), k = d ? { lat: +d[1], lng: +d[2] } : gmKoordinat_(u);
+    if (k) return k;
+    try { const r = UrlFetchApp.fetch(u, { followRedirects: false, muteHttpExceptions: true }); const l = r.getHeaders().Location || r.getHeaders().location; if (!l) return null; u = l; } catch (e) { return null; }
+  }
+  return null;
+}
 function gmJarak_(a, b, c, d) { const R = 6371000, r = x => x * Math.PI / 180, x = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
 function gmOdpTerdekat_(lat, lng) {
   let best = null;
@@ -427,7 +438,7 @@ function gmPrTerima_(m) {
   const teks = String(m.pesan || '').replace(/[\u200e\u200f]/g, '').trim();
   if (/^🤖/.test(teks)) { ccHookLog_(m.grup, teks.slice(0, 80), 'grup PR: gema pesan bot, diabaikan'); return; }
   const member = String(m.member || m.nama || '?'), pengirim = String(m.nama || m.member || '?');
-  const lok = gmKoordinat_(m.lokasi) || gmKoordinat_(teks);
+  const lok = gmKoordinat_(m.lokasi) || gmKoordinat_(teks) || gmKoordinatTautan_(teks);
   const foto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
   const nm = /nama\s*lama\s*[:\-]?\s*(.+)/i.exec(teks) || /^(?:a\/n|an|nama)\s*[:\-]\s*(.+)/im.exec(teks);
   const cidM = /\b(\d{12})\b/.exec(teks);
