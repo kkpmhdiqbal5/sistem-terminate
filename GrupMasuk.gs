@@ -100,13 +100,14 @@ function gmPopDariOdp_(odp) {
   return GM_PODP[o] || '';
 }
 let GM_FOTO_GALAT = '';
+const GM_FOTO_FOLDER = '17sfkyFqfRO_T9sF7HU2Su6vUz9DR3TXp';        // folder Drive "foto wa" (bisa diganti lewat properti skrip FOTO_FOLDER_ID)
 function gmFoto_(url) {
   try {
     const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
     if (res.getResponseCode() !== 200) { GM_FOTO_GALAT = 'unduh foto gagal, kode ' + res.getResponseCode() + ' (cek PUBLIC_URL gateway)'; return ''; }
     const blob = res.getBlob(); if (blob.getBytes().length > 12 * 1024 * 1024) { GM_FOTO_GALAT = 'foto lebih dari 12 MB'; return ''; }
     blob.setName('GRUP_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg');
-    const folder = tmFolderFoto_('foto prangkat');
+    let folder; try { folder = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER); } catch (e) { folder = tmFolderFoto_('foto prangkat'); }
     const f = folder.createFile(blob); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return f.getUrl();
   } catch (e) { GM_FOTO_GALAT = e.message; Logger.log('foto grup: ' + e.message); return ''; }
@@ -480,7 +481,10 @@ function gmPrTerima_(m) {
       tmAppendObj_(tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM), row);
     }
     const isi = {};
-    if (lok && !gmPrLok_(row)) { isi.KOORDINAT = lok.lat + ',' + lok.lng; isi.LINKMAPS = 'https://maps.google.com/?q=' + lok.lat + ',' + lok.lng; }
+    if (lok && !gmPrLok_(row)) {
+      isi.KOORDINAT = lok.lat + ',' + lok.lng; isi.LINKMAPS = 'https://maps.google.com/?q=' + lok.lat + ',' + lok.lng;
+      try { const t0 = gmOdpTerdekat_(lok.lat, lok.lng); if (t0) { isi.ODP_TERDEKAT = t0.odp; isi.JARAK_M = Math.round(t0.j); } } catch (e) { /* ODP diisi nanti */ }   // ODP terdekat langsung saat pin masuk
+    }
     if (nm && !row.NAMA) isi.NAMA = nm[1].trim().replace(/\s+/g, ' ');
     if (cidM && !row.CID) isi.CID = cidM[1];
     if (fotoDrive && !row.FOTO) isi.FOTO = fotoDrive;
