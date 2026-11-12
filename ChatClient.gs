@@ -663,7 +663,7 @@ function waHookRoute_(e) {
       if (tugasHook === 'PR' || tugasHook === 'LAPORAN') {            // webhook khusus: semua pesan lewat webhook ini ditangani satu tugas saja
         rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') };
         if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
-        ccHookLog_(sender, 'webhook tugas ' + tugasHook, 'selesai'); return out({ status: 'ok', tugas: tugasHook });
+        ccHookLog_(sender, 'webhook tugas ' + tugasHook + (g('galat') ? ' - ' + g('galat') : ''), 'selesai'); return out({ status: 'ok', tugas: tugasHook });
       }
       if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
       else if (!media && !lokasi && typeof gmPrAdmin_ === 'function' && gmPrAdmin_(ccNoHp_(sender), pesan)) { /* jawaban admin atas pertanyaan ODP */ }

@@ -473,6 +473,8 @@ function gmPrTerima_(m) {
       hasil = gmPrKonfirmasi_(tanya, teks, pengirim); return;
     }
     let row = baru || (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null);       // foto susulan: ke data terakhir orang yang sama
+    const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
+    if (polos && !(row && row.STATUS === 'BARU' && !row.NAMA)) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
     if (!row) {
       row = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: new Date(), GRUP: m.grup, PENGIRIM: pengirim, MEMBER: member, NAMA: '', CID: '', KOORDINAT: '', LINKMAPS: '', FOTO: '', KET: '', ODP_TERDEKAT: '', JARAK_M: '', ODP_DATA: '', STATUS: 'BARU' };
       tmAppendObj_(tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM), row);
@@ -482,7 +484,10 @@ function gmPrTerima_(m) {
     if (nm && !row.NAMA) isi.NAMA = nm[1].trim().replace(/\s+/g, ' ');
     if (cidM && !row.CID) isi.CID = cidM[1];
     if (fotoDrive && !row.FOTO) isi.FOTO = fotoDrive;
-    if (!lok && !nm && !cidM && !foto && teks && !/^non-text/i.test(teks)) isi.KET = (String(row.KET || '') + ' ' + teks).trim().slice(0, 300);
+    if (polos) {                                                    // teks polos setelah pin = nama klien (baris pertama), sisanya keterangan
+      const bar = teks.split(/\n+/).map(x => x.trim()).filter(Boolean);
+      if (bar[0].length <= 60) { isi.NAMA = bar[0]; if (bar.length > 1) isi.KET = bar.slice(1).join(' ').slice(0, 300); }
+    }
     Object.assign(row, isi);
     if (Object.keys(isi).length) tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, isi);
     if (fotoDrive && row.STATUS !== 'BARU') tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(row.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(row.PENGIRIM), { FOTORUMAH: fotoDrive });
