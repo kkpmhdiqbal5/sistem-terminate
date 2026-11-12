@@ -52,6 +52,9 @@
       <div class="input-group mb-2"><input id="hook" class="form-control form-control-dark" placeholder="kata rahasia (8-64 huruf/angka)"><button class="btn btn-outline-light" id="acak">🎲 Acak</button><button class="btn btn-info fw-bold" id="hookSimpan">Simpan</button></div>
       <div class="kecil">Tempel URL ini di webhook / auto-reply Fonnte:</div>
       <div class="d-flex gap-2 align-items-start mt-1"><code id="urlHook" class="flex-fill">-</code><button class="btn btn-info btn-sm fw-bold" id="salinHook">Salin</button></div>
+      <div class="fw-bold text-white mt-3 mb-1">1 nomor WA = 1 webhook = 1 tugas</div>
+      <div class="kecil mb-2">Pasang satu URL per nomor WA (Fonnte / gateway). Nomor itu hanya menjalankan tugasnya:</div>
+      <div id="urlTugas"></div>
     </div>
     <div id="pesan" class="mb-4"></div>
   </div>
@@ -133,9 +136,23 @@
       }
     });
     $('acak').onclick = function () { var a = new Uint8Array(12); crypto.getRandomValues(a); $('hook').value = Array.from(a).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); };
-    $('hookSimpan').onclick = function () { TMC.api('terminateApiSimpan', { hook: $('hook').value }).then(function (r) { if (r.status === 'success') { D = r; gambar(); $('hook').value = ''; } pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }); };
+    $('hookSimpan').onclick = function () { TMC.api('terminateApiSimpan', { hook: $('hook').value }).then(function (r) { if (r.status === 'success') { D = r; gambar(); gambarTugas(); $('hook').value = ''; } pesan(r.message, r.status === 'success' ? 'success' : 'danger'); }); };
+    var TUGAS = [['CHAT', 'Chat client', 'hanya chat pribadi client, grup diabaikan'], ['LAPORAN', 'Laporan teknisi', 'semua pesan dibaca sebagai laporan (Terminate, Kunjungan, Lanjut, MT, Instalasi)'], ['PR', 'Grup PR / info perangkat', 'pin lokasi + foto + nama, tanya ODP terdekat']];
+    function gambarTugas() {
+      var el = $('urlTugas'); if (!el) return;
+      if (!D.hook) { el.textContent = ''; return; }
+      el.innerHTML = '';
+      TUGAS.forEach(function (t) {
+        var u = D.url + '?hook=' + D.hook + '&tugas=' + t[0];
+        var row = document.createElement('div'); row.className = 'mb-2';
+        row.innerHTML = '<div class="kecil"><b>' + t[1] + '</b> - ' + t[2] + '</div><div class="d-flex gap-2 align-items-start"><code class="flex-fill"></code><button class="btn btn-info btn-sm fw-bold">Salin</button></div>';
+        row.querySelector('code').textContent = u;
+        row.querySelector('button').onclick = function (e) { var b = e.target; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { b.textContent = 'Tersalin'; }).catch(function () { prompt('Salin URL:', u); }); };
+        el.appendChild(row);
+      });
+    }
     $('salinHook').onclick = function () { var t = $('urlHook').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('salinHook').textContent = 'Tersalin ✔'; }).catch(function () { prompt('Salin URL:', t); }); };
-    TMC.api('terminateApiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); D = r; gambar(); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
+    TMC.api('terminateApiBaca').then(function (r) { if (r.status !== 'success') return pesan(r.message, 'danger'); D = r; gambar(); gambarTugas(); }).catch(function () { pesan('Gagal terhubung ke server.', 'danger'); });
   </script>
 </body>
 </html>
