@@ -354,7 +354,15 @@ function ccTujuanFonnte_() {
 // dicocokkan dengan data client di Instalasi/MT, lalu masuk Baris 1. Pertanyaan konfirmasi ODP dikirim lewat API WhatsApp khusus (fungsi "Grup PR").
 const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'LAT', 'LNG', 'FOTO', 'KET', 'ODP_TERDEKAT', 'JARAK_M', 'ODP_DATA', 'STATUS'];
 const GM_PR_MENIT = 60;
-function gmKoordinat_(t) { const m = /(-?\d{1,3}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/.exec(String(t || '')); return m ? { lat: +m[1], lng: +m[2] } : null; }
+function gmKoordinat_(t) {
+  t = String(t || '');
+  const m = /(-?\d{1,3}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/.exec(t); if (m) return { lat: +m[1], lng: +m[2] };
+  // format derajat: 3°29'47.28"N 98°40'53.15"E
+  const d = /(\d{1,2})\s*°\s*(\d{1,2})\s*['\u2032]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|\u2033|'')?\s*([NS])[\s,]*(\d{1,3})\s*°\s*(\d{1,2})\s*['\u2032]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|\u2033|'')?\s*([EW])/i.exec(t);
+  if (!d) return null;
+  const lat = (+d[1] + d[2] / 60 + d[3] / 3600) * (/s/i.test(d[4]) ? -1 : 1), lng = (+d[5] + d[6] / 60 + d[7] / 3600) * (/w/i.test(d[8]) ? -1 : 1);
+  return { lat: lat, lng: lng };
+}
 // lokasi dari tautan Google Maps yang ditempel di chat (tautan pendek diikuti dulu; gratis, tanpa Fonnte lokasi)
 function gmKoordinatTautan_(t) {
   let u = (/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)\S*/i.exec(String(t || '')) || [])[0];
