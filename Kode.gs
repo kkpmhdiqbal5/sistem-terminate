@@ -161,6 +161,9 @@ function handleInputMassal(teks, sheetTujuan) {
   const TUJUAN_INPUT = [sheetTujuan];
   teks = String(teks || "").replace(/\r/g, "").replace(/[ ‎‏]/g, " ");
   if (!teks.trim()) return { status: "error", message: "Teks kosong" };
+  // sisa kode mail-merge Word ("NEXT", "MERGEFIELD xxx") dibuang; kunci yang menyatu dalam satu baris dipecah ke baris sendiri
+  teks = teks.replace(/\bMERGEFIELD\s+\S+\s*/gi, "").replace(/:\s*NEXT\b\s*/gi, ": ")
+    .replace(/[ \t]+(?=(?:CID|Paket|Alamat|Kontak|Shareloc|Sherlok|ODP|DS|Status|Laporan|Ket|Kendala|Hasil FU[^:\n]{0,10})\s*:)/gi, "\n");
 
   const kunci = k => {
     k = k.toUpperCase().replace(/[^A-Z0-9]/g, "");

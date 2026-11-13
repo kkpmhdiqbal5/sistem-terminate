@@ -354,7 +354,7 @@ function ccTujuanFonnte_() {
 /* ---------- grup "PR TERMINATE YANG BELUM DIAMBIL" (tim instalasi: pin lokasi + foto + nama lama) ---------- */
 // Tiap pengirim dilacak sendiri (kolom MEMBER) supaya data orang yang berbeda tidak tertukar. Lokasi -> ODP terdekat dari titik KMZ (sheet ODP),
 // dicocokkan dengan data client di Instalasi/MT, lalu masuk Baris 1. Pertanyaan konfirmasi ODP dikirim lewat API WhatsApp khusus (fungsi "Grup PR").
-const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'KOORDINAT', 'LINKMAPS', 'FOTO', 'KET', 'ODP_TERDEKAT', 'JARAK_M', 'ODP_DATA', 'STATUS'];
+const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'KOORDINAT', 'LINKMAPS', 'FOTO', 'KET', 'ODPTERDEKAT', 'JARAKM', 'ODPDATA', 'STATUS'];
 const GM_PR_MENIT = 60;
 // koordinat sebuah baris PR GRUP (kolom KOORDINAT "lat,lng"; baris lama masih memakai kolom LAT & LNG)
 function gmPrLok_(r) {
@@ -389,7 +389,7 @@ function gmOdpTerdekat_(lat, lng) {
   tmRead_('ODP').forEach(r => {
     const k = String(r.KOORDINAT || '').split(','); if (k.length < 2) return;
     const la = parseFloat(k[0]), lo = parseFloat(k[1]); if (isNaN(la) || isNaN(lo)) return;
-    const j = gmJarak_(lat, lng, la, lo); if (!best || j < best.j) best = { odp: String(r.ODP || r.KODE || ''), pop: String(r.POP || ''), j: j };
+    const j = gmJarak_(lat, lng, la, lo); if (!best || j < best.j) best = { odp: String(r.ODP || r.KODE || '').replace(/^\(\s*/, '').replace(/\s*\)$/, '').trim(), pop: String(r.POP || ''), j: j };
   });
   return best;
 }
@@ -411,8 +411,8 @@ function gmCariKlien_(nama, cid) {
 // chat pribadi dari nomor anggota tim yang didaftarkan di Sumber Grup dengan tugas PR diperlakukan sama seperti grup PR
 function gmPrPribadi_(hp) { return !!hp && gmSumber_(hp) && gmTugas_(hp) === 'PR'; }
 function gmPrKonfirmasi_(tanya, teks, siapa) {
-  const ya = /^(ya|iya|y|ok|oke|benar|betul|sesuai)\b/i.test(teks), odpFinal = ya ? tanya.ODP_TERDEKAT : tmOdpAkhir_(teks);
-  tmUpdateRows_(GM_SH_PR, r => r.ID === tanya.ID, { STATUS: 'KONFIRMASI', ODP_DATA: odpFinal });
+  const ya = /^(ya|iya|y|ok|oke|benar|betul|sesuai)\b/i.test(teks), odpFinal = ya ? tanya.ODPTERDEKAT : tmOdpAkhir_(teks);
+  tmUpdateRows_(GM_SH_PR, r => r.ID === tanya.ID, { STATUS: 'KONFIRMASI', ODPDATA: odpFinal });
   tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(tanya.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(tanya.PENGIRIM), { ODP: odpFinal, KET: 'ODP dikonfirmasi ' + siapa + ': ' + odpFinal });
   return 'ODP dikonfirmasi ' + siapa + ' -> ' + odpFinal;
 }
@@ -477,13 +477,13 @@ function gmPrTerima_(m) {
     const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
     if (polos && !(row && row.STATUS === 'BARU' && !row.NAMA)) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
     if (!row) {
-      row = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: new Date(), GRUP: m.grup, PENGIRIM: pengirim, MEMBER: member, NAMA: '', CID: '', KOORDINAT: '', LINKMAPS: '', FOTO: '', KET: '', ODP_TERDEKAT: '', JARAK_M: '', ODP_DATA: '', STATUS: 'BARU' };
+      row = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: new Date(), GRUP: m.grup, PENGIRIM: pengirim, MEMBER: member, NAMA: '', CID: '', KOORDINAT: '', LINKMAPS: '', FOTO: '', KET: '', ODPTERDEKAT: '', JARAKM: '', ODPDATA: '', STATUS: 'BARU' };
       tmAppendObj_(tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM), row);
     }
     const isi = {};
     if (lok && !gmPrLok_(row)) {
       isi.KOORDINAT = lok.lat + ',' + lok.lng; isi.LINKMAPS = 'https://maps.google.com/?q=' + lok.lat + ',' + lok.lng;
-      try { const t0 = gmOdpTerdekat_(lok.lat, lok.lng); if (t0) { isi.ODP_TERDEKAT = t0.odp; isi.JARAK_M = Math.round(t0.j); } } catch (e) { /* ODP diisi nanti */ }   // ODP terdekat langsung saat pin masuk
+      try { const t0 = gmOdpTerdekat_(lok.lat, lok.lng); if (t0) { isi.ODPTERDEKAT = t0.odp; isi.JARAKM = Math.round(t0.j); } } catch (e) { /* ODP diisi nanti */ }   // ODP terdekat langsung saat pin masuk
     }
     if (nm && !row.NAMA) isi.NAMA = nm[1].trim().replace(/\s+/g, ' ');
     if (cidM && !row.CID) isi.CID = cidM[1];
@@ -502,7 +502,7 @@ function gmPrTerima_(m) {
       const catatan = 'Dari ' + row.PENGIRIM + (t ? ' | ODP terdekat KMZ: ' + t.odp + ' (' + jarak + ' m)' + (t.j > 300 ? ' JAUH, cek manual' : '') : '') + (k && k.odp ? ' | ODP di data: ' + k.odp + (t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? ' (BEDA)' : ' (cocok)') : '') + (k ? '' : ' | client tidak ditemukan di data');
       let sudah = false; try { sudah = !!cid && tmBacaCid_(TM.SH.B1).list.some(x => x.cid === cid); } catch (e) { sudah = false; }
       if (!sudah) tmAppendObj_(tmSheetEnsure_(TM.SH.B1, ['NAMA', 'CID', 'ODP', 'POP']), { NAMA: namaF, CID: cid, ODP: odp, POP: tmPopKode_(t && t.pop) || (k && k.pop) || gmPopDariOdp_(odp) || '', SN: k ? k.sn : '', PSN: k ? k.psn : '', KOORDINAT: lat + ',' + lng, LINKMAPS: 'https://maps.google.com/?q=' + lat + ',' + lng, KET: catatan, FOTORUMAH: row.FOTO || '', NAMATS: row.PENGIRIM });
-      tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, { STATUS: 'TANYA', ODP_TERDEKAT: odp, JARAK_M: jarak, ODP_DATA: k ? k.odp : '', NAMA: namaF, CID: cid });
+      tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, { STATUS: 'TANYA', ODPTERDEKAT: odp, JARAKM: jarak, ODPDATA: k ? k.odp : '', NAMA: namaF, CID: cid });
       const kirim = gmPrKirim_(m.grup, '🤖 Halo ' + row.PENGIRIM + ' data *' + namaF + '* masuk daftar pengambilan.\nODP terdekat dari lokasi: *' + (odp || 'tidak ketemu') + '*' + (jarak !== '' ? ' (' + jarak + ' m)' : '') + (k && k.odp && t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? '\nODP di data client: ' + k.odp : '') + '\nBenar? Balas *ya*, atau tulis ODP yang benar.', row.MEMBER);
       hasil = 'masuk Baris 1: ' + namaF + ' / ODP ' + (odp || '-') + ' (' + catatan + '); ' + kirim;
     } else hasil = 'dicatat dari ' + pengirim + ' (' + [gmPrLok_(row) ? 'lokasi' : '', row.NAMA || row.CID ? 'nama/CID' : '', row.FOTO ? 'foto' : ''].filter(Boolean).join(', ') + '), menunggu pasangan datanya';
