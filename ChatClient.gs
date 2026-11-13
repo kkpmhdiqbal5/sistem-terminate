@@ -661,7 +661,7 @@ function waHookRoute_(e) {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
       if (tugasHook === 'PR' || tugasHook === 'LAPORAN') {            // webhook khusus: semua pesan lewat webhook ini ditangani satu tugas saja
-        rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') };
+        rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension') || g('tipe'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') };
         if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
         ccHookLog_(sender, 'webhook tugas ' + tugasHook + (g('galat') ? ' - ' + g('galat') : ''), 'selesai'); return out({ status: 'ok', tugas: tugasHook });
       }
