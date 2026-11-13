@@ -194,6 +194,27 @@
       document.getElementById('menuUtama').classList.remove('d-none');
     }
 
+    // Baca .docx langsung dari XML: isi field Word (MERGEFIELD / fldSimple) ikut terbaca, yang dilewati mammoth
+    async function docxTeks(buf) {
+      const b = new Uint8Array(buf), dv = new DataView(buf);
+      let e = -1; for (let i = b.length - 22; i >= Math.max(0, b.length - 70000); i--) { if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; } }
+      if (e < 0) throw new Error('bukan berkas docx');
+      let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
+      for (let k = 0; k < n; k++) {
+        const met = dv.getUint16(p + 10, true), cs = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+        const nama = new TextDecoder().decode(b.subarray(p + 46, p + 46 + nl));
+        if (nama === 'word/document.xml') {
+          const ds = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), data = b.subarray(ds, ds + cs);
+          const xml = met === 0 ? new TextDecoder().decode(data) : await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+          const dec = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+          return (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).map(function (pr) {
+            return pr.replace(/<w:instrText[\s\S]*?<\/w:instrText>/g, '').replace(/<w:tab\/>/g, '\t').replace(/<w:br\/>/g, '\n').replace(/<\/w:t>/g, '</w:t>').replace(/<[^>]+>/g, '');
+          }).map(dec).join('\n');
+        }
+        p += 46 + nl + xl + cl;
+      }
+      throw new Error('document.xml tidak ditemukan');
+    }
     // Fungsi pembaca file universal (.txt atau .docx) ke target textarea
     function bacaFile(event, targetId) {
       const file = event.target.files[0];
@@ -210,9 +231,9 @@
         const reader = new FileReader();
         reader.onload = function(e) {
           const arrayBuffer = e.target.result;
-          mammoth.extractRawText({ arrayBuffer: arrayBuffer })
-            .then(function(result) {
-              document.getElementById(targetId).value = result.value;
+          docxTeks(arrayBuffer).catch(function () { return mammoth.extractRawText({ arrayBuffer: arrayBuffer }).then(function (r) { return r.value; }); })
+            .then(function(teks) {
+              document.getElementById(targetId).value = teks;
             })
             .catch(function(err) {
               alert("Gagal membaca file .docx: " + err.message);
