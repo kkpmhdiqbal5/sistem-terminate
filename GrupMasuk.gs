@@ -457,7 +457,7 @@ function gmPrTerima_(m) {
   const member = String(m.member || m.nama || '?'), pengirim = String(m.nama || m.member || '?');
   const lok = gmKoordinat_(m.lokasi) || gmKoordinat_(teks) || gmKoordinatTautan_(teks);
   const foto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
-  const nm = /nama\s*lama\s*[:\-]?\s*(.+)/i.exec(teks) || /^(?:a\/n|an|nama)\s*[:\-]\s*(.+)/im.exec(teks);
+  const nm = /nama\s*(?:lama|pelanggan|klien|cust\w*)\s*[:\-]?\s*(.+)/i.exec(teks) || /^[\s\W]*(?:a\/n|an|nama)\s*[:\-]\s*(.+)/im.exec(teks);
   const cidM = /\b(\d{12})\b/.exec(teks);
   if (!lok && !foto && !nm && !cidM && (teks.length < 2 || /^non-text message$/i.test(teks))) { ccHookLog_(m.grup, teks, 'grup PR: tanpa isi yang bisa dibaca (lokasi=' + (m.lokasi || 'kosong') + ', url=' + (m.media ? 'ada' : 'kosong') + ', tipe=' + (m.ext || '-') + ') - Fonnte tidak mengirim isi pin/foto?'); return; }
   GM_FOTO_GALAT = '';
@@ -486,6 +486,7 @@ function gmPrTerima_(m) {
       try { const t0 = gmOdpTerdekat_(lok.lat, lok.lng); if (t0) { isi.ODPTERDEKAT = t0.odp; isi.JARAKM = Math.round(t0.j); } } catch (e) { /* ODP diisi nanti */ }   // ODP terdekat langsung saat pin masuk
     }
     if (nm && !row.NAMA) isi.NAMA = nm[1].trim().replace(/\s+/g, ' ');
+    if (nm && !row.KET) { const sisa = teks.split(/\n+/).map(x => x.replace(/^[\s\W]+/, '').trim()).filter(x => x && !/nama\s*(?:lama|pelanggan|klien)|tikor|koordinat|^\W*kopi\W*$/i.test(x)); if (sisa.length) isi.KET = sisa.join(' | ').slice(0, 300); }   // paket, tgl pasang, nama DS
     if (cidM && !row.CID) isi.CID = cidM[1];
     if (fotoDrive && !row.FOTO) isi.FOTO = fotoDrive;
     if (polos) {                                                    // teks polos setelah pin = nama klien (baris pertama), sisanya keterangan
