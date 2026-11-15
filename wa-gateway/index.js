@@ -6,7 +6,7 @@
 //   TERIMA_SENDIRI  isi 1 bila pesan yang Anda kirim sendiri dari HP nomor gateway juga harus dibaca
 //   QR_KEY     kata bebas (panjang) untuk membuka halaman QR: PUBLIC_URL/qr?k=KATA
 //   PRIBADI        isi 0 bila chat pribadi TIDAK boleh dibaca (bawaan: grup + pribadi)
-//   KIRIM_KEY  kata rahasia untuk kirim pesan dari web: POST PUBLIC_URL/kirim?k=KATA  {"to":"628xx atau id@g.us","message":"teks"}
+//   KIRIM_KEY  kata rahasia untuk kirim pesan dari web: POST PUBLIC_URL/kirim?k=KATA  {"to":"628xx atau id@g.us","message":"teks","file":{"base64","mimetype","filename"} atau "url"}
 //   GRUP       (opsional) id grup dipisah koma; kosong = semua grup
 //   AUTH_DIR   (opsional) folder sesi, arahkan ke Volume Railway, mis. /data/auth
 const http = require('http'), crypto = require('crypto'), fs = require('fs');
@@ -32,14 +32,20 @@ http.createServer((req, res) => {
   if ((req.url || '').split('?')[0] === '/kirim' && req.method === 'POST') {         // kirim pesan WhatsApp dari web / Apps Script
     const k = new URL(req.url, 'http://x').searchParams.get('k'); let raw = '';
     if (!KIRIM_KEY || k !== KIRIM_KEY) { res.writeHead(403); return res.end('ditolak'); }
-    req.on('data', c => { raw += c; if (raw.length > 20000) req.destroy(); });
+    req.on('data', c => { raw += c; if (raw.length > 30e6) req.destroy(); });
     req.on('end', async () => {
       try {
         const b = JSON.parse(raw || '{}'), to = String(b.to || '').trim(), teks = String(b.message || '').trim();
         if (!to || !teks) { res.writeHead(400); return res.end('to dan message wajib'); }
         if (!sockAktif || !tersambung) { res.writeHead(503); return res.end('gateway belum tersambung'); }
         const jid = /@/.test(to) ? to : to.replace(/\D/g, '').replace(/^0/, '62') + '@s.whatsapp.net';
-        await sockAktif.sendMessage(jid, { text: teks });
+        const f = b.file || (b.url ? { url: String(b.url) } : null);                  // file: {base64, mimetype, filename} atau url https
+        if (!f) await sockAktif.sendMessage(jid, { text: teks });
+        else {
+          const sumber = f.base64 ? Buffer.from(f.base64, 'base64') : { url: f.url }, mime = f.mimetype || 'application/octet-stream';
+          if (!f.base64 && !/^https:\/\//.test(f.url || '')) { res.writeHead(400); return res.end('url harus https'); }
+          await sockAktif.sendMessage(jid, /^image\//.test(mime) || (!f.base64 && !f.mimetype) ? { image: sumber, caption: teks } : { document: sumber, mimetype: mime, fileName: f.filename || 'dokumen', caption: teks });
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"status":"ok"}');
       } catch (e) { res.writeHead(500); res.end(String(e.message)); }
     });

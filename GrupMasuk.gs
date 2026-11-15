@@ -512,10 +512,10 @@ function gmPrTerima_(m) {
 }
 
 // kirim WhatsApp lewat gateway sendiri (gratis). Isi Properti Skrip: GATEWAY_URL (https://xxx.up.railway.app) dan GATEWAY_KEY (= KIRIM_KEY di Railway)
-function gmKirimGateway_(tujuan, pesan) {
+function gmKirimGateway_(tujuan, pesan, file) {   // file: Blob (foto/dokumen) atau alamat https
   const u = ccProp_('GATEWAY_URL'), k = ccProp_('GATEWAY_KEY');
   if (!u || !k) throw new Error('GATEWAY_URL / GATEWAY_KEY belum diisi');
-  const r = UrlFetchApp.fetch(u.replace(/\/+$/, '') + '/kirim?k=' + encodeURIComponent(k), { method: 'post', contentType: 'application/json', payload: JSON.stringify({ to: tujuan, message: pesan }), muteHttpExceptions: true });
+  const r = UrlFetchApp.fetch(u.replace(/\/+$/, '') + '/kirim?k=' + encodeURIComponent(k), { method: 'post', contentType: 'application/json', payload: JSON.stringify({ to: tujuan, message: pesan, file: !file ? undefined : typeof file === 'string' ? { url: file } : { base64: Utilities.base64Encode(file.getBytes()), mimetype: file.getContentType(), filename: file.getName() } }), muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('gateway ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 100));
   return true;
 }

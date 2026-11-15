@@ -104,11 +104,13 @@ function ccFotoBlob_(u) {
   if (!m) return null;
   try { const b = DriveApp.getFileById(m[1]).getBlob(); if (b.getBytes().length > 15 * 1024 * 1024) return null; return b.setName('laporan.jpg').setContentType(/^image\//.test(b.getContentType()) ? b.getContentType() : 'image/jpeg'); } catch (x) { Logger.log('foto blob: ' + x.message); return null; }
 }
-// teks tanpa foto: coba gateway sendiri dulu (gratis) bila GATEWAY_URL & GATEWAY_KEY terisi; gagal -> lanjut Fonnte
+// teks/foto/dokumen: coba gateway sendiri dulu (gratis) bila GATEWAY_URL & GATEWAY_KEY terisi; gagal -> lanjut Fonnte
 function ccGatewayCoba_(target, pesan, foto) {
-  if (foto || !ccProp_('GATEWAY_URL') || !ccProp_('GATEWAY_KEY')) return null;
+  if (foto && typeof foto === 'string') foto = ccFotoBlob_(foto) || (/^https:\/\//.test(foto) ? foto : null);   // tautan Drive -> file
+  if (arguments[2] && !foto) return null;                     // foto tak bisa diambil: biarkan Fonnte yang menangani
+  if (!ccProp_('GATEWAY_URL') || !ccProp_('GATEWAY_KEY')) return null;
   const t = String(target).trim(); if (!/^\+?\d{8,15}$|@g\.us$/.test(t)) return null;
-  try { gmKirimGateway_(t, pesan); return { ok: true, raw: 'gateway' }; } catch (x) { Logger.log('gateway kirim gagal: ' + x.message); return null; }
+  try { gmKirimGateway_(t, pesan, foto || undefined); return { ok: true, raw: 'gateway' }; } catch (x) { Logger.log('gateway kirim gagal: ' + x.message); return null; }
 }
 function ccWaKirimE_(e, target, pesan, foto) {
   const gw = ccGatewayCoba_(target, pesan, foto); if (gw) return gw;
