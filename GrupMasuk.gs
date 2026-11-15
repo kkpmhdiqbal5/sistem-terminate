@@ -519,3 +519,10 @@ function gmKirimGateway_(tujuan, pesan, file) {   // file: Blob (foto/dokumen) a
   if (r.getResponseCode() !== 200) throw new Error('gateway ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 100));
   return true;
 }
+
+// UJI dari editor Apps Script: pilih fungsi ujiGateway lalu Jalankan. Isi dulu Properti skrip TES_NO (nomor tujuan uji, mis. 0812xxxx). Hasil di "Log eksekusi".
+function ujiGateway() {
+  const no = ccProp_('TES_NO'); if (!no) throw new Error('Isi dulu properti skrip TES_NO dengan nomor tujuan uji');
+  gmKirimGateway_(no, 'Tes gateway ' + new Date().toLocaleTimeString('id-ID'));
+  Logger.log('BERHASIL: gateway menerima perintah kirim ke ' + no);
+}
