@@ -68,7 +68,7 @@
   </div>
 
   <script>
-    var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrMzziMGR9jYqrz42_1fzfF8Eosl2zzHjNtAiCXDib7KnGMQX0nTwKFeSKHneOMFb6/exec";
+    var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwT-y1dG24gnDhSEmcyPznUTei6hTA9En4T0f0dZRkAB1aAY9OkhVDp0zHul5xF_9Qg/exec";
     var S = Auth.guard();
     if (S.role !== "ADMIN") { location.replace(Auth.home()); throw new Error("admin"); }   // Profil & fitur admin: khusus admin
     var user = S.username || "?", iz = S.izin || {};
