@@ -104,16 +104,12 @@ function ccFotoBlob_(u) {
   if (!m) return null;
   try { const b = DriveApp.getFileById(m[1]).getBlob(); if (b.getBytes().length > 15 * 1024 * 1024) return null; return b.setName('laporan.jpg').setContentType(/^image\//.test(b.getContentType()) ? b.getContentType() : 'image/jpeg'); } catch (x) { Logger.log('foto blob: ' + x.message); return null; }
 }
-// teks/foto/dokumen: coba gateway sendiri dulu (gratis) bila GATEWAY_URL & GATEWAY_KEY terisi; gagal -> lanjut Fonnte
-function ccGatewayCoba_(target, pesan, foto) {
-  if (foto && typeof foto === 'string') foto = ccFotoBlob_(foto) || (/^https:\/\//.test(foto) ? foto : null);   // tautan Drive -> file
-  if (arguments[2] && !foto) return null;                     // foto tak bisa diambil: biarkan Fonnte yang menangani
-  if (!ccProp_('GATEWAY_URL') || !ccProp_('GATEWAY_KEY')) return null;
-  const t = String(target).trim(); if (!/^\+?\d{8,15}$|@g\.us$/.test(t)) return null;
-  try { gmKirimGateway_(t, pesan, foto || undefined); return { ok: true, raw: 'gateway' }; } catch (x) { Logger.log('gateway kirim gagal: ' + x.message); return null; }
+// jalur khusus: HANYA kirim LAPORAN yang lewat gateway sendiri (bila GATEWAY_URL & GATEWAY_KEY terisi); fungsi lain tetap Fonnte
+function ccGatewayLaporan_(target, pesan, foto) {
+  if (foto && typeof foto === 'string') foto = ccFotoBlob_(foto) || (/^https:\/\//.test(foto) ? foto : null);
+  try { gmKirimGateway_(String(target).trim(), pesan, foto || undefined); return { ok: true, raw: 'gateway' }; } catch (x) { return { ok: false, msg: x.message }; }
 }
 function ccWaKirimE_(e, target, pesan, foto) {
-  const gw = ccGatewayCoba_(target, pesan, foto); if (gw) return gw;
   try {
     const pl = { target: String(target), message: String(pesan), countryCode: '62' };
     if (foto && typeof foto === 'object') pl.file = foto; else if (foto) pl.url = foto;
@@ -135,7 +131,7 @@ function ccTgKirimE_(e, teks) {
 }
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
-  const gw = ccGatewayCoba_(target, pesan, foto); if (gw) return gw;
+  if (fungsi === 'LAPORAN' && ccProp_('GATEWAY_URL') && ccProp_('GATEWAY_KEY')) return ccGatewayLaporan_(target, pesan, foto);
   const e = ccApiPilih_(fungsi, 'WA');
   if (!e) return { ok: false, msg: 'Belum ada API WhatsApp untuk fungsi ' + fungsi + '. Atur di Profil > Pengaturan API.' };
   return ccWaKirimE_(e, target, pesan, foto);
