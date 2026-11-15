@@ -5,7 +5,7 @@
 //   PAIR_PHONE nomor gateway, format 628xxxx (dipakai sebagai nama pengirim pesan dari HP sendiri)
 //   TERIMA_SENDIRI  isi 1 bila pesan yang Anda kirim sendiri dari HP nomor gateway juga harus dibaca
 //   QR_KEY     kata bebas (panjang) untuk membuka halaman QR: PUBLIC_URL/qr?k=KATA
-//   PRIBADI        isi 1 HANYA saat uji agar chat pribadi ikut dibaca (bawaan: hanya grup)
+//   PRIBADI        isi 0 bila chat pribadi TIDAK boleh dibaca (bawaan: grup + pribadi)
 //   KIRIM_KEY  kata rahasia untuk kirim pesan dari web: POST PUBLIC_URL/kirim?k=KATA  {"to":"628xx atau id@g.us","message":"teks","file":{"base64","mimetype","filename"} atau "url"}
 //   GRUP       id grup PR (@g.us), dipisah koma. Isi ini agar gateway HANYA membaca grup PR
 //   AUTH_DIR   (opsional) folder sesi, arahkan ke Volume Railway, mis. /data/auth
@@ -81,7 +81,7 @@ async function mulai() {
         console.log('masuk', type, jid, m.key.fromMe ? 'dari-sendiri' : 'dari-orang', m.message ? Object.keys(m.message).join(',') : 'kosong');   // diagnosa: hapus bila sudah stabil
         const baru = Date.now() / 1000 - Number(m.messageTimestamp || 0) < 120;       // abaikan riwayat lama saat tersambung
         if (type !== 'notify' && !(TERIMA_SENDIRI && m.key.fromMe && baru)) continue;
-        if ((m.key.fromMe && !TERIMA_SENDIRI) || !m.message || /^status@|@broadcast$|@newsletter$/.test(jid) || (PRIBADI !== '1' && !jid.endsWith('@g.us'))) continue;   // hanya grup; PRIBADI=1 membuka chat pribadi (khusus uji)
+        if ((m.key.fromMe && !TERIMA_SENDIRI) || !m.message || /^status@|@broadcast$|@newsletter$/.test(jid) || (PRIBADI === '0' && !jid.endsWith('@g.us'))) continue;   // grup PR + chat pribadi; PRIBADI=0 untuk grup saja
         if (grupBoleh.length && grupBoleh.indexOf(jid) < 0) continue;
         let isi = m.message;                                                         // buka pembungkus (pesan sementara, sekali lihat, dokumen+keterangan)
         for (let i = 0; i < 4; i++) { const d = isi.ephemeralMessage || isi.viewOnceMessage || isi.viewOnceMessageV2 || isi.viewOnceMessageV2Extension || isi.documentWithCaptionMessage || isi.editedMessage; if (!d || !d.message) break; isi = d.message; }
