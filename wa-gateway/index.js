@@ -6,6 +6,7 @@
 //   TERIMA_SENDIRI  isi 1 bila pesan yang Anda kirim sendiri dari HP nomor gateway juga harus dibaca
 //   QR_KEY     kata bebas (panjang) untuk membuka halaman QR: PUBLIC_URL/qr?k=KATA
 //   PRIBADI        isi 0 bila chat pribadi TIDAK boleh dibaca (bawaan: grup + pribadi)
+//   KIRIM_KEY  kata rahasia untuk kirim pesan dari web: POST PUBLIC_URL/kirim?k=KATA  {"to":"628xx atau id@g.us","message":"teks"}
 //   GRUP       (opsional) id grup dipisah koma; kosong = semua grup
 //   AUTH_DIR   (opsional) folder sesi, arahkan ke Volume Railway, mis. /data/auth
 const http = require('http'), crypto = require('crypto'), fs = require('fs');
@@ -13,8 +14,8 @@ const QRCode = require('qrcode');
 const pino = require('pino');
 const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage, downloadContentFromMessage, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 
-const { HOOK_URL, PUBLIC_URL = '', PAIR_PHONE, GRUP = '', AUTH_DIR = './auth', QR_KEY = '', TERIMA_SENDIRI = '', PRIBADI = '' } = process.env;
-let qrTerakhir = '', tersambung = false;
+const { HOOK_URL, PUBLIC_URL = '', PAIR_PHONE, GRUP = '', AUTH_DIR = './auth', QR_KEY = '', TERIMA_SENDIRI = '', PRIBADI = '', KIRIM_KEY = '' } = process.env;
+let qrTerakhir = '', tersambung = false, sockAktif = null;
 if (!HOOK_URL) { console.error('HOOK_URL belum diisi'); process.exit(1); }
 const grupBoleh = GRUP.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -27,6 +28,22 @@ http.createServer((req, res) => {
     if (tersambung) { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end('<h2>Sudah terhubung</h2>'); }
     if (!qrTerakhir) { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end('<meta http-equiv=refresh content=3><p>Menunggu QR... halaman dimuat ulang otomatis</p>'); }
     return QRCode.toDataURL(qrTerakhir, { width: 320 }).then(u => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<meta http-equiv=refresh content=15><img src="' + u + '"><p>Scan: WhatsApp > Perangkat tertaut > Tautkan perangkat</p>'); });
+  }
+  if ((req.url || '').split('?')[0] === '/kirim' && req.method === 'POST') {         // kirim pesan WhatsApp dari web / Apps Script
+    const k = new URL(req.url, 'http://x').searchParams.get('k'); let raw = '';
+    if (!KIRIM_KEY || k !== KIRIM_KEY) { res.writeHead(403); return res.end('ditolak'); }
+    req.on('data', c => { raw += c; if (raw.length > 20000) req.destroy(); });
+    req.on('end', async () => {
+      try {
+        const b = JSON.parse(raw || '{}'), to = String(b.to || '').trim(), teks = String(b.message || '').trim();
+        if (!to || !teks) { res.writeHead(400); return res.end('to dan message wajib'); }
+        if (!sockAktif || !tersambung) { res.writeHead(503); return res.end('gateway belum tersambung'); }
+        const jid = /@/.test(to) ? to : to.replace(/\D/g, '').replace(/^0/, '62') + '@s.whatsapp.net';
+        await sockAktif.sendMessage(jid, { text: teks });
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"status":"ok"}');
+      } catch (e) { res.writeHead(500); res.end(String(e.message)); }
+    });
+    return;
   }
   const m = /^\/m\/([a-f0-9]{32})$/.exec(req.url || '');
   const f = m && media.get(m[1]);
@@ -43,6 +60,7 @@ async function mulai() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
   const sock = makeWASocket({ version, auth: state, logger: pino({ level: 'silent' }), browser: ['Gateway PR', 'Chrome', '1.0'] });
+  sockAktif = sock;
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
     if (qr) { qrTerakhir = qr; console.log('QR siap: buka /qr?k=QR_KEY'); }

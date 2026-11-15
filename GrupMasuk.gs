@@ -510,3 +510,12 @@ function gmPrTerima_(m) {
   });
   ccHookLog_(m.grup, teks.slice(0, 80) || (lok ? '[lokasi]' : foto ? '[foto]' : ''), 'grup PR -> ' + hasil);
 }
+
+// kirim WhatsApp lewat gateway sendiri (gratis). Isi Properti Skrip: GATEWAY_URL (https://xxx.up.railway.app) dan GATEWAY_KEY (= KIRIM_KEY di Railway)
+function gmKirimGateway_(tujuan, pesan) {
+  const u = ccProp_('GATEWAY_URL'), k = ccProp_('GATEWAY_KEY');
+  if (!u || !k) throw new Error('GATEWAY_URL / GATEWAY_KEY belum diisi');
+  const r = UrlFetchApp.fetch(u.replace(/\/+$/, '') + '/kirim?k=' + encodeURIComponent(k), { method: 'post', contentType: 'application/json', payload: JSON.stringify({ to: tujuan, message: pesan }), muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) throw new Error('gateway ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 100));
+  return true;
+}
