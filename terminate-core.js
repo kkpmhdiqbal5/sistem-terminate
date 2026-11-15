@@ -1,7 +1,7 @@
 /* Inti sistem Terminate: sesi login 12 jam, panggilan API, navigasi bawah, kamera langsung, scanner barcode.
    Dipakai bersama oleh semua halaman terminate-*.html dan terminate.html. */
 (function () {
-  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwT-y1dG24gnDhSEmcyPznUTei6hTA9En4T0f0dZRkAB1aAY9OkhVDp0zHul5xF_9Qg/exec";
+  var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
   var LIB = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
   var timer = null;
   // Login & sesi 12 jam dipakai bersama seluruh sistem lewat auth.js (satu login untuk semua halaman)
