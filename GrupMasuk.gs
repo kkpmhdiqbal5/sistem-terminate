@@ -526,3 +526,9 @@ function ujiGateway() {
   gmKirimGateway_(no, 'Tes gateway ' + new Date().toLocaleTimeString('id-ID'));
   Logger.log('BERHASIL: gateway menerima perintah kirim ke ' + no);
 }
+
+// Jalankan SEKALI dari editor (pilih izinDrive > Jalankan) lalu setujui izin Google Drive. Setelah itu buat Versi baru. Hasil di Log eksekusi.
+function izinDrive() {
+  const f = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER);
+  Logger.log('BERHASIL: bisa membuka folder foto "' + f.getName() + '"');
+}
