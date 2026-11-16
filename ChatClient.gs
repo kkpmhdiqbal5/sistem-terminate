@@ -104,8 +104,8 @@ function ccFotoBlob_(u) {
   if (!m) return null;
   try { const b = DriveApp.getFileById(m[1]).getBlob(); if (b.getBytes().length > 15 * 1024 * 1024) return null; return b.setName('laporan.jpg').setContentType(/^image\//.test(b.getContentType()) ? b.getContentType() : 'image/jpeg'); } catch (x) { Logger.log('foto blob: ' + x.message); return null; }
 }
-// jalur khusus: HANYA kirim LAPORAN yang lewat gateway sendiri (bila GATEWAY_URL & GATEWAY_KEY terisi); fungsi lain tetap Fonnte
-let CC_JALUR = '';                                              // GATEWAY | FONNTE | '' (otomatis) - diisi per permintaan kirim laporan
+// gateway sendiri dipakai HANYA bila jalur GATEWAY dipilih di dialog Kirim Laporan; semua pengiriman lain tetap Fonnte (gateway utamanya untuk info perangkat / grup PR)
+let CC_JALUR = '';                                              // 'GATEWAY' hanya saat dipilih di Kirim Laporan, selain itu '' (Fonnte)
 function ccGatewayLaporan_(target, pesan, foto) {
   if (foto && typeof foto === 'string') foto = ccFotoBlob_(foto) || (/^https:\/\//.test(foto) ? foto : null);
   try { gmKirimGateway_(String(target).trim(), pesan, foto || undefined); return { ok: true, raw: 'gateway' }; } catch (x) { return { ok: false, msg: x.message }; }
@@ -132,7 +132,7 @@ function ccTgKirimE_(e, teks) {
 }
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
-  if (fungsi === 'LAPORAN' && CC_JALUR !== 'FONNTE' && (CC_JALUR === 'GATEWAY' || (ccProp_('GATEWAY_URL') && ccProp_('GATEWAY_KEY')))) return ccGatewayLaporan_(target, pesan, foto);
+  if (fungsi === 'LAPORAN' && CC_JALUR === 'GATEWAY') return ccGatewayLaporan_(target, pesan, foto);
   const e = ccApiPilih_(fungsi, 'WA');
   if (!e) return { ok: false, msg: 'Belum ada API WhatsApp untuk fungsi ' + fungsi + '. Atur di Profil > Pengaturan API.' };
   return ccWaKirimE_(e, target, pesan, foto);
@@ -226,7 +226,6 @@ function ccKirimTeks_(d, au) {
   }
   if (unit.length * mentah.length > 150) return tmErr_('Terlalu banyak pesan (' + unit.length * mentah.length + '). Maksimal 150 pesan sekali kirim; kurangi data/nomor atau pakai gabungan.');
   const hasil = { terkirim: [], gagal: [] };
-  CC_JALUR = /^(GATEWAY|FONNTE)$/.test(String(d.jalur)) ? String(d.jalur) : '';
   let n = 0;
   mentah.forEach(m => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
@@ -252,6 +251,7 @@ function ccKirimLaporan_(d, au) {
   if (teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + CC.MAX_LAPORAN_HARI + ' pesan laporan per hari (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Kurangi data / tujuan, atau lanjutkan besok.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
+  CC_JALUR = String(d.jalur) === 'GATEWAY' ? 'GATEWAY' : '';        // gateway HANYA bila dipilih di dialog Kirim Laporan; selain itu Fonnte
   let n = 0;
   mentah.forEach(m => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
