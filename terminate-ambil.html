@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tugas Ambil - Sistem Terminate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="auth.js"></script>
+  <script src="menu-grup.js"></script>
+  <script src="terminate-core.js"></script>
+</head>
+<body>
+  <div class="container px-3 pt-3">
+    <div class="card-custom p-3 mb-3">
+      <div class="fw-bold text-white mb-2">🧭 Tugas Ambil Perangkat</div>
+      <input id="q" class="form-control form-control-dark mb-2" placeholder="Cari nama / CID / ODP / SN" autocomplete="off">
+      <div id="chipPop" class="d-flex flex-wrap gap-1 mb-2"></div>
+      <div class="d-flex gap-2">
+        <button id="btnDekat" class="btn btn-outline-info btn-sm fw-bold flex-fill">📍 Urut terdekat dari saya</button>
+        <button id="btnMuat" class="btn btn-info btn-sm fw-bold">🔄</button>
+      </div>
+      <div id="pesan" class="kecil mt-2"></div>
+    </div>
+    <div id="jumlah" class="small text-info mb-2"></div>
+    <div id="daftar"></div>
+  </div>
+  <script>
+    var S = TMC.init({ active: 'ambil', title: '🧭 Tugas Ambil' });
+    var $ = function (id) { return document.getElementById(id); };
+    var data = [], popAktif = '', saya = null;
+
+    function jarak(a, b, c, d) {   // meter, haversine
+      var r = Math.PI / 180, x = (c - a) * r, y = (d - b) * r, h = Math.sin(x / 2) * Math.sin(x / 2) + Math.cos(a * r) * Math.cos(c * r) * Math.sin(y / 2) * Math.sin(y / 2);
+      return 12742000 * Math.asin(Math.sqrt(h));
+    }
+    function fmt(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
+    function kartu(x) {
+      var maps = x.lat != null ? 'https://www.google.com/maps?q=' + x.lat + ',' + x.lng : '';
+      var t = x.foto ? TMC.thumb(x.foto, 200) : '';
+      return '<div class="card-custom p-2 mb-2"><div class="d-flex gap-2">' +
+        (t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>' : '') +
+        '<div class="small flex-grow-1"><div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
+        (x.sn ? '<div class="kecil">SN: ' + TMC.esc(x.sn) + '</div>' : '') +
+        (x.ket ? '<div class="kecil">' + TMC.esc(x.ket) + '</div>' : '') +
+        '<div class="mt-1">' + (maps ? '<a class="btn btn-sm btn-outline-info py-0" href="' + maps + '" target="_blank" rel="noopener">🗺️ Maps</a> ' : '<span class="kecil">lokasi belum ada</span> ') +
+        (x.d != null ? '<span class="kecil">' + fmt(x.d) + '</span>' : '') + '</div></div></div></div>';
+    }
+    function render() {
+      var q = $('q').value.trim().toLowerCase(), rows = data.filter(function (x) {
+        return (!popAktif || x.pop === popAktif) && (!q || [x.nama, x.cid, x.odp, x.sn, x.psn, x.pop].join(' ').toLowerCase().indexOf(q) >= 0);
+      });
+      rows.forEach(function (x) { x.d = saya && x.lat != null ? jarak(saya.lat, saya.lng, x.lat, x.lng) : null; });
+      var g = {};   // POP > ODP
+      rows.forEach(function (x) { var p = x.pop || 'POP TIDAK DIKETAHUI', o = x.odp || 'ODP TIDAK DIKETAHUI'; ((g[p] = g[p] || {})[o] = g[p][o] || []).push(x); });
+      var kecil = function (a) { return a.reduce(function (m, x) { return x.d != null && x.d < m ? x.d : m; }, Infinity); };
+      var h = '';
+      Object.keys(g).sort().forEach(function (p) {
+        var odps = Object.keys(g[p]);
+        odps.sort(saya ? function (a, b) { return kecil(g[p][a]) - kecil(g[p][b]); } : undefined);
+        var n = odps.reduce(function (s, o) { return s + g[p][o].length; }, 0);
+        h += '<div class="fw-bold text-info mt-3 mb-1">' + TMC.esc(p) + ' <span class="badge bg-secondary">' + n + '</span></div>';
+        odps.forEach(function (o) {
+          var L = g[p][o]; if (saya) L.sort(function (a, b) { return (a.d == null) - (b.d == null) || a.d - b.d; });
+          h += '<details class="mb-2"' + (q || saya ? ' open' : '') + '><summary class="text-white small fw-bold">' + TMC.esc(o) + ' <span class="badge bg-info text-dark">' + L.length + '</span></summary>' + L.map(kartu).join('') + '</details>';
+        });
+      });
+      $('daftar').innerHTML = h || '<div class="text-center text-secondary py-4">Tidak ada perangkat yang cocok.</div>';
+      $('jumlah').textContent = rows.length + ' dari ' + data.length + ' perangkat belum diambil';
+    }
+    function chip() {
+      var pops = []; data.forEach(function (x) { var p = x.pop || ''; if (p && pops.indexOf(p) < 0) pops.push(p); });
+      $('chipPop').innerHTML = ['', ].concat(pops.sort()).map(function (p) {
+        return '<button type="button" class="btn btn-sm ' + (p === popAktif ? 'btn-info' : 'btn-outline-info') + '" data-p="' + TMC.esc(p) + '">' + (p ? TMC.esc(p) : 'Semua POP') + '</button>';
+      }).join('');
+      Array.prototype.forEach.call($('chipPop').children, function (b) { b.onclick = function () { popAktif = b.getAttribute('data-p'); chip(); render(); }; });
+    }
+    function muat() {
+      $('pesan').textContent = 'Memuat...';
+      TMC.api('terminateAmbil').then(function (r) {
+        if (r.status !== 'success') { $('pesan').textContent = r.message || 'Gagal memuat.'; return; }
+        data = r.data || []; $('pesan').textContent = ''; chip(); render();
+      }).catch(function () { $('pesan').textContent = 'Gagal terhubung ke server.'; });
+    }
+    $('q').oninput = render;
+    $('btnMuat').onclick = muat;
+    $('btnDekat').onclick = function () {
+      if (saya) { saya = null; $('btnDekat').textContent = '📍 Urut terdekat dari saya'; render(); return; }
+      if (!navigator.geolocation) { $('pesan').textContent = 'Perangkat ini tidak mendukung lokasi.'; return; }
+      $('pesan').textContent = 'Mencari lokasi Anda...';
+      navigator.geolocation.getCurrentPosition(function (p) {
+        saya = { lat: p.coords.latitude, lng: p.coords.longitude }; $('pesan').textContent = ''; $('btnDekat').textContent = '✖ Matikan urut terdekat'; render();
+      }, function () { $('pesan').textContent = 'Lokasi tidak diizinkan. Aktifkan izin lokasi di browser.'; }, { enableHighAccuracy: true, timeout: 15000 });
+    };
+    muat();
+  </script>
+</body>
+</html>

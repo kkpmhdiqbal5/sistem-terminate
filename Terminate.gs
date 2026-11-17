@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     const au = tmAuth_(d);
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
-    const BUTUH = { terminateLookup: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
+    const BUTUH = { terminateLookup: 'TINPUT', terminateAmbil: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateGabungDiambil: 'TIMPOR', terminateRapikanDiambil: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminatePrAtur: 'TCHAT', terminateAmbilUlang: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
@@ -74,6 +74,7 @@ function terminateRoute_(d) {
     if (!punya) return tmJson_({ status: 'error', code: 'IZIN', message: 'Akun Anda tidak punya izin untuk halaman/fitur ini.' });
     switch (d.action) {
       case 'terminateOptions': return tmJson_(tmOptions_(au));
+      case 'terminateAmbil': return tmJson_(tmAmbil_());
       case 'terminateLookup': return tmJson_(tmLookupApi_(d));
       case 'terminateCek': return tmJson_(tmCari_(d));
       case 'terminateSimpan': return tmJson_(tmSimpan_(d, au));
@@ -1449,4 +1450,19 @@ function tmLepasDiambil_(recs, au) {
   hapus.forEach(r => sh.deleteRow(r));
   try { tmBersihLog_(log); } catch (e) { Logger.log('log lepas: ' + e.message); }
   return hapus.length;
+}
+
+// Daftar perangkat yang MASIH HARUS diambil (sheet Baris 1 & Baris 2) untuk halaman teknisi: dicari & dikelompokkan per POP > ODP di sisi web.
+function tmAmbil_() {
+  const out = [];
+  [TM.SH.B1, TM.SH.B2].forEach(nm => {
+    tmRead_(nm).forEach(r => {
+      if (!(r.NAMA || r.CID || r.SN || r.ODP)) return;
+      const m = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/.exec(String(r.KOORDINAT || ''));
+      out.push({ sheet: nm, nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim(),
+        odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPop_(r.POP) || tmPop_(r.ODP) || '', ket: String(r.KET || '').trim(), foto: String(r.FOTORUMAH || '').trim(),
+        lat: m ? +m[1] : null, lng: m ? +m[2] : null, ts: String(r.NAMATS || '').trim() });
+    });
+  });
+  return { status: 'success', data: out };
 }

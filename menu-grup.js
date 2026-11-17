@@ -8,6 +8,7 @@
       { h: "index.html", ic: "📝", t: "Form Lapangan" },
       { h: "terminate.html", ic: "📷", t: "Input", p: "TINPUT" }] },
     { id: "terminate", ic: "🚚", t: "Terminate", items: [
+      { h: "terminate-ambil.html", ic: "🧭", t: "Tugas Ambil", p: "TINPUT" },
       { h: "terminate-diambil.html", ic: "📦", t: "Diambil", p: "TDIAMBIL" },
       { h: "terminate-edit.html", ic: "✏️", t: "Edit", p: "TEDIT" },
       { h: "terminate-laporan.html", ic: "📋", t: "Laporan", p: "TLAPORAN" },
