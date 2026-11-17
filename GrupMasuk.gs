@@ -454,7 +454,7 @@ function gmPrAtur_(d) {
 function gmPrTerima_(m) {
   const teks = String(m.pesan || '').replace(/[\u200e\u200f]/g, '').trim();
   if (/^🤖/.test(teks)) { ccHookLog_(m.grup, teks.slice(0, 80), 'grup PR: gema pesan bot, diabaikan'); return; }
-  const member = String(m.member || m.nama || '?'), pengirim = String(m.nama || m.member || '?');
+  const member = String(m.member || m.nama || '?').split('@')[0], pengirim = String(m.nama || m.member || '?');
   const lok = gmKoordinat_(m.lokasi) || gmKoordinat_(teks) || gmKoordinatTautan_(teks);
   const foto = m.media && /^(jpe?g|png|webp)$/i.test(m.ext || 'jpg') ? m.media : '';
   const nm = /nama\s*(?:lama|pelanggan|klien|cust\w*)\s*[:\-]?\s*(.+)/i.exec(teks) || /^[\s\W]*(?:a\/n|an|nama)\s*[:\-]\s*(.+)/im.exec(teks);
@@ -467,7 +467,7 @@ function gmPrTerima_(m) {
   gmKunci(() => {
     tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM);
     const batas = Date.now() - GM_PR_MENIT * 60000;
-    const milik = tmRead_(GM_SH_PR).filter(r => r.GRUP === m.grup && String(r.MEMBER) === member && r.WAKTU instanceof Date && r.WAKTU.getTime() >= batas);
+    const milik = tmRead_(GM_SH_PR).filter(r => r.GRUP === m.grup && String(r.MEMBER).split('@')[0] === member && r.WAKTU instanceof Date && r.WAKTU.getTime() >= batas);
     const tanya = milik.filter(r => r.STATUS === 'TANYA').pop(), baru = milik.filter(r => r.STATUS === 'BARU').pop();
     const jawab = tanya && !lok && !foto && !nm && !cidM && teks.length > 0 && teks.length <= 80;
     if (jawab) {                                                    // balasan atas pertanyaan konfirmasi ODP dari orang yang sama
