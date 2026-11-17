@@ -530,5 +530,7 @@ function ujiGateway() {
 // Jalankan SEKALI dari editor (pilih izinDrive > Jalankan) lalu setujui izin Google Drive. Setelah itu buat Versi baru. Hasil di Log eksekusi.
 function izinDrive() {
   const f = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER);
-  Logger.log('BERHASIL: bisa membuka folder foto "' + f.getName() + '"');
+  const t = f.createFile('tes-izin.txt', 'tes');   // uji tulis: foto PR butuh izin menulis
+  t.setTrashed(true);
+  Logger.log('BERHASIL: bisa membuka dan MENULIS ke folder foto "' + f.getName() + '"');
 }
