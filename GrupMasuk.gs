@@ -391,6 +391,23 @@ function gmKoordinatTautan_(t) {
   return null;
 }
 function gmJarak_(a, b, c, d) { const R = 6371000, r = x => x * Math.PI / 180, x = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
+// titik POP/OLT di sheet ODP (placemark bernama "POP/OLT <NAMA>" dari KMZ): POP sebuah lokasi = titik POP terdekat
+let GM_TPOP = null;                                    // daftar titik POP, dibaca sekali per eksekusi
+function gmPopTerdekat_(lat, lng) {
+  if (!GM_TPOP) {
+    GM_TPOP = [];
+    try {
+      tmRead_('ODP').forEach(r => {
+        const m = /^\(?\s*POP\s*\/\s*OLT\s+(.+?)\s*\)?$/i.exec(String(r.ODP || r.KODE || '').trim()); if (!m) return;
+        const k = String(r.KOORDINAT || '').split(','), la = parseFloat(k[0]), lo = parseFloat(k[1]); if (isNaN(la) || isNaN(lo)) return;
+        GM_TPOP.push({ pop: tmPopKode_(m[1]) || m[1].trim().toUpperCase(), la: la, lo: lo });
+      });
+    } catch (e) { GM_TPOP = []; }
+  }
+  let best = null;
+  GM_TPOP.forEach(t => { const j = gmJarak_(lat, lng, t.la, t.lo); if (!best || j < best.j) best = { pop: t.pop, j: j }; });
+  return best;
+}
 function gmOdpTerdekat_(lat, lng) {
   let best = null;
   tmRead_('ODP').forEach(r => {
@@ -482,9 +499,12 @@ function gmPrTerima_(m) {
     }
     const tanpaNama = milik.filter(r => r.STATUS === 'TANYA' && !r.CID && !String(r.NAMA || '').trim()).pop();                 // sudah masuk Baris 1 tanpa nama: nama/CID susulan melengkapi
     const teksPolos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks) && teks.split(/\n+/)[0].length <= 60;
-    let row = baru || (tanpaNama && !lok && (nm || cidM || teksPolos) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
+    const ketPolos = teksPolos && /(rumah|warna|depan|samping|belakang|sebelah|dekat|gang|jalan|\bjl\b|\bgg\b|pagar|toko|warung|\bcat\b)/i.test(teks);     // ciri rumah = keterangan, bukan nama
+    let row = (lok && baru && gmPrLok_(baru)) ? null                                         // pin kedua sebelum data pertama selesai: data baru, bukan menimpa
+      : baru || (tanpaNama && !lok && (nm || cidM || (teksPolos && !ketPolos)) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
     const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
-    if (polos && !(row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
+    if (polos && !ketPolos && !(row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }
+    if (ketPolos && !row) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
     if (!row) {
       row = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: new Date(), GRUP: m.grup, PENGIRIM: pengirim, MEMBER: member, NAMA: '', CID: '', KOORDINAT: '', LINKMAPS: '', FOTO: '', KET: '', ODPTERDEKAT: '', JARAKM: '', ODPDATA: '', STATUS: 'BARU' };
       tmAppendObj_(tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM), row);
@@ -498,7 +518,8 @@ function gmPrTerima_(m) {
     if (nm && !row.KET) { const sisa = teks.split(/\n+/).map(x => x.replace(/^[\s\W]+/, '').trim()).filter(x => x && !/nama\s*(?:lama|pelanggan|klien)|tikor|koordinat|^\W*kopi\W*$/i.test(x)); if (sisa.length) isi.KET = sisa.join(' | ').slice(0, 300); }   // paket, tgl pasang, nama DS
     if (cidM && !row.CID) isi.CID = cidM[1];
     if (fotoDrive && !row.FOTO) isi.FOTO = fotoDrive;
-    if (polos) {                                                    // teks polos setelah pin = nama klien (baris pertama), sisanya keterangan
+    if (ketPolos) { isi.KET = ((row.KET ? row.KET + ' | ' : '') + teks.replace(/\s+/g, ' ')).slice(0, 300); }
+    else if (polos) {                                                    // teks polos setelah pin = nama klien (baris pertama), sisanya keterangan
       const bar = teks.split(/\n+/).map(x => x.trim()).filter(Boolean);
       if (bar[0].length <= 60) { isi.NAMA = bar[0]; if (bar.length > 1) isi.KET = bar.slice(1).join(' ').slice(0, 300); }
     }
@@ -519,7 +540,7 @@ function gmPrTerima_(m) {
       const odp = t ? t.odp : (k ? k.odp : ''), jarak = t ? Math.round(t.j) : '';
       const catatan = 'Dari ' + row.PENGIRIM + (t ? ' | ODP terdekat KMZ: ' + t.odp + ' (' + jarak + ' m)' + (t.j > 300 ? ' JAUH, cek manual' : '') : '') + (k && k.odp ? ' | ODP di data: ' + k.odp + (t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? ' (BEDA)' : ' (cocok)') : '') + (k ? '' : (namaF || cid ? ' | client tidak ditemukan di data' : ' | NAMA BELUM DIKIRIM'));
       let sudah = false; try { sudah = !!cid && tmBacaCid_(TM.SH.B1).list.some(x => x.cid === cid); } catch (e) { sudah = false; }
-      if (!sudah) tmAppendObj_(tmSheetEnsure_(TM.SH.B1, ['NAMA', 'CID', 'ODP', 'POP']), { NAMA: namaF, CID: cid, ODP: odp, POP: tmPopKode_(t && t.pop) || (k && k.pop) || gmPopDariOdp_(odp) || '', SN: k ? k.sn : '', PSN: k ? k.psn : '', KOORDINAT: lat + ',' + lng, LINKMAPS: 'https://maps.google.com/?q=' + lat + ',' + lng, KET: catatan, FOTORUMAH: row.FOTO || '', NAMATS: row.PENGIRIM });
+      if (!sudah) tmAppendObj_(tmSheetEnsure_(TM.SH.B1, ['NAMA', 'CID', 'ODP', 'POP']), { NAMA: namaF, CID: cid, ODP: odp, POP: ((gmPopTerdekat_(lat, lng) || {}).pop) || tmPopKode_(t && t.pop) || (k && k.pop) || gmPopDariOdp_(odp) || '', SN: k ? k.sn : '', PSN: k ? k.psn : '', KOORDINAT: lat + ',' + lng, LINKMAPS: 'https://maps.google.com/?q=' + lat + ',' + lng, KET: catatan, FOTORUMAH: row.FOTO || '', NAMATS: row.PENGIRIM });
       tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, { STATUS: 'TANYA', ODPTERDEKAT: odp, JARAKM: jarak, ODPDATA: k ? k.odp : '', NAMA: namaF, CID: cid });
       const kirim = !namaF && !cid ? 'pertanyaan ODP ditunda sampai nama dikirim' : gmPrKirim_(m.grup, '🤖 Halo ' + row.PENGIRIM + ' data *' + namaF + '* masuk daftar pengambilan.\nODP terdekat dari lokasi: *' + (odp || 'tidak ketemu') + '*' + (jarak !== '' ? ' (' + jarak + ' m)' : '') + (k && k.odp && t && tmNorm_(k.odp) !== tmNorm_(t.odp) ? '\nODP di data client: ' + k.odp : '') + '\nBenar? Balas *ya*, atau tulis ODP yang benar.', row.MEMBER);
       hasil = 'masuk Baris 1: ' + namaF + ' / ODP ' + (odp || '-') + ' (' + catatan + '); ' + kirim;

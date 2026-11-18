@@ -1464,7 +1464,7 @@ function tmAmbil_() {
       if (!(r.NAMA || r.CID || r.SN || r.ODP)) return;
       const m = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/.exec(String(r.KOORDINAT || ''));
       out.push({ sheet: nm, nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim(),
-        odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPop_(r.POP) || tmPop_(r.ODP) || '', ket: String(r.KET || '').trim(), foto: String(r.FOTORUMAH || '').trim(),
+        odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPopKode_(r.POP) || (m && typeof gmPopTerdekat_ === 'function' && (gmPopTerdekat_(+m[1], +m[2]) || {}).pop) || tmPop_(r.POP) || tmPop_(r.ODP) || '', ket: String(r.KET || '').trim(), foto: String(r.FOTORUMAH || '').trim(),
         lat: m ? +m[1] : null, lng: m ? +m[2] : null, ts: String(r.NAMATS || '').trim() });
     });
   });
@@ -1475,7 +1475,7 @@ function tmAmbil_() {
       const l = gmPrLok_(r) || {}; let foto = String(r.FOTO || '').trim();
       if (foto && !/^https?:/.test(foto) && nm) { try { const it = DriveApp.getFolderById(nm).getFilesByName(foto); if (it.hasNext()) foto = it.next().getUrl(); } catch (e) { /* tetap nama file */ } }
       const odp = String(r.ODPTERDEKAT || '').trim().toUpperCase();
-      out.push({ sheet: 'PR GRUP (belum lengkap)', nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: '', psn: '', odp: odp, pop: tmPop_(odp) || '',
+      out.push({ sheet: 'PR GRUP (belum lengkap)', nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: '', psn: '', odp: odp, pop: (l.lat != null && (gmPopTerdekat_(l.lat, l.lng) || {}).pop) || tmPop_(odp) || '',
         ket: 'BELUM LENGKAP (nama belum dikirim) | ' + String(r.KET || '').trim(), foto: foto, lat: l.lat == null ? null : l.lat, lng: l.lng == null ? null : l.lng, ts: String(r.PENGIRIM || '').trim() });
     });
   } catch (e) { Logger.log('ambil PR belum lengkap: ' + e.message); }
