@@ -1468,5 +1468,16 @@ function tmAmbil_() {
         lat: m ? +m[1] : null, lng: m ? +m[2] : null, ts: String(r.NAMATS || '').trim() });
     });
   });
+  // data dari grup PR yang belum lengkap (pin + foto sudah masuk, nama belum): tetap tampil supaya foto & lokasinya bisa dipakai teknisi
+  try {
+    const nm = ccProp_('FOTO_FOLDER_ID') || (typeof GM_FOTO_FOLDER !== 'undefined' ? GM_FOTO_FOLDER : '');
+    tmRead_(GM_SH_PR).filter(r => String(r.STATUS) === 'BARU' && (gmPrLok_(r) || r.FOTO)).forEach(r => {
+      const l = gmPrLok_(r) || {}; let foto = String(r.FOTO || '').trim();
+      if (foto && !/^https?:/.test(foto) && nm) { try { const it = DriveApp.getFolderById(nm).getFilesByName(foto); if (it.hasNext()) foto = it.next().getUrl(); } catch (e) { /* tetap nama file */ } }
+      const odp = String(r.ODPTERDEKAT || '').trim().toUpperCase();
+      out.push({ sheet: 'PR GRUP (belum lengkap)', nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: '', psn: '', odp: odp, pop: tmPop_(odp) || '',
+        ket: 'BELUM LENGKAP (nama belum dikirim) | ' + String(r.KET || '').trim(), foto: foto, lat: l.lat == null ? null : l.lat, lng: l.lng == null ? null : l.lng, ts: String(r.PENGIRIM || '').trim() });
+    });
+  } catch (e) { Logger.log('ambil PR belum lengkap: ' + e.message); }
   return { status: 'success', data: out };
 }
