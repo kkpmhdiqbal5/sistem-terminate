@@ -205,6 +205,7 @@ function ccVerifInfo_(d) {
 function ccVerifSet_(cid, kolom, nilai) {
   const sh = tmSheetEnsure_(CC.SH.CHAT, CC_KEYS_CHAT); tmEnsureCols_(sh, CC_KEYS_CHAT);
   const n = tmUpdateRows_(CC.SH.CHAT, r => tmCidDigit_(r.CID) === cid, Object.fromEntries([[kolom, nilai]]));
+  if (kolom === 'VERIFAMBIL' && typeof gmPrReaksi_ === 'function') gmPrReaksi_(cid, '');   // 👍 di grup PR
   try { const X = tmBacaCid_(TM.SH.B1), hit = X.list.filter(x => x.cid === cid); if (hit.length) { const col = tmColByLabel_(X.sh, kolom === 'VERIFSTOP' ? 'VERIF BERHENTI' : 'VERIF AMBIL'); hit.forEach(x => X.sh.getRange(x.row, col).setValue(nilai)); } } catch (e) { /* Baris 1 tidak ada / tanpa CID */ }
   return n;
 }

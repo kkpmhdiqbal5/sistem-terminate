@@ -607,6 +607,7 @@ function parseSheetDataDinamis(sheet, labelFilter) {
     item.foto_rumah_url = getVal(["FOTO RU"]);
     item.foto_alat_url = getVal(["FOTO AL", "FOTO I"]);
     item.sherlock = getVal(["SHERLOK", "SHERLOCK", "KOORDINAT"]);
+    item.linkmaps = getVal(["LINK MAPS", "LINKMAPS"]);
     item.keterangan = getVal(["KET", "KETERANGAN"]);
     item.paket = getVal(["PAKET"]);
     item.nohp = getVal(["HP"]); 

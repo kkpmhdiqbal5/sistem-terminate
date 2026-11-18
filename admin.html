@@ -418,15 +418,17 @@ POP  : ${row.pop || "-"}
 SN   : ${row.sn || "-"}
 P-SN : ${row.psn || "-"}
 KET  : ${row.keterangan || "-"}
-TS   : ${row.ts || row.sales || "-"}`;
+TS   : ${row.ts || row.sales || "-"}
+Sherlock : ${mapsAdmin(row)}`;
     }
+    function mapsAdmin(row) { let m = String(row.linkmaps || "").trim() || String(row.sherlock || "").trim(); if (!m || m === "-") return "-"; return /^https?:/.test(m) ? m : "https://www.google.com/maps?q=" + m; }
     function dipilihAdmin() { return Array.prototype.map.call(document.querySelectorAll('.row-check:checked'), function (cb) { return teksAdmin(globalDataList[cb.value]); }); }
     function kirimWASatu(index) { window.open(`https://wa.me/?text=${encodeURIComponent(teksAdmin(globalDataList[index]))}`, '_blank'); }
     function kirimWAGabungan() {
       let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!");
       window.open(`https://wa.me/?text=${encodeURIComponent(t.join("\n\n"))}`, '_blank');
     }
-    function fotoAdmin(row) { let f = String(row.foto_alat_url || row.foto_rumah_url || ""); return /^https?:\/\//.test(f) ? f : ""; }
+    function fotoAdmin(row) { let f = String(row.foto_rumah_url || row.foto_alat_url || ""); return /^https?:\/\//.test(f) ? f : ""; }
     function apiSatu(index) { KirimApi.buka(SCRIPT_URL, [teksAdmin(globalDataList[index])], 'GABUNG', [fotoAdmin(globalDataList[index])]); }
     function apiPilih(mode) { let t = dipilihAdmin(); if (!t.length) return alert("Centang data yang ingin dikirim!"); KirimApi.buka(SCRIPT_URL, t, mode, Array.prototype.map.call(document.querySelectorAll('.row-check:checked'), function (cb) { return fotoAdmin(globalDataList[cb.value]); })); }
 

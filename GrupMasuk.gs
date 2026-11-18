@@ -354,7 +354,7 @@ function ccTujuanFonnte_() {
 /* ---------- grup "PR TERMINATE YANG BELUM DIAMBIL" (tim instalasi: pin lokasi + foto + nama lama) ---------- */
 // Tiap pengirim dilacak sendiri (kolom MEMBER) supaya data orang yang berbeda tidak tertukar. Lokasi -> ODP terdekat dari titik KMZ (sheet ODP),
 // dicocokkan dengan data client di Instalasi/MT, lalu masuk Baris 1. Pertanyaan konfirmasi ODP dikirim lewat API WhatsApp khusus (fungsi "Grup PR").
-const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'KOORDINAT', 'LINKMAPS', 'FOTO', 'KET', 'ODPTERDEKAT', 'JARAKM', 'ODPDATA', 'STATUS'];
+const GM_SH_PR = 'PR GRUP', GM_PR_KOLOM = ['ID', 'WAKTU', 'GRUP', 'PENGIRIM', 'MEMBER', 'NAMA', 'CID', 'KOORDINAT', 'LINKMAPS', 'FOTO', 'KET', 'ODPTERDEKAT', 'JARAKM', 'ODPDATA', 'STATUS', 'KUNCI', 'REAKSI', 'CATATAN'];
 const GM_PR_MENIT = 60;
 // koordinat sebuah baris PR GRUP (kolom KOORDINAT "lat,lng"; baris lama masih memakai kolom LAT & LNG)
 function gmPrLok_(r) {
@@ -493,6 +493,7 @@ function gmPrTerima_(m) {
       const bar = teks.split(/\n+/).map(x => x.trim()).filter(Boolean);
       if (bar[0].length <= 60) { isi.NAMA = bar[0]; if (bar.length > 1) isi.KET = bar.slice(1).join(' ').slice(0, 300); }
     }
+    if (m.kunci) { try { const kk = JSON.parse(m.kunci), lama = (() => { try { return JSON.parse(row.KUNCI || '[]'); } catch (e) { return []; } })(); if (kk && kk.id && !lama.some(x => x.id === kk.id)) { lama.push({ remoteJid: kk.remoteJid, id: kk.id, participant: kk.participant, fromMe: !!kk.fromMe }); isi.KUNCI = JSON.stringify(lama.slice(-8)); } } catch (e) { /* kunci tidak terbaca */ } }   // untuk reaksi 👍 nanti
     Object.assign(row, isi);
     if (Object.keys(isi).length) tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, isi);
     if (fotoDrive && row.STATUS !== 'BARU') tmUpdateRows_(TM.SH.B1, r => tmNorm_(r.NAMA) === tmNorm_(row.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(row.PENGIRIM), { FOTORUMAH: fotoDrive });
@@ -533,4 +534,48 @@ function izinDrive() {
   const t = f.createFile('tes-izin.txt', 'tes');   // uji tulis: foto PR butuh izin menulis
   t.setTrashed(true);
   Logger.log('BERHASIL: bisa membuka dan MENULIS ke folder foto "' + f.getName() + '"');
+}
+
+/* ---------- reaksi 👍 di grup PR bila data sudah diverif / pindah ke Baris 2 ---------- */
+function gmReaksiGateway_(key, emoji) {
+  const u = ccProp_('GATEWAY_URL'), k = ccProp_('GATEWAY_KEY');
+  if (!u || !k) throw new Error('GATEWAY_URL / GATEWAY_KEY belum diisi');
+  const r = UrlFetchApp.fetch((/^https?:\/\//i.test(u) ? u : 'https://' + u).replace(/\/+$/, '') + '/reaksi?k=' + encodeURIComponent(k), { method: 'post', contentType: 'application/json', payload: JSON.stringify({ key: key, emoji: emoji || '👍' }), muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) throw new Error('gateway ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 100));
+}
+// semua baris PR GRUP milik data ini (CID sama atau nama sama) yang belum diberi reaksi
+function gmPrReaksi_(cid, nama) {
+  const c = tmCidDigit_(cid), n = tmNorm_(nama); let ok = 0;
+  try {
+    tmRead_(GM_SH_PR).forEach(r => {
+      if (String(r.REAKSI) === 'YA' || !r.KUNCI) return;
+      const cocok = (c && tmCidDigit_(r.CID) === c) || (n && tmNorm_(r.NAMA) === n); if (!cocok) return;
+      let ks = []; try { ks = JSON.parse(r.KUNCI); } catch (e) { return; }
+      let sukses = 0; ks.forEach(k => { try { gmReaksiGateway_(k, '👍'); sukses++; } catch (e) { Logger.log('reaksi gagal: ' + e.message); } });
+      if (sukses) { tmUpdateRows_(GM_SH_PR, x => x.ID === r.ID, { REAKSI: 'YA' }); ok++; }
+    });
+  } catch (e) { Logger.log('gmPrReaksi_: ' + e.message); }
+  return ok;
+}
+// tombol "Perbarui": periksa semua baris PR GRUP (kurang lengkap / ODP beda / jauh), isi kolom CATATAN, dan beri 👍 untuk yang sudah diverif / ada di Baris 2
+function gmPrPerbarui_() {
+  tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM); tmEnsureCols_(tmSheet_(GM_SH_PR), GM_PR_KOLOM);
+  const b2 = tmRead_(TM.SH.B2), b1 = tmRead_(TM.SH.B1), selesai = r => {
+    const c = tmCidDigit_(r.CID), n = tmNorm_(r.NAMA);
+    return b2.some(x => (c && tmCidDigit_(x.CID) === c) || (n && tmNorm_(x.NAMA) === n)) ||
+           b1.some(x => ((c && tmCidDigit_(x.CID) === c) || (n && tmNorm_(x.NAMA) === n)) && Object.keys(x).some(k => /^VERIF\d*AMBIL$/.test(k) && String(x[k]).trim()));
+  };
+  const rows = tmRead_(GM_SH_PR), perGrup = {}; let lengkap = 0, reaksi = 0;
+  rows.forEach(r => {
+    if (!(r.NAMA || r.CID || r.KOORDINAT || r.FOTO || r.LAT)) return;
+    const kurang = []; if (!r.NAMA && !r.CID) kurang.push('nama'); if (!gmPrLok_(r)) kurang.push('lokasi'); if (!r.FOTO) kurang.push('foto');
+    const cek = []; if (r.ODPDATA && r.ODPTERDEKAT && tmNorm_(r.ODPDATA) !== tmNorm_(r.ODPTERDEKAT)) cek.push('ODP beda (' + r.ODPTERDEKAT + ' / ' + r.ODPDATA + ')'); if (Number(r.JARAKM) > 300) cek.push('ODP jauh ' + r.JARAKM + ' m');
+    const catatan = (kurang.length ? 'KURANG: ' + kurang.join(', ') : 'LENGKAP') + (cek.length ? ' | CEK: ' + cek.join(', ') : '');
+    if (String(r.CATATAN) !== catatan) tmUpdateRows_(GM_SH_PR, x => x.ID === r.ID, { CATATAN: catatan });
+    if (!kurang.length && !cek.length) lengkap++;
+    else (perGrup[r.GRUP || '(pribadi)'] = perGrup[r.GRUP || '(pribadi)'] || []).push({ id: r.ID, pengirim: r.PENGIRIM, nama: r.NAMA, catatan: catatan });
+    if (String(r.REAKSI) !== 'YA' && r.KUNCI && selesai(r)) reaksi += gmPrReaksi_(r.CID, r.NAMA);
+  });
+  return { status: 'success', total: rows.length, lengkap: lengkap, reaksi: reaksi, perGrup: perGrup,
+    message: rows.length + ' baris diperiksa, ' + lengkap + ' lengkap & sesuai, ' + reaksi + ' diberi 👍 (sudah diverif).' };
 }

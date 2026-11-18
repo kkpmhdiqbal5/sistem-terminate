@@ -132,10 +132,16 @@ function ccTgKirimE_(e, teks) {
 }
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
-  if (fungsi === 'LAPORAN' && CC_JALUR === 'GATEWAY') return ccGatewayLaporan_(target, pesan, foto);
+  let gw = null;
+  if (fungsi === 'LAPORAN' && (CC_JALUR === 'GATEWAY' || CC_JALUR === 'AUTO')) {      // GATEWAY = hanya gateway; AUTO = gateway dulu, bila gagal cadangan Fonnte
+    gw = ccGatewayLaporan_(target, pesan, foto);
+    if (gw.ok || CC_JALUR === 'GATEWAY') return gw;
+  }
   const e = ccApiPilih_(fungsi, 'WA');
   if (!e) return { ok: false, msg: 'Belum ada API WhatsApp untuk fungsi ' + fungsi + '. Atur di Profil > Pengaturan API.' };
-  return ccWaKirimE_(e, target, pesan, foto);
+  const r = ccWaKirimE_(e, target, pesan, foto);
+  if (gw) r.raw = 'cadangan Fonnte (gateway gagal: ' + gw.msg + ') ' + (r.raw || '');
+  return r;
 }
 function ccTgSiap_() { const e = ccApiPilih_('TEKNISI', 'TELEGRAM'); return !!(e && e.chat); }
 function tgKirim_(teks, fungsi) {
@@ -226,6 +232,7 @@ function ccKirimTeks_(d, au) {
   }
   if (unit.length * mentah.length > 150) return tmErr_('Terlalu banyak pesan (' + unit.length * mentah.length + '). Maksimal 150 pesan sekali kirim; kurangi data/nomor atau pakai gabungan.');
   const hasil = { terkirim: [], gagal: [] };
+  CC_JALUR = /^(GATEWAY|AUTO)$/.test(String(d.jalur)) ? String(d.jalur) : '';
   let n = 0;
   mentah.forEach(m => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
@@ -251,7 +258,7 @@ function ccKirimLaporan_(d, au) {
   if (teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + CC.MAX_LAPORAN_HARI + ' pesan laporan per hari (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Kurangi data / tujuan, atau lanjutkan besok.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
-  CC_JALUR = String(d.jalur) === 'GATEWAY' ? 'GATEWAY' : '';        // gateway HANYA bila dipilih di dialog Kirim Laporan; selain itu Fonnte
+  CC_JALUR = /^(GATEWAY|AUTO)$/.test(String(d.jalur)) ? String(d.jalur) : '';        // GATEWAY/AUTO hanya bila diminta halaman; selain itu Fonnte
   let n = 0;
   mentah.forEach(m => {
     const tujuan = /@g\.us$/i.test(m) ? m : ccNoHp_(m);
@@ -263,7 +270,7 @@ function ccKirimLaporan_(d, au) {
       let r = waKirim_(tujuan, (d.tautan && fotoList[i] ? t + '\nFoto : ' + fotoList[i] : t).slice(0, 6000), 'LAPORAN', blob || foto);
       // gambar ditolak -> kirim ulang sebagai teks saja + tautan foto
       if (!r.ok && (blob || foto)) { r = waKirim_(tujuan, (t + '\nFoto : ' + (fotoList[i] || foto)).slice(0, 6000), 'LAPORAN'); if (r.ok) hasil.tanpaFoto = (hasil.tanpaFoto || 0) + 1; }
-      if (n <= 3) (hasil.diag = hasil.diag || []).push('#' + n + ': foto ' + (blob ? 'file Drive' : foto ? 'url ' + String(foto).slice(0, 45) : fotoList[i] ? 'ADA di data tapi tidak bisa dibaca' : 'TIDAK ADA di data') + ' -> Fonnte: ' + String(r.raw || r.msg || '').slice(0, 160));
+      if (n <= 3) (hasil.diag = hasil.diag || []).push('#' + n + ': foto ' + (blob ? 'file Drive' : foto ? 'url ' + String(foto).slice(0, 45) : fotoList[i] ? 'ADA di data tapi tidak bisa dibaca' : 'TIDAK ADA di data') + ' -> ' + (r.raw === 'gateway' ? 'Gateway' : 'Fonnte') + ': ' + String(r.raw || r.msg || '').slice(0, 160));
       if (r.ok) { ok++; const p = PropertiesService.getScriptProperties(), k = 'LAP_' + tmIso_(new Date()); p.setProperty(k, String((Number(p.getProperty(k)) || 0) + 1)); } else if (hasil.gagal.length < 5) hasil.gagal.push(m + ' (' + r.msg + ')');
     });
     if (ok) hasil.terkirim.push(tujuan + (teksList.length > 1 ? ' x' + ok : ''));
@@ -669,7 +676,7 @@ function waHookRoute_(e) {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
       cache.put(kunci, '1', 900);
       if (tugasHook === 'PR' || tugasHook === 'LAPORAN') {            // webhook khusus: semua pesan lewat webhook ini ditangani satu tugas saja
-        rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension') || g('tipe'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') };
+        rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension') || g('tipe'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname'), kunci: g('kunci') };
         if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
         ccHookLog_(sender, 'webhook tugas ' + tugasHook + (g('galat') ? ' - ' + g('galat') : ''), 'selesai'); return out({ status: 'ok', tugas: tugasHook });
       }

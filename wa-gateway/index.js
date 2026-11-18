@@ -51,6 +51,20 @@ http.createServer((req, res) => {
     });
     return;
   }
+  if ((req.url || '').split('?')[0] === '/reaksi' && req.method === 'POST') {       // beri reaksi emoji pada pesan: {key:{remoteJid,id,participant,fromMe}, emoji}
+    const k = new URL(req.url, 'http://x').searchParams.get('k'); let raw = '';
+    if (!KIRIM_KEY || k !== KIRIM_KEY) { res.writeHead(403); return res.end('ditolak'); }
+    req.on('data', c => { raw += c; if (raw.length > 1e5) req.destroy(); });
+    req.on('end', async () => {
+      try {
+        const b = JSON.parse(raw || '{}'); if (!b.key || !b.key.remoteJid || !b.key.id) { res.writeHead(400); return res.end('key wajib'); }
+        if (!sockAktif || !tersambung) { res.writeHead(503); return res.end('gateway belum tersambung'); }
+        await sockAktif.sendMessage(b.key.remoteJid, { react: { text: String(b.emoji || '👍'), key: b.key } });
+        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"status":"ok"}');
+      } catch (e) { res.writeHead(500); res.end(String(e.message)); }
+    });
+    return;
+  }
   const m = /^\/m\/([a-f0-9]{32})$/.exec(req.url || '');
   const f = m && media.get(m[1]);
   if (!f) { res.writeHead(req.url === '/' ? 200 : 404); return res.end(req.url === '/' ? 'ok' : ''); }
@@ -82,13 +96,13 @@ async function mulai() {
         const baru = Date.now() / 1000 - Number(m.messageTimestamp || 0) < 120;       // abaikan riwayat lama saat tersambung
         if (type !== 'notify' && !(TERIMA_SENDIRI && m.key.fromMe && baru)) continue;
         if ((m.key.fromMe && !TERIMA_SENDIRI) || !m.message || /^status@|@broadcast$|@newsletter$/.test(jid) || (PRIBADI === '0' && !jid.endsWith('@g.us'))) continue;   // grup PR + chat pribadi; PRIBADI=0 untuk grup saja
-        if (grupBoleh.length && grupBoleh.indexOf(jid) < 0) continue;
+        if (grupBoleh.length && jid.endsWith('@g.us') && grupBoleh.indexOf(jid) < 0) continue;   // GRUP membatasi hanya grup; chat pribadi tetap dibaca (PRIBADI=0 untuk mematikan)
         let isi = m.message;                                                         // buka pembungkus (pesan sementara, sekali lihat, dokumen+keterangan)
         for (let i = 0; i < 4; i++) { const d = isi.ephemeralMessage || isi.viewOnceMessage || isi.viewOnceMessageV2 || isi.viewOnceMessageV2Extension || isi.documentWithCaptionMessage || isi.editedMessage; if (!d || !d.message) break; isi = d.message; }
         const dok = isi.documentMessage && /^image\//.test(isi.documentMessage.mimetype || '') ? isi.documentMessage : null;
         const img = isi.imageMessage || dok, loc = isi.locationMessage || isi.liveLocationMessage;
         const teks = isi.conversation || (isi.extendedTextMessage && isi.extendedTextMessage.text) || (img && img.caption) || '';
-        const body = { sender: jid, member: (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0], name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, tipe: Object.keys(isi).join(',') };
+        const body = { sender: jid, member: (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0], name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, kunci: JSON.stringify(m.key), tipe: Object.keys(isi).join(',') };
         if (loc) body.location = loc.degreesLatitude + ',' + loc.degreesLongitude;
         if (img) {
           try {

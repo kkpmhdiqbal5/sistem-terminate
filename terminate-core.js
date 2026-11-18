@@ -214,5 +214,5 @@
   }
 
   window.TMC = { init: init, api: api, getSession: getSession, logout: logout, esc: esc, thumb: thumb,
-                 driveId: driveId, openCamera: openCamera, scanCode: scanCode };
+                 url: SCRIPT_URL, driveId: driveId, openCamera: openCamera, scanCode: scanCode };
 })();

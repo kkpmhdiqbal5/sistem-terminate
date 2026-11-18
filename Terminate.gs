@@ -64,7 +64,7 @@ function terminateRoute_(d) {
     const au = tmAuth_(d);
     if (!au) return tmJson_({ status: 'error', code: 'SESSION', message: 'Sesi berakhir. Silakan login ulang.' });
     // Otoritas per halaman: tiap aksi hanya boleh dipakai bila akun punya izin halaman terkait
-    const BUTUH = { terminateLookup: 'TINPUT', terminateAmbil: 'TINPUT', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
+    const BUTUH = { terminateLookup: 'TINPUT', terminateAmbil: 'TINPUT', terminatePrPerbarui: 'TIMPOR', terminateCek: 'TINPUT', terminateSimpan: 'TINPUT', terminateList: 'TDIAMBIL', terminateEditList: 'TEDIT',
                     terminateEditSimpan: 'TEDIT', terminateRapikan: 'TIMPOR', terminateGabungDiambil: 'TIMPOR', terminateRapikanDiambil: 'TIMPOR', terminateOdpPeta: 'TIMPOR', terminateOdpImpor: 'TIMPOR', terminateEditLengkap: 'TDIAMBIL', terminateHapus: 'TDIAMBIL', terminateRekap: 'TLAPORAN', terminateFotoSimpan: 'TLAPORAN', terminateFull: 'TDATA', terminateImporWA: 'TIMPOR', terminateSnCid: 'TIMPOR', terminateBersih1: 'TIMPOR', terminateBersih2: 'TIMPOR',
                     terminateChatKonfig: 'TCHAT', terminateMenunggu: 'TCHAT', terminateKirimTeknisi: 'TCHAT', terminateChatKirim: 'TCHAT', terminateChatLapor: 'TCHAT', terminateChatAmbil: 'TCHAT', terminateChatStatus: 'TCHAT', terminateKirimLaporan: 'TCHAT', terminateKirimTeks: 'TCHAT', terminateApiBaca: 'TAPI', terminateApiHapus: 'TAPI', terminateChatTandai: 'TCHAT', terminateChatUbah: 'TCHAT', terminateChatIngatkan: 'TCHAT', terminateChatDiag: 'TCHAT', terminateChatSegarkan: 'TCHAT', terminateChatBalas: 'TCHAT', terminateChatBukti: 'TCHAT', terminateTujuanBaca: 'TCHAT', terminateTujuanFonnte: 'TCHAT', terminateTujuanSumber: 'TCHAT', terminateGrupUji: 'TIMPOR', terminatePrAtur: 'TCHAT', terminateAmbilUlang: 'TIMPOR', terminateTujuanSimpan: 'TCHAT', terminateTujuanHapus: 'TCHAT', terminateVerifInfo: 'TCHAT', terminateVerifBerhenti: 'TCHAT', terminateVerifAmbil: 'TCHAT', terminateAiBaca: 'TCHAT', terminateAiSimpan: 'TCHAT', terminateApiSimpan: 'TAPI', terminateApiTes: 'TAPI' };
     if (d.action === 'terminateMe') return tmJson_({ status: 'success', user: au.user, role: au.role, izin: au.izin });
@@ -75,6 +75,7 @@ function terminateRoute_(d) {
     switch (d.action) {
       case 'terminateOptions': return tmJson_(tmOptions_(au));
       case 'terminateAmbil': return tmJson_(tmAmbil_());
+      case 'terminatePrPerbarui': return tmJson_(typeof gmPrPerbarui_ === 'function' ? gmPrPerbarui_() : tmErr_('GrupMasuk.gs belum dipasang.'));
       case 'terminateLookup': return tmJson_(tmLookupApi_(d));
       case 'terminateCek': return tmJson_(tmCari_(d));
       case 'terminateSimpan': return tmJson_(tmSimpan_(d, au));
@@ -661,6 +662,7 @@ function tmSimpan_(d, au) {
       try { tmTandaiDiambil_([rec]); } catch (e) { rec.VERIF += ' | GAGAL TULIS SUDAH DIAMBIL'; }
       if (cari.found && cari.sheet === TM.SH.B1) {
         try { pindah = tmPindahB1_(rec.SN, rec.PSN, rec); } catch (e) { rec.VERIF += ' | GAGAL PINDAH KE BARIS 2'; }
+        if (pindah && typeof gmPrReaksi_ === 'function') gmPrReaksi_(rec.CID, rec.NAMA);   // 👍 di grup PR
         if (pindah) rec.VERIF += ' | DIPINDAH KE BARIS 2';
       }
       try { bersih += tmHapusCid_(TM.SH.B1, rec.CID); } catch (e) { /* abaikan */ }   // sisa CID dobel di Baris 1

@@ -29,7 +29,7 @@
           function info(t, w) { m.innerHTML = '<div style="font-size:12px;padding:6px 8px;border-radius:6px;margin-bottom:8px;background:' + (w ? '#7f1d1d' : '#334155') + '">' + esc(t) + '</div>'; }
           if (!n.length) return info('Nomor tujuan wajib diisi.', 1);
           bt.disabled = true; bt.textContent = 'Mengirim...'; info('Mengirim, jangan tutup halaman...');
-          fetch(url, { method: 'POST', body: JSON.stringify(denganFoto ? { action: 'terminateKirimLaporan', token: s.token, teks: teks, foto: fotos, nomor: n } : { action: 'terminateKirimTeks', token: s.token, pesan: teks, nomor: n, mode: satu ? 'SATU' : 'GABUNG' }) })
+          fetch(url, { method: 'POST', body: JSON.stringify(denganFoto ? { action: 'terminateKirimLaporan', token: s.token, teks: teks, foto: fotos, nomor: n, jalur: 'AUTO' } : { action: 'terminateKirimTeks', token: s.token, pesan: teks, nomor: n, mode: satu ? 'SATU' : 'GABUNG', jalur: 'AUTO' }) })
             .then(function (r) { return r.json(); }).then(function (r) {
               if (r.code === 'SESSION') { alert(r.message); location.href = 'login.html'; return; }
               if (r.status === 'success') { try { localStorage.setItem(LS, JSON.stringify(n)); } catch (e) {} ov.remove(); alert(r.message); return; }

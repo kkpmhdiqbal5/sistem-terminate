@@ -8,6 +8,7 @@
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
   <script src="terminate-core.js"></script>
+  <script src="kirim-api.js"></script>
 </head>
 <body>
   <div class="container px-3 pt-3">
@@ -19,6 +20,11 @@
         <button id="btnDekat" class="btn btn-outline-info btn-sm fw-bold flex-fill">📍 Urut terdekat dari saya</button>
         <button id="btnMuat" class="btn btn-info btn-sm fw-bold">🔄</button>
       </div>
+      <div class="d-flex gap-2 mt-2">
+        <button id="btnKirim" class="btn btn-success btn-sm fw-bold flex-fill d-none">📤 Kirim yang dicentang via WhatsApp</button>
+        <button id="btnPerbarui" class="btn btn-warning btn-sm fw-bold flex-fill d-none">🔄 Perbarui PR GRUP</button>
+      </div>
+      <div id="hasilPr" class="small mt-2"></div>
       <div id="pesan" class="kecil mt-2"></div>
     </div>
     <div id="jumlah" class="small text-info mb-2"></div>
@@ -27,7 +33,27 @@
   <script>
     var S = TMC.init({ active: 'ambil', title: '🧭 Tugas Ambil' });
     var $ = function (id) { return document.getElementById(id); };
-    var data = [], popAktif = '', saya = null;
+    var data = [], popAktif = '', saya = null, boleh = window.KirimApi && KirimApi.ok();
+    function teks(x) {
+      return 'Nama : ' + (x.nama || '-') + '\nCID : ' + (x.cid || '-') + '\nODP : ' + (x.odp || '-') + '\nPOP : ' + (x.pop || '-') + '\nSN : ' + (x.sn || '-') + '\nP-SN : ' + (x.psn || '-') +
+        '\nKET : ' + (x.ket || '-') + '\nTS : ' + (x.ts || '-') + '\nSherlock : ' + (x.lat != null ? 'https://www.google.com/maps?q=' + x.lat + ',' + x.lng : '-');
+    }
+    if (boleh) $('btnKirim').classList.remove('d-none');
+    if (S.role === 'ADMIN') $('btnPerbarui').classList.remove('d-none');
+    $('btnKirim').onclick = function () {
+      var pil = Array.prototype.map.call(document.querySelectorAll('.pilih:checked'), function (c) { return data[+c.value]; });
+      if (!pil.length) return alert('Centang data yang ingin dikirim.');
+      KirimApi.buka(TMC.url || SCRIPT_URL, pil.map(teks), 'SATU', pil.map(function (x) { return /^https?:/.test(x.foto) ? x.foto : ''; }));
+    };
+    $('btnPerbarui').onclick = function () {
+      var b = this; b.disabled = true; $('hasilPr').textContent = 'Memeriksa PR GRUP...';
+      TMC.api('terminatePrPerbarui').then(function (r) {
+        if (r.status !== 'success') { $('hasilPr').textContent = r.message || 'Gagal.'; return; }
+        var h = TMC.esc(r.message), g = r.perGrup || {};
+        Object.keys(g).forEach(function (k) { h += '<div class="mt-2"><b>Grup ' + TMC.esc(k) + '</b></div>' + g[k].map(function (z) { return '<div class="kecil">• ' + TMC.esc(z.nama || z.pengirim || '?') + ' (' + TMC.esc(z.pengirim) + '): ' + TMC.esc(z.catatan) + '</div>'; }).join(''); });
+        $('hasilPr').innerHTML = h;
+      }).catch(function () { $('hasilPr').textContent = 'Gagal terhubung ke server.'; }).finally(function () { b.disabled = false; });
+    };
 
     function jarak(a, b, c, d) {   // meter, haversine
       var r = Math.PI / 180, x = (c - a) * r, y = (d - b) * r, h = Math.sin(x / 2) * Math.sin(x / 2) + Math.cos(a * r) * Math.cos(c * r) * Math.sin(y / 2) * Math.sin(y / 2);
@@ -39,7 +65,7 @@
       var t = x.foto ? TMC.thumb(x.foto, 200) : '';
       return '<div class="card-custom p-2 mb-2"><div class="d-flex gap-2">' +
         (t ? '<a href="' + TMC.esc(x.foto) + '" target="_blank" rel="noopener"><img class="thumb" src="' + TMC.esc(t) + '" alt="Foto"></a>' : '') +
-        '<div class="small flex-grow-1"><div><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
+        '<div class="small flex-grow-1"><div><label class="me-1"><input type="checkbox" class="pilih" value="' + x.i + '"></label><b>' + TMC.esc(x.nama || '(tanpa nama)') + '</b> | CID: ' + TMC.esc(x.cid || '-') + '</div>' +
         (x.sn ? '<div class="kecil">SN: ' + TMC.esc(x.sn) + '</div>' : '') +
         (x.ket ? '<div class="kecil">' + TMC.esc(x.ket) + '</div>' : '') +
         '<div class="mt-1">' + (maps ? '<a class="btn btn-sm btn-outline-info py-0" href="' + maps + '" target="_blank" rel="noopener">🗺️ Maps</a> ' : '<span class="kecil">lokasi belum ada</span> ') +
@@ -78,7 +104,7 @@
       $('pesan').textContent = 'Memuat...';
       TMC.api('terminateAmbil').then(function (r) {
         if (r.status !== 'success') { $('pesan').textContent = r.message || 'Gagal memuat.'; return; }
-        data = r.data || []; $('pesan').textContent = ''; chip(); render();
+        data = (r.data || []).map(function (x, i) { x.i = i; return x; }); $('pesan').textContent = ''; chip(); render();
       }).catch(function () { $('pesan').textContent = 'Gagal terhubung ke server.'; });
     }
     $('q').oninput = render;
