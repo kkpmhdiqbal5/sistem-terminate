@@ -109,7 +109,8 @@ function gmFoto_(url) {
     blob.setName('GRUP_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg');
     try {
       let folder; try { folder = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER); } catch (e) { folder = tmFolderFoto_('foto prangkat'); }
-      const f = folder.createFile(blob); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      const f = folder.createFile(blob);
+      try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eBagi) { Logger.log('setSharing foto: ' + eBagi.message); }   // folder sudah publik / dibatasi: file tetap tersimpan
       return f.getUrl();
     } catch (eDrive) {                                          // Drive ditolak: simpan lewat imgbb (sama seperti foto lapangan) supaya foto tetap masuk data
       GM_FOTO_GALAT = 'Drive: ' + eDrive.message;
