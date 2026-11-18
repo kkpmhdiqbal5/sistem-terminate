@@ -107,9 +107,15 @@ function gmFoto_(url) {
     if (res.getResponseCode() !== 200) { GM_FOTO_GALAT = 'unduh foto gagal, kode ' + res.getResponseCode() + ' (cek PUBLIC_URL gateway)'; return ''; }
     const blob = res.getBlob(); if (blob.getBytes().length > 12 * 1024 * 1024) { GM_FOTO_GALAT = 'foto lebih dari 12 MB'; return ''; }
     blob.setName('GRUP_' + Utilities.formatDate(new Date(), TM.TZ, 'yyyyMMdd_HHmmss') + '.jpg');
-    let folder; try { folder = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER); } catch (e) { folder = tmFolderFoto_('foto prangkat'); }
-    const f = folder.createFile(blob); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return f.getUrl();
+    try {
+      let folder; try { folder = DriveApp.getFolderById(ccProp_('FOTO_FOLDER_ID') || GM_FOTO_FOLDER); } catch (e) { folder = tmFolderFoto_('foto prangkat'); }
+      const f = folder.createFile(blob); f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      return f.getUrl();
+    } catch (eDrive) {                                          // Drive ditolak: simpan lewat imgbb (sama seperti foto lapangan) supaya foto tetap masuk data
+      GM_FOTO_GALAT = 'Drive: ' + eDrive.message;
+      try { const u = typeof uploadToImgbb === 'function' ? uploadToImgbb(Utilities.base64Encode(blob.getBytes())) : ''; if (/^https?:\/\//.test(u)) { GM_FOTO_GALAT = ''; return u; } } catch (eImg) { GM_FOTO_GALAT += ' | imgbb: ' + eImg.message; }
+      return '';
+    }
   } catch (e) { GM_FOTO_GALAT = e.message; Logger.log('foto grup: ' + e.message); return ''; }
 }
 
