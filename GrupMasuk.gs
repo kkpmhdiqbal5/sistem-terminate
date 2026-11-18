@@ -251,7 +251,7 @@ function gmTerima_(m) {
   const items = bolehT ? gmParse_(teks) : []; items.forEach(it => { it.tanggal = m.tanggal || tmIso_(new Date()); });   // tanggal = saat laporan dikirim ke grup
   if (items.length) hasil.push('terminate: ' + gmRingkas_(gmKunci(() => gmProses_(items, items.length === 1 ? isiFoto : ''))));
   hasil = hasil.filter(Boolean);
-  ccHookLog_(m.grup, ringkas, hasil.length ? 'laporan grup -> ' + hasil.join(' | ') : 'grup: bukan format laporan, diabaikan');
+  if (hasil.length) ccHookLog_(m.grup, ringkas, 'laporan grup -> ' + hasil.join(' | '));
 }
 // baca file .kmz / .kml (daftar ODP) dari URL lalu perbarui sheet ODP
 function gmKmz_(url, nama) {
@@ -497,13 +497,15 @@ function gmPrTerima_(m) {
     if (jawab) {                                                    // balasan atas pertanyaan konfirmasi ODP dari orang yang sama
       hasil = gmPrKonfirmasi_(tanya, teks, pengirim); return;
     }
-    const tanpaNama = milik.filter(r => r.STATUS === 'TANYA' && !r.CID && !String(r.NAMA || '').trim()).pop();                 // sudah masuk Baris 1 tanpa nama: nama/CID susulan melengkapi
-    const teksPolos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks) && teks.split(/\n+/)[0].length <= 60;
+    const tanpaNama = milik.filter(r => r.STATUS === 'TANYA' && !r.CID && !String(r.NAMA || '').trim() && r.WAKTU.getTime() >= Date.now() - 10 * 60000).pop();                 // sudah masuk Baris 1 tanpa nama: nama/CID susulan melengkapi
+    const baris1 = teks.split(/\n+/)[0].trim();
+    const mirip = /^[A-Za-z.' ]{2,40}$/.test(baris1) && baris1.split(/\s+/).length <= 4 && !/\b(ya|yg|yang|nya|siapa|apa|kok|mau|sudah|udah|saudah|sdh|oke|ok|siap|thanks|makasih|terima|kasih|iya|gak|ga|tidak|bisa|dong|loy|bang|kak|min|admin|pak|bu|tolong|mohon|info|core|ion)\b/i.test(baris1);   // mirip nama orang, bukan obrolan
+    const teksPolos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks) && baris1.length <= 60;
     const ketPolos = teksPolos && /(rumah|warna|depan|samping|belakang|sebelah|dekat|gang|jalan|\bjl\b|\bgg\b|pagar|toko|warung|\bcat\b)/i.test(teks);     // ciri rumah = keterangan, bukan nama
     let row = (lok && baru && gmPrLok_(baru)) ? null                                         // pin kedua sebelum data pertama selesai: data baru, bukan menimpa
-      : baru || (tanpaNama && !lok && (nm || cidM || (teksPolos && !ketPolos)) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
+      : baru || (tanpaNama && !lok && (nm || cidM || (teksPolos && mirip && !ketPolos)) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
     const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
-    if (polos && !ketPolos && !(row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }
+    if (polos && !ketPolos && !(mirip && row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }
     if (ketPolos && !row) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
     if (!row) {
       row = { ID: Utilities.getUuid().substring(0, 8).toUpperCase(), WAKTU: new Date(), GRUP: m.grup, PENGIRIM: pengirim, MEMBER: member, NAMA: '', CID: '', KOORDINAT: '', LINKMAPS: '', FOTO: '', KET: '', ODPTERDEKAT: '', JARAKM: '', ODPDATA: '', STATUS: 'BARU' };
@@ -521,7 +523,7 @@ function gmPrTerima_(m) {
     if (ketPolos) { isi.KET = ((row.KET ? row.KET + ' | ' : '') + teks.replace(/\s+/g, ' ')).slice(0, 300); }
     else if (polos) {                                                    // teks polos setelah pin = nama klien (baris pertama), sisanya keterangan
       const bar = teks.split(/\n+/).map(x => x.trim()).filter(Boolean);
-      if (bar[0].length <= 60) { isi.NAMA = bar[0]; if (bar.length > 1) isi.KET = bar.slice(1).join(' ').slice(0, 300); }
+      if (mirip && bar[0].length <= 60) { isi.NAMA = bar[0]; if (bar.length > 1) isi.KET = bar.slice(1).join(' ').slice(0, 300); }
     }
     if (m.kunci) { try { const kk = JSON.parse(m.kunci), lama = (() => { try { return JSON.parse(row.KUNCI || '[]'); } catch (e) { return []; } })(); if (kk && kk.id && !lama.some(x => x.id === kk.id)) { lama.push({ remoteJid: kk.remoteJid, id: kk.id, participant: kk.participant, fromMe: !!kk.fromMe }); isi.KUNCI = JSON.stringify(lama.slice(-8)); } } catch (e) { /* kunci tidak terbaca */ } }   // untuk reaksi 👍 nanti
     Object.assign(row, isi);
@@ -546,7 +548,7 @@ function gmPrTerima_(m) {
       hasil = 'masuk Baris 1: ' + namaF + ' / ODP ' + (odp || '-') + ' (' + catatan + '); ' + kirim;
     } else hasil = 'dicatat dari ' + pengirim + ' (' + [gmPrLok_(row) ? 'lokasi' : '', row.NAMA || row.CID ? 'nama/CID' : '', row.FOTO ? 'foto' : ''].filter(Boolean).join(', ') + '), menunggu pasangan datanya';
   });
-  ccHookLog_(m.grup, teks.slice(0, 80) || (lok ? '[lokasi]' : foto ? '[foto]' : ''), 'grup PR -> ' + hasil);
+  if (!/^obrolan biasa/.test(hasil)) ccHookLog_(m.grup, teks.slice(0, 80) || (lok ? '[lokasi]' : foto ? '[foto]' : ''), 'grup PR -> ' + hasil);
 }
 
 // kirim WhatsApp lewat gateway sendiri (gratis). Isi Properti Skrip: GATEWAY_URL (https://xxx.up.railway.app) dan GATEWAY_KEY (= KIRIM_KEY di Railway)
