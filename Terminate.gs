@@ -638,10 +638,10 @@ function tmSimpan_(d, au) {
       rec.SN = tmCleanCode_(s('sn')); rec.PSN = tmCleanCode_(s('psn'));
       if (!rec.SN || !rec.PSN) return tmErr_('SN dan P-SN wajib diisi keduanya.');
 
-      // perangkat yang sama (SN / P-SN) untuk client yang sama (CID kosong/sama) = data yang sama -> diperbarui; CID beda = client lain (perangkat dipakai ulang) -> baris baru
-      ada = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' &&
-        (tmNorm_(r.SN) === tmNorm_(rec.SN) || tmNorm_(r.PSN) === tmNorm_(rec.PSN)) &&
-        (!rec.CID || !tmNorm_(r.CID) || tmNorm_(r.CID) === tmNorm_(rec.CID)))[0] || null;
+      // CID sama = client yang sama -> data diperbarui (SN / P-SN boleh berbeda, mis. modem diganti), bukan baris baru.
+      // CID kosong: dicocokkan lewat SN / P-SN.
+      const logT = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE');
+      ada = (rec.CID ? logT.filter(r => tmNorm_(r.CID) === tmNorm_(rec.CID)) : logT.filter(r => tmNorm_(r.SN) === tmNorm_(rec.SN) || tmNorm_(r.PSN) === tmNorm_(rec.PSN)))[0] || null;
 
       const cari = tmLookup_(rec.SN, rec.PSN);
       if (cari.found) {
@@ -653,6 +653,7 @@ function tmSimpan_(d, au) {
       } else {
         rec.VERIF = 'TIDAK DITEMUKAN';
       }
+      if (!ada && rec.CID) ada = logT.filter(r => tmNorm_(r.CID) === tmNorm_(rec.CID))[0] || null;   // CID baru diketahui dari pencarian SN
       rec.KET = rec.KET || TM.KET.TERMINATE;
       rec.STATUS = 'TERMINATE';
       rec.FOTO = tmSimpanFoto_(d.foto, 'TERMINATE_' + rec.SN);
@@ -1377,6 +1378,7 @@ function tmTandaiDiambil_(recs) {
     if (baris > 0) {
       sh.getRange(baris, cAdm).setValue(rec.ADMIN);
       sh.getRange(baris, cFoto).setValue(rec.FOTO);
+      const iPsn = canon.indexOf('PSN'); if (iSn >= 0 && rec.SN) sh.getRange(baris, iSn + 1).setValue(rec.SN); if (iPsn >= 0 && rec.PSN) sh.getRange(baris, iPsn + 1).setValue(rec.PSN);   // perangkat berbeda, CID sama: SN diperbarui
     } else {
       tmAppendObj_(sh, { NAMA: rec.NAMA, CID: rec.CID, ODP: rec.ODP, POP: rec.POP, SN: rec.SN, PSN: rec.PSN,
                          TANGGAL: tmTglIndo_(tmIso_(rec.WAKTU)), ADMIN: rec.ADMIN, FOTO: rec.FOTO });
