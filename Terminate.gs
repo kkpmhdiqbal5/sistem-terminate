@@ -1459,9 +1459,10 @@ function tmLepasDiambil_(recs, au) {
 // Daftar perangkat yang MASIH HARUS diambil (sheet Baris 1 & Baris 2) untuk halaman teknisi: dicari & dikelompokkan per POP > ODP di sisi web.
 function tmAmbil_() {
   const out = [];
-  [TM.SH.B1, TM.SH.B2].forEach(nm => {
+  [TM.SH.B1].forEach(nm => {                                   // Baris 2 = sudah diverifikasi / diambil: bukan tugas lagi
     tmRead_(nm).forEach(r => {
-      if (!(r.NAMA || r.CID || r.SN || r.ODP)) return;
+      if (!(r.NAMA || r.CID || r.SN || r.ODP || r.KOORDINAT)) return;
+      if (Object.keys(r).some(k => /^VERIF\d*AMBIL$/.test(k) && String(r[k]).trim())) return;   // sudah ditandai diambil (verif / reaksi WA)
       const m = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/.exec(String(r.KOORDINAT || ''));
       out.push({ sheet: nm, nama: String(r.NAMA || '').trim(), cid: String(r.CID || '').trim(), sn: String(r.SN || '').trim(), psn: String(r.PSN || '').trim(),
         odp: String(r.ODP || '').trim().toUpperCase(), pop: tmPopKode_(r.POP) || (m && typeof gmPopTerdekat_ === 'function' && (gmPopTerdekat_(+m[1], +m[2]) || {}).pop) || tmPop_(r.POP) || tmPop_(r.ODP) || '', ket: String(r.KET || '').trim(), foto: String(r.FOTORUMAH || '').trim(),
