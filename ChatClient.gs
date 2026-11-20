@@ -254,8 +254,8 @@ function ccKirimLaporan_(d, au) {
   if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
   const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 20);
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
-  const pakai = Number(PropertiesService.getScriptProperties().getProperty('LAP_' + tmIso_(new Date()))) || 0, sisaLap = Math.max(0, CC.MAX_LAPORAN_HARI - pakai);
-  if (teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + CC.MAX_LAPORAN_HARI + ' pesan laporan per hari (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Kurangi data / tujuan, atau lanjutkan besok.');
+  const pakai = Number(PropertiesService.getScriptProperties().getProperty('LAP_' + tmIso_(new Date()))) || 0, maks = Number(ccProp_('LAP_MAKS')) >= 0 && ccProp_('LAP_MAKS') !== '' ? Number(ccProp_('LAP_MAKS')) : CC.MAX_LAPORAN_HARI, sisaLap = Math.max(0, maks - pakai), bebas = maks === 0 || String(d.jalur) === 'GATEWAY';   // jalur gateway sendiri & LAP_MAKS=0: tanpa batas harian
+  if (!bebas && teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + maks + ' pesan laporan per hari lewat Fonnte (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Pilih jalur WA Gateway (tanpa batas), kurangi data / tujuan, atau lanjutkan besok.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
   CC_JALUR = /^(GATEWAY|AUTO)$/.test(String(d.jalur)) ? String(d.jalur) : '';        // GATEWAY/AUTO hanya bila diminta halaman; selain itu Fonnte
