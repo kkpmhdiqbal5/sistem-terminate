@@ -493,7 +493,7 @@ function gmPrTerima_(m) {
     const batas = Date.now() - GM_PR_MENIT * 60000;
     const milik = tmRead_(GM_SH_PR).filter(r => r.GRUP === m.grup && String(r.MEMBER).split('@')[0] === member && r.WAKTU instanceof Date && r.WAKTU.getTime() >= batas);
     const tanya = milik.filter(r => r.STATUS === 'TANYA').pop(), baru = milik.filter(r => r.STATUS === 'BARU').pop();
-    const jawab = tanya && (tanya.NAMA || tanya.CID) && !lok && !foto && !nm && !cidM && teks.length > 0 && teks.length <= 80;   // data tanpa nama belum ditanya ODP: teks pendek = nama
+    const jawab = tanya && (tanya.NAMA || tanya.CID) && !lok && !foto && !nm && !cidM && teks.length > 0 && teks.length <= 80 && (/^(ya|iya|y|ok|oke|benar|betul|sesuai)\b/i.test(teks) || /\d/.test(teks));   // data tanpa nama belum ditanya ODP: teks pendek = nama
     if (jawab) {                                                    // balasan atas pertanyaan konfirmasi ODP dari orang yang sama
       hasil = gmPrKonfirmasi_(tanya, teks, pengirim); return;
     }
