@@ -508,6 +508,7 @@ function gmPrTerima_(m) {
     })()).pop() : null;
     let row = serumpun ? serumpun : (lok && baru && gmPrLok_(baru)) ? null                                         // pin kedua sebelum data pertama selesai: data baru, bukan menimpa
       : baru || (tanpaNama && !lok && (nm || cidM || (teksPolos && mirip && !ketPolos)) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
+    if (foto && row && row.FOTO && !lok && !nm && !cidM) row = null;      // data sebelumnya sudah punya foto: foto baru = awal data berikutnya (urutan kiriman: foto, pin, nama)
     const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
     if (polos && !ketPolos && !(mirip && row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }
     if (ketPolos && !row) { hasil = 'obrolan biasa, diabaikan'; return; }   // jangan buat baris dari obrolan
