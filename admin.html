@@ -135,6 +135,7 @@
         </div>
         <div class="modal-footer" style="border-top: 1px solid #2a385b;">
           <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-outline-light btn-sm fw-bold" onclick="pindahTanpaVerif()">📦 Sudah diambil (tanpa verif)</button>
           <button type="button" class="btn btn-warning text-dark btn-sm fw-bold" id="btnVerifModalAction" onclick="prosesModalVerif()">✔ Cocokkan & Pindah</button>
         </div>
       </div>
@@ -301,6 +302,16 @@
       const r = globalDataList[i];
       if (!confirm("Tandai SUDAH DIAMBIL tanpa verifikasi?\n" + (r.nama_lama || "") + " (CID " + r.cid_lama + ")\nTidak perlu laporan tim / bukti chat. Tercatat atas nama Anda.")) return;
       apiTm("terminateVerifAmbil", { cid: r.cid_lama, tanpa: true }).then(x => { if (x.status !== "success") alert(x.message); muatVerif(); });
+    }
+    function pindahTanpaVerif() {
+      const row = globalDataList[currentVerifIndex]; if (!row) return;
+      const cid = String(row.cid_lama || "").replace(/\D/g, "");
+      if (!confirm("Pindahkan ke Baris 2 TANPA verifikasi SN/CID?\n" + (row.nama_lama || row.cid_lama) + "\nPerangkat ditandai sudah diambil.")) return;
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "mutasiData", dariSheet: "Baris 1", keSheet: "Baris 2", kriteria: cid ? "CID" : "NAMA", teksCid: cid || String(row.nama_lama || "") }) })
+        .then(r => r.json()).then(res => {
+          if (res.status === "success") { if (cid) apiTm("terminateVerifAmbil", { cid: cid, tanpa: true }).catch(() => {}); alert("✅ " + res.message); modalVerifInstance.hide(); fetchData(); }
+          else alert("❌ " + res.message);
+        }).catch(() => alert("Gagal memindahkan: masalah koneksi."));
     }
     function bukaModalVerif(index) {
       currentVerifIndex = index;
