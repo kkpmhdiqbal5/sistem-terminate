@@ -247,7 +247,7 @@
           <td>${row.pop || "-"}</td>
           <td class="text-info fw-bold">${row.odp || "-"}</td>
           <td>${row.cid_lama || "-"}</td>
-          <td class="fw-bold">${row.nama_lama || "-"}</td>
+          <td class="fw-bold">${row.nama_lama || '<span class="text-warning">(nama belum dikirim)</span>'}</td>
           <td class="text-success fw-bold">${row.sn || "-"}</td>
           <td>${row.psn || "-"}</td>
           <td>${linkRumah}</td>
@@ -306,8 +306,8 @@
     function pindahTanpaVerif() {
       const row = globalDataList[currentVerifIndex]; if (!row) return;
       const cid = String(row.cid_lama || "").replace(/\D/g, "");
-      if (!confirm("Pindahkan ke Baris 2 TANPA verifikasi SN/CID?\n" + (row.nama_lama || row.cid_lama) + "\nPerangkat ditandai sudah diambil.")) return;
-      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "mutasiData", dariSheet: "Baris 1", keSheet: "Baris 2", kriteria: cid ? "CID" : "NAMA", teksCid: cid || String(row.nama_lama || "") }) })
+      if (!confirm("Pindahkan ke Baris 2 TANPA verifikasi SN/CID?\n" + (row.nama_lama || row.cid_lama || row.sherlock) + "\nPerangkat ditandai sudah diambil.")) return;
+      fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "mutasiData", dariSheet: "Baris 1", keSheet: "Baris 2", kriteria: cid ? "CID" : (row.nama_lama ? "NAMA" : "KOORDINAT"), teksCid: cid || String(row.nama_lama || row.sherlock || "") }) })
         .then(r => r.json()).then(res => {
           if (res.status === "success") { if (cid) apiTm("terminateVerifAmbil", { cid: cid, tanpa: true }).catch(() => {}); alert("✅ " + res.message); modalVerifInstance.hide(); fetchData(); }
           else alert("❌ " + res.message);

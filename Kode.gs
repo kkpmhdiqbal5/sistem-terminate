@@ -614,7 +614,7 @@ function parseSheetDataDinamis(sheet, labelFilter) {
     item.ts = getVal(["TS", "NAMA TS", "TEKNISI"]);
     item.sales = getVal(["SALES", "DS"]);
 
-    if (item.cid_lama || item.nama_lama) result.push(item);
+    if (item.cid_lama || item.nama_lama || (labelFilter === "BARIS 1" && (item.sherlock || item.foto_rumah_url))) result.push(item);   // data PR grup tanpa nama tetap tampil
   }
   return result;
 }
