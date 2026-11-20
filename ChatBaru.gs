@@ -222,9 +222,9 @@ function ccVerifBerhenti_(d, au) {
 function ccVerifAmbil_(d, au) {
   const cid = tmCidDigit_(d.cid); if (!cid) return tmErr_('CID kosong.');
   const a = tmRead_(TM.SH.LOG).filter(r => r.JENIS === 'TERMINATE' && tmCidDigit_(r.CID) === cid).pop();
-  if (!a) return tmErr_('Belum ada laporan pengambilan dari tim terminate untuk CID ini.');
-  ccVerifSet_(cid, 'VERIFAMBIL', ccJejakVerif_(au));
-  return { status: 'success', message: 'Tahap 2 terverifikasi.' };
+  if (!a && !d.tanpa) return tmErr_('Belum ada laporan pengambilan dari tim terminate untuk CID ini.');
+  ccVerifSet_(cid, 'VERIFAMBIL', (d.tanpa ? 'TANPA VERIF | ' : '') + ccJejakVerif_(au));
+  return { status: 'success', message: d.tanpa ? 'Ditandai sudah diambil (tanpa verifikasi).' : 'Tahap 2 terverifikasi.' };
 }
 
 /* ---------- daftar tujuan WhatsApp bernama (dipakai semua akun) ---------- */

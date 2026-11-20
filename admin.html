@@ -283,7 +283,7 @@
         const v = verifInfo[String(r.cid_lama || "").replace(/\D/g, "")] || {}, e1 = document.getElementById("v1-" + i), e2 = document.getElementById("v2-" + i);
         if (!e1 || !e2) return;
         e1.innerHTML = v.v1 ? `<span class="text-success">✔ ${v.v1}</span>` : (v.chat ? `<button class="btn btn-outline-info btn-sm py-0" onclick="verifTahap1(${i})">Verif berhenti</button>` : "-");
-        e2.innerHTML = v.v2 ? `<span class="text-success">✔ ${v.v2}</span>` : (v.ambil ? `<button class="btn btn-outline-warning btn-sm py-0" onclick="verifTahap2(${i})">Verif ambil</button>` : `<span class="text-secondary">belum dilaporkan</span>`);
+        e2.innerHTML = v.v2 ? `<span class="text-success">✔ ${v.v2}</span>` : (v.ambil ? `<button class="btn btn-outline-warning btn-sm py-0" onclick="verifTahap2(${i})">Verif ambil</button>` : `<span class="text-secondary">belum dilaporkan</span>`) + ` <button class="btn btn-outline-secondary btn-sm py-0" onclick="verifTanpa(${i})">Sudah diambil (tanpa verif)</button>`;
       });
     }
     function verifTahap1(i) {
@@ -296,6 +296,11 @@
       const r = globalDataList[i], v = verifInfo[String(r.cid_lama).replace(/\D/g, "")] || {}, a = v.ambil || {};
       if (!confirm("TAHAP 2 - Verifikasi hasil pengambilan\n" + (r.nama_lama || "") + " (CID " + r.cid_lama + ")\nDiambil oleh: " + (a.oleh || "-") + " pada " + (a.waktu || "-") + "\nSN: " + (a.sn || "-") + " | P-SN: " + (a.psn || "-") + "\nFoto alat: " + (a.foto || "-") + "\n\nOK = hasil pengambilan benar.")) return;
       apiTm("terminateVerifAmbil", { cid: r.cid_lama }).then(x => { if (x.status !== "success") alert(x.message); muatVerif(); });
+    }
+    function verifTanpa(i) {
+      const r = globalDataList[i];
+      if (!confirm("Tandai SUDAH DIAMBIL tanpa verifikasi?\n" + (r.nama_lama || "") + " (CID " + r.cid_lama + ")\nTidak perlu laporan tim / bukti chat. Tercatat atas nama Anda.")) return;
+      apiTm("terminateVerifAmbil", { cid: r.cid_lama, tanpa: true }).then(x => { if (x.status !== "success") alert(x.message); muatVerif(); });
     }
     function bukaModalVerif(index) {
       currentVerifIndex = index;
