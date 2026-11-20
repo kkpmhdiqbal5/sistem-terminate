@@ -677,6 +677,7 @@ function waHookRoute_(e) {
       cache.put(kunci, '1', 900);
       if (tugasHook === 'PR' || tugasHook === 'LAPORAN') {            // webhook khusus: semua pesan lewat webhook ini ditangani satu tugas saja
         rel(); const mk = { grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension') || g('tipe'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname'), kunci: g('kunci') };
+        if (tugasHook === 'PR' && g('reaksi_id')) { const h = gmPrReaksiMasuk_(g('reaksi_id'), g('reaksi'), sender); ccHookLog_(sender, 'reaksi ' + g('reaksi'), 'grup PR -> ' + h); return out({ status: 'ok', reaksi: true }); }
         if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
         ccHookLog_(sender, 'webhook tugas ' + tugasHook + (g('galat') ? ' - ' + g('galat') : ''), 'selesai'); return out({ status: 'ok', tugas: tugasHook });
       }

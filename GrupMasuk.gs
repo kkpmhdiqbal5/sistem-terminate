@@ -502,7 +502,11 @@ function gmPrTerima_(m) {
     const mirip = /^[A-Za-z.' ]{2,40}$/.test(baris1) && baris1.split(/\s+/).length <= 4 && !/\b(ya|yg|yang|nya|siapa|apa|kok|mau|sudah|udah|saudah|sdh|oke|ok|siap|thanks|makasih|terima|kasih|iya|gak|ga|tidak|bisa|dong|loy|bang|kak|min|admin|pak|bu|tolong|mohon|info|core|ion)\b/i.test(baris1);   // mirip nama orang, bukan obrolan
     const teksPolos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks) && baris1.length <= 60;
     const ketPolos = teksPolos && /(rumah|warna|depan|samping|belakang|sebelah|dekat|gang|jalan|\bjl\b|\bgg\b|pagar|toko|warung|\bcat\b)/i.test(teks);     // ciri rumah = keterangan, bukan nama
-    let row = (lok && baru && gmPrLok_(baru)) ? null                                         // pin kedua sebelum data pertama selesai: data baru, bukan menimpa
+    const serumpun = lok ? tmRead_(GM_SH_PR).filter(r => r.GRUP === m.grup && r.WAKTU instanceof Date && r.WAKTU.getTime() >= Date.now() - 10 * 60000 && (r.STATUS === 'BARU' || r.STATUS === 'TANYA') && (() => {
+      const l = gmPrLok_(r); if (l) return gmJarak_(l.lat, l.lng, lok.lat, lok.lng) <= 150;                  // pin "bagikan lokasi" untuk rumah yang sama (tikor di teks) = satu data
+      return String(r.MEMBER).split('@')[0] === member || r.WAKTU.getTime() >= Date.now() - 3 * 60000;     // teks+foto lalu pin dari orang lain (diteruskan) dalam 3 menit
+    })()).pop() : null;
+    let row = serumpun ? serumpun : (lok && baru && gmPrLok_(baru)) ? null                                         // pin kedua sebelum data pertama selesai: data baru, bukan menimpa
       : baru || (tanpaNama && !lok && (nm || cidM || (teksPolos && mirip && !ketPolos)) ? tanpaNama : (milik.length && !lok && !nm && !cidM ? milik[milik.length - 1] : null));       // foto susulan: ke data terakhir orang yang sama
     const polos = !lok && !foto && !nm && !cidM && teks && !/^non-text/i.test(teks);              // obrolan biasa tanpa pin/foto/nama/CID
     if (polos && !ketPolos && !(mirip && row && !row.NAMA && !row.CID)) { hasil = 'obrolan biasa, diabaikan'; return; }
@@ -512,7 +516,8 @@ function gmPrTerima_(m) {
       tmAppendObj_(tmSheetEnsure_(GM_SH_PR, GM_PR_KOLOM), row);
     }
     const isi = {};
-    if (lok && !gmPrLok_(row)) {
+    const koordLama = String(row.KOORDINAT || '').trim();
+    if (lok && (!gmPrLok_(row) || (m.lokasi && koordLama !== lok.lat + ',' + lok.lng))) {      // pin asli (Sherlock) menggantikan tikor dari teks
       isi.KOORDINAT = lok.lat + ',' + lok.lng; isi.LINKMAPS = 'https://maps.google.com/?q=' + lok.lat + ',' + lok.lng;
       try { const t0 = gmOdpTerdekat_(lok.lat, lok.lng); if (t0) { isi.ODPTERDEKAT = t0.odp; isi.JARAKM = Math.round(t0.j); } } catch (e) { /* ODP diisi nanti */ }   // ODP terdekat langsung saat pin masuk
     }
@@ -528,6 +533,7 @@ function gmPrTerima_(m) {
     if (m.kunci) { try { const kk = JSON.parse(m.kunci), lama = (() => { try { return JSON.parse(row.KUNCI || '[]'); } catch (e) { return []; } })(); if (kk && kk.id && !lama.some(x => x.id === kk.id)) { lama.push({ remoteJid: kk.remoteJid, id: kk.id, participant: kk.participant, fromMe: !!kk.fromMe }); isi.KUNCI = JSON.stringify(lama.slice(-8)); } } catch (e) { /* kunci tidak terbaca */ } }   // untuk reaksi 👍 nanti
     Object.assign(row, isi);
     if (Object.keys(isi).length) tmUpdateRows_(GM_SH_PR, r => r.ID === row.ID, isi);
+    if (isi.KOORDINAT && koordLama && row.STATUS !== 'BARU') tmUpdateRows_(TM.SH.B1, r => String(r.KOORDINAT).trim() === koordLama, { KOORDINAT: isi.KOORDINAT, LINKMAPS: isi.LINKMAPS });
     const koordB1 = r => !!row.KOORDINAT && String(r.KOORDINAT).trim() === String(row.KOORDINAT).trim() && tmNorm_(r.NAMATS) === tmNorm_(row.PENGIRIM);
     if (fotoDrive && row.STATUS !== 'BARU') tmUpdateRows_(TM.SH.B1, r => koordB1(r) || (tmNorm_(r.NAMA) === tmNorm_(row.NAMA) && tmNorm_(r.NAMATS) === tmNorm_(row.PENGIRIM)), { FOTORUMAH: fotoDrive });
     if (row.STATUS !== 'BARU' && (isi.NAMA || isi.CID)) {                                       // nama / CID menyusul setelah pin + foto: lengkapi Baris 1 & PR GRUP
@@ -617,4 +623,18 @@ function gmPrPerbarui_() {
   });
   return { status: 'success', total: rows.length, lengkap: lengkap, reaksi: reaksi, perGrup: perGrup,
     message: rows.length + ' baris diperiksa, ' + lengkap + ' lengkap & sesuai, ' + reaksi + ' diberi 👍 (sudah diverif).' };
+}
+
+// reaksi (emoji) yang dipasang orang langsung di WhatsApp pada pesan data = data itu sudah diambil
+function gmPrReaksiMasuk_(idPesan, emoji, grup) {
+  if (!idPesan || !emoji) return 'reaksi dicabut / kosong, diabaikan';
+  const r = tmRead_(GM_SH_PR).filter(x => (!grup || x.GRUP === grup) && String(x.KUNCI || '').indexOf('"' + idPesan + '"') >= 0).pop();
+  if (!r) return 'reaksi pada pesan yang bukan data PR, diabaikan';
+  return gmKunci(() => {
+    tmUpdateRows_(GM_SH_PR, x => x.ID === r.ID, { STATUS: 'DIAMBIL', REAKSI: 'YA', CATATAN: 'DIAMBIL (reaksi ' + emoji + ' di WhatsApp)' });
+    const c = tmCidDigit_(r.CID), n = tmNorm_(r.NAMA), kk = String(r.KOORDINAT || '').trim();
+    try { const X = tmBacaCid_(TM.SH.B1), col = tmColByLabel_(X.sh, 'VERIF AMBIL'); if (c) X.list.filter(x => x.cid === c).forEach(x => X.sh.getRange(x.row, col).setValue('reaksi WA')); } catch (e) { Logger.log('reaksi B1: ' + e.message); }
+    tmUpdateRows_(TM.SH.B1, x => (kk && String(x.KOORDINAT).trim() === kk) || (n && tmNorm_(x.NAMA) === n), { VERIFAMBIL: 'reaksi WA' });
+    return 'ditandai sudah diambil (reaksi ' + emoji + '): ' + (r.NAMA || r.CID || r.ID);
+  });
 }
