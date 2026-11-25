@@ -293,7 +293,7 @@ function ccTopeng_(t) { t = String(t || ''); return t ? '••••' + t.slice
 /* ---------- Satu pintu ke penyedia AI: GEMINI (gratis), OPENAI (Groq / OpenRouter / Grok xAI / dll), CLAUDE ---------- */
 const CC_PENYEDIA = { GEMINI: { model: 'gemini-3.5-flash-lite' }, OPENAI: { model: '', url: 'https://api.groq.com/openai/v1' }, CLAUDE: { model: CC.MODEL } };
 // msgs: [{role:'user'|'assistant', content}] -> {t: teks} atau {err}. img (opsional): {mime, b64} dilampirkan ke pesan terakhir
-function ccLlm_(ea, sistem, msgs, maxTok, img) {
+function ccLlm1_(ea, sistem, msgs, maxTok, img) {
   const p = String(ea.penyedia || 'CLAUDE').toUpperCase(), model = ea.model || (CC_PENYEDIA[p] || {}).model || '';
   const kirim = (url, headers, body) => {
     let res, j = {};
@@ -325,6 +325,19 @@ function ccLlm_(ea, sistem, msgs, maxTok, img) {
     if (r.kode !== 200 || !t) return { err: 'AI menolak (HTTP ' + r.kode + ')' + (r.j.error && (r.j.error.message || r.j.error) ? ': ' + String(r.j.error.message || r.j.error).slice(0, 120) : '') + '. Cek key / nama model / batas gratis.' };
     return { t: String(t) };
   } catch (x) { return { err: 'AI gagal: ' + x.message }; }
+}
+// alih otomatis: bila API AI terpilih kena limit/gagal, coba API AI lain yang tersimpan (urut daftar); yang gagal diistirahatkan 3 menit
+function ccLlm_(ea, sistem, msgs, maxTok, img) {
+  const ch = CacheService.getScriptCache(), id = e => 'aiLimit_' + (e.id || String(e.token).slice(-6));
+  const lain = ccApiList_().concat(ccApiLama_()).filter(x => x.jenis === 'AI' && x.token && x.id !== ea.id);
+  let urut = [ea].concat(lain); const sehat = urut.filter(x => !ch.get(id(x))); if (sehat.length) urut = sehat;
+  let L = { err: 'Tidak ada API AI' };
+  for (let i = 0; i < urut.length; i++) {
+    L = ccLlm1_(urut[i], sistem, msgs, maxTok, img);
+    if (!L.err) return L;
+    try { ch.put(id(urut[i]), '1', 180); } catch (x) { /* abaikan */ }
+  }
+  return L;
 }
 function ccApiBaca_() {
   const baris = e => ({ id: e.id, nama: e.nama, jenis: e.jenis, ada: !!e.token, tampil: ccTopeng_(e.token), chat: e.chat || '', tujuan: e.tujuan || {}, model: e.model || '', penyedia: e.penyedia || '', url: e.url || '', fungsi: e.fungsi || [], lama: !!e.lama });
@@ -419,7 +432,7 @@ function ccApiTes_(d, au) {
     const r = ccTgKirimE_(e, 'Tes Telegram "' + e.nama + '" dari Sistem Lapangan oleh ' + au.user + ' ✅');
     return r.ok ? { status: 'success', message: 'Pesan tes Telegram terkirim.' } : tmErr_('Gagal: ' + r.msg);
   }
-  const r = ccLlm_(e, 'Balas singkat.', [{ role: 'user', content: 'Balas: OK' }], 20);
+  const r = ccLlm1_(e, 'Balas singkat.', [{ role: 'user', content: 'Balas: OK' }], 20);
   return r.err ? tmErr_(r.err) : { status: 'success', message: 'API key AI valid.' };
 }
 
