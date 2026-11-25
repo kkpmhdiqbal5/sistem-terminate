@@ -645,13 +645,24 @@ function gmPrPerbarui_() {
 // reaksi (emoji) yang dipasang orang langsung di WhatsApp pada pesan data = data itu sudah diambil
 function gmPrReaksiMasuk_(idPesan, emoji, grup) {
   if (!idPesan || !emoji) return 'reaksi dicabut / kosong, diabaikan';
+  if (!/^(\uD83D\uDC4D|\u2705|\u2714|\u2611)/.test(String(emoji))) return 'reaksi ' + emoji + ' bukan tanda diambil (hanya \uD83D\uDC4D / \u2705), diabaikan';
   const r = tmRead_(GM_SH_PR).filter(x => (!grup || x.GRUP === grup) && String(x.KUNCI || '').indexOf('"' + idPesan + '"') >= 0).pop();
   if (!r) return 'reaksi pada pesan yang bukan data PR, diabaikan';
   return gmKunci(() => {
-    tmUpdateRows_(GM_SH_PR, x => x.ID === r.ID, { STATUS: 'DIAMBIL', REAKSI: 'YA', CATATAN: 'DIAMBIL (reaksi ' + emoji + ' di WhatsApp)' });
+    tmUpdateRows_(GM_SH_PR, x => x.ID === r.ID, { STATUS: 'DIAMBIL', REAKSI: 'YA', CATATAN: 'DIAMBIL (reaksi ' + emoji + ' di WhatsApp) - dihapus dari Baris 1' });
     const c = tmCidDigit_(r.CID), n = tmNorm_(r.NAMA), kk = String(r.KOORDINAT || '').trim();
-    try { const X = tmBacaCid_(TM.SH.B1), col = tmColByLabel_(X.sh, 'VERIF AMBIL'); if (c) X.list.filter(x => x.cid === c).forEach(x => X.sh.getRange(x.row, col).setValue('reaksi WA')); } catch (e) { Logger.log('reaksi B1: ' + e.message); }
-    tmUpdateRows_(TM.SH.B1, x => (kk && String(x.KOORDINAT).trim() === kk) || (n && tmNorm_(x.NAMA) === n), { VERIFAMBIL: 'reaksi WA' });
-    return 'ditandai sudah diambil (reaksi ' + emoji + '): ' + (r.NAMA || r.CID || r.ID);
+    let hapus = 0;
+    try {                                                    // sudah ditandai diambil di WhatsApp -> hilang dari Baris 1 (cocok lewat CID, koordinat, atau nama)
+      const sh = tmSheet_(TM.SH.B1);
+      if (sh && sh.getLastRow() >= 2) {
+        const v = sh.getDataRange().getValues(), h = v[0].map(tmCanon_), iC = h.indexOf('CID'), iK = h.indexOf('KOORDINAT'), iN = h.indexOf('NAMA');
+        for (let k = v.length - 1; k >= 1; k--) {
+          const cocok = (c && iC >= 0 && tmCidDigit_(v[k][iC]) === c) || (kk && iK >= 0 && String(v[k][iK]).trim() === kk) || (n && iN >= 0 && tmNorm_(v[k][iN]) === n);
+          if (cocok) { sh.deleteRow(k + 1); hapus++; }
+        }
+      }
+    } catch (e) { Logger.log('reaksi hapus Baris 1: ' + e.message); }
+    try { if (c && typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(c, 'BERHENTI_DILAPOR'); } catch (e2) { /* abaikan */ }
+    return 'reaksi ' + emoji + ': ditandai diambil, ' + hapus + ' baris dihapus dari Baris 1 (' + (r.NAMA || r.CID || r.ID) + ')';
   });
 }
