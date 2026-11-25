@@ -166,7 +166,9 @@ function ccCidSet_(nama) {
   const set = {}; try { tmBacaCid_(nama).list.forEach(x => { set[x.cid] = true; }); } catch (e) {}
   return set;
 }
-function ccMenunggu_() {
+// superadmin (role ADMIN) melihat semua chat; sub admin hanya chat yang dikirim dari akunnya sendiri
+function ccMilikku_(r, au) { return !au || au.role === 'ADMIN' || tmSame_(r.DIKIRIMOLEH, au.user); }
+function ccMenunggu_(au) {
   const diambil = ccCidSet_(TM.SH.DIAMBIL);
   const chat = {}; tmRead_(CC.SH.CHAT).forEach(r => { const c = tmCidDigit_(r.CID); if (c) chat[c] = r; });   // baris terakhir menang
   const seen = {}, out = [];
@@ -179,8 +181,8 @@ function ccMenunggu_() {
       const c = chat[cid];
       out.push({ cid: cid, nama: String(r.NAMA || '').trim(), odp: String(r.ODP || '').trim(), pop: tmPop_(r.POP), paket: String(r.PAKET || '').trim(),
                  alamat: String(r.ALAMAT || '').trim(), maps: String(r.SHERLOCK || r.SHERLOK || '').trim(), hp: hp, hpAsli: String(r.NOHP || '').trim(),
-                 sumber: nm, foto: c ? String(c.FOTORUMAH || '') : (r.FOTORUMAH ? String(r.FOTORUMAH) : ''),
-                 chat: c ? { status: String(c.STATUS || ''), terakhir: String(c.PESANTERAKHIR || ''), waktu: tmWaktuTxt_(c.WAKTUBALAS) || tmWaktuTxt_(c.WAKTUKIRIM) } : null });
+                 sumber: nm, foto: c && ccMilikku_(c, au) ? String(c.FOTORUMAH || '') : (r.FOTORUMAH ? String(r.FOTORUMAH) : ''),
+                 chat: c ? (ccMilikku_(c, au) ? { status: String(c.STATUS || ''), terakhir: String(c.PESANTERAKHIR || ''), waktu: tmWaktuTxt_(c.WAKTUBALAS) || tmWaktuTxt_(c.WAKTUKIRIM), oleh: String(c.DIKIRIMOLEH || '') } : { status: 'DIPEGANG_ADMIN_LAIN', terakhir: '', waktu: '' }) : null });
     });
   });
   return { status: 'success', data: out, total: out.length };
@@ -613,15 +615,16 @@ function ccKirimClient2_(d, au) {
   return { status: 'success', terkirim: hasil.terkirim, dilewati: hasil.dilewati,
            message: 'Terkirim ' + hasil.terkirim + ' dari ' + items.length + ' client.' + (hasil.dilewati.length ? ' Dilewati ' + hasil.dilewati.length + '.' : '') };
 }
-function ccStatus_(d) {
+function ccStatus_(d, au) {
   if (d.cid || d.phone) {
     const c = tmCidDigit_(d.cid), ph = String(d.phone || '');
+    if (au && au.role !== 'ADMIN' && !tmRead_(CC.SH.CHAT).some(r => (c ? tmCidDigit_(r.CID) === c : String(r.PHONE) === ph) && ccMilikku_(r, au))) return tmErr_('Chat ini bukan milik Anda.');
     const rows = tmRead_(CC.SH.LOG).filter(r => c ? tmCidDigit_(r.CID) === c : String(r.PHONE) === ph).slice(-80).map(r => ({ waktu: tmWaktuTxt_(r.WAKTU), arah: String(r.ARAH), isi: String(r.ISI || '') }));
     return { status: 'success', riwayat: rows };
   }
   const kumpul = (nm, f) => { const o = {}; try { (f ? tmRead_(nm).filter(f) : tmRead_(nm)).forEach(r => { const c = tmCidDigit_(r.CID); if (c) o[c] = 1; }); } catch (e) { /* sheet belum ada */ } return o; };
   const b1 = kumpul(TM.SH.B1), dm = kumpul(TM.SH.DIAMBIL), lp = kumpul(TM.SH.LOG, r => r.JENIS === 'LANJUT');
-  const rows = tmRead_(CC.SH.CHAT).map(r => ({ phone: String(r.PHONE || ''), cid: tmCidDigit_(r.CID), nama: String(r.NAMA || ''), odp: String(r.ODP || ''), pop: String(r.POP || ''), status: String(r.STATUS || ''),
+  const rows = tmRead_(CC.SH.CHAT).filter(r => ccMilikku_(r, au)).map(r => ({ oleh: String(r.DIKIRIMOLEH || ''), phone: String(r.PHONE || ''), cid: tmCidDigit_(r.CID), nama: String(r.NAMA || ''), odp: String(r.ODP || ''), pop: String(r.POP || ''), status: String(r.STATUS || ''),
     kirim: tmWaktuTxt_(r.WAKTUKIRIM), balas: tmWaktuTxt_(r.WAKTUBALAS), terakhir: String(r.PESANTERAKHIR || ''), foto: String(r.FOTORUMAH || ''), sherlock: String(r.SHERLOCK || ''), bukti: String(r.FOTOBUKTI || ''), ingat: Number(r.JMLINGAT) || 0, baris1: b1[tmCidDigit_(r.CID)] ? 'ya' : '', diambil: !!dm[tmCidDigit_(r.CID)], lapor: !!lp[tmCidDigit_(r.CID)], ambil: String(r.AMBILALIH || '').toUpperCase() === 'YA', ts: r.WAKTUBALAS instanceof Date ? r.WAKTUBALAS.getTime() : (r.WAKTUKIRIM instanceof Date ? r.WAKTUKIRIM.getTime() : 0) }));
   rows.sort((a, b) => b.ts - a.ts);
   return { status: 'success', data: rows.slice(0, 400) };
@@ -909,10 +912,10 @@ function chatRoute_(d, au) {
   CC_GW_USER = au && au.user ? String(au.user) : '';
   switch (d.action) {
     case 'terminateChatKonfig': return ccKonfig_();
-    case 'terminateMenunggu': return ccMenunggu_();
+    case 'terminateMenunggu': return ccMenunggu_(au);
     case 'terminateKirimTeknisi': return ccKirimTeknisi_(d, au);
     case 'terminateChatKirim': return ccKirimClient_(d, au);
-    case 'terminateChatStatus': return ccStatus_(d);
+    case 'terminateChatStatus': return ccStatus_(d, au);
     case 'terminateChatUbah': return ccUbahStatus_(d, au);
     case 'terminateChatIngatkan': return ccIngatkan_(d, au);
     case 'terminateChatDiag': return ccDiag_();

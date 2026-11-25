@@ -39,7 +39,16 @@ function gwuBuat_(au) {
   } catch (e) { return tmErr_('Gagal membuat gateway: ' + e.message); }
 }
 // status untuk dashboard: MEMBUAT | MENUNGGU_SCAN (+qr) | TERHUBUNG | BELUM_ADA
+// superadmin: daftar gateway semua sub admin (tanpa kunci)
+function gwuSemua_() {
+  const p = PropertiesService.getScriptProperties().getProperties(), out = [];
+  Object.keys(p).filter(k => k.indexOf('GWU_') === 0).forEach(k => { try { const g = JSON.parse(p[k]); out.push({ admin: k.slice(4), status: g.status || 'MEMBUAT', dibuat: g.dibuat || '' }); } catch (e) { /* abaikan */ } });
+  return out;
+}
 function gwuStatus_(au) {
+  const r = gwuStatusSendiri_(au); if (au && au.role === 'ADMIN') r.semua = gwuSemua_(); return r;
+}
+function gwuStatusSendiri_(au) {
   const g = gwuBaca_(au && au.user);
   if (!g || !g.serviceId) return { status: 'success', state: 'BELUM_ADA', siap: !!(ccProp_('RAILWAY_TOKEN') && ccProp_('RAILWAY_PROJECT_ID') && ccProp_('RAILWAY_ENV_ID')) };
   if (!g.url) return { status: 'success', state: 'MEMBUAT' };
