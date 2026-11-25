@@ -1249,7 +1249,7 @@ function tmBersih_(d, au, tombol) {
   try {
     const F = tmBacaCid_(TM.SH.FULL), T = tmBacaCid_(TM.SH.TARGET), K = tmBacaCid_(TM.SH.KUNJUNGAN);
     if (!F.sh || !T.sh) return tmErr_('Sheet Full Data / target tidak ditemukan.');
-    let hapus, hapusK = {}, perlu = '';
+    let hapus, hapusK = {}, perlu = '', diambilCid = [];
     if (tombol === 1) {
       hapus = tmRencanaDobel_(F, T, K);
     } else {
@@ -1258,7 +1258,7 @@ function tmBersih_(d, au, tombol) {
       const n = Object.keys(sisa.F).length + Object.keys(sisa.T).length;
       if (n) return tmErr_('Masih ada ' + n + ' data dobel antara Full Data dan target. Jalankan tombol 1 dulu.');
       const D = tmBacaCid_(TM.SH.DIAMBIL);
-      const ambil = {}; D.list.forEach(x => { ambil[x.cid] = true; });
+      const ambil = {}; D.list.forEach(x => { ambil[x.cid] = true; }); diambilCid = Object.keys(ambil);
       hapus = { F: {}, T: {} };
       F.list.forEach(x => { if (ambil[x.cid]) hapus.F[x.row] = 'CID sudah ada di sudah diambil'; });
       T.list.forEach(x => { if (ambil[x.cid]) hapus.T[x.row] = 'CID sudah ada di sudah diambil'; });
@@ -1274,6 +1274,7 @@ function tmBersih_(d, au, tombol) {
     tmHapusBaris_(T, hapus.T, 'Tombol ' + tombol, au.user, logRows);
     if (K.sh && Object.keys(hapusK).length) tmHapusBaris_(K, hapusK, 'Tombol ' + tombol, au.user, logRows);
     tmBersihLog_(logRows);
+    try { if (typeof ccStatusChatCid_ === 'function') diambilCid.forEach(c => ccStatusChatCid_(c, 'BERHENTI_DILAPOR')); } catch (eC) { /* status Chat Client gagal: abaikan */ }   // status Chat Client ikut selaras
     return { status: 'success', dry: false, jumlah: jml, rinci: rinci, total: total, message: 'Selesai. Dihapus ' + total + ' baris (Full Data ' + jml['Full Data'] + ', target ' + jml.target + ', kunjungan ' + jml.kunjungan + ').' };
   } finally {
     lock.releaseLock();

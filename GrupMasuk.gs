@@ -129,6 +129,17 @@ function gmProses_(items, fotoUrl, opt) {
   items.forEach(x => {
     if (gmSisa_() < 1) { h.batas++; return; }
     const info = gmPopCari_(x);
+    if (x.jenis === 'TERMINATE') {                          // sudah dilaporkan (siapa pun): keluar dari Full Data, target, kunjungan & status Chat Client, walau laporannya dobel / POP tak dikenal
+      try {
+        let c0 = x.cid || info.cid || '';
+        const sn0 = tmCleanCode_(x.sn), ps0 = tmCleanCode_(x.psn);
+        if (!c0 && (sn0 || ps0)) { const f = tmLookup_(sn0, ps0); if (f && f.found && f.CID) c0 = f.CID; }
+        if (c0 || sn0 || ps0) {
+          tmHapusAntrian_({ CID: c0, SN: sn0, PSN: ps0 });
+          if (c0) { tmHapusCid_(TM.SH.KUNJUNGAN, c0); tmHapusCid_(TM.SH.LANJUT, c0); if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(c0, 'BERHENTI_DILAPOR'); if (!x.cid) x.cid = c0; }
+        }
+      } catch (eB) { Logger.log('bersihkan antrian: ' + eB.message); }
+    }
     if (!info.pop) { h.bukanPop++; return; }
     if (info.pop && !tmPopKode_(info.pop)) info.pop = gmPopDariOdp_(x.odp || info.odp) || info.pop;
     if (!x.nama && info.nama) x.nama = info.nama;
