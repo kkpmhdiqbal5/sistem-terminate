@@ -138,7 +138,7 @@
         if (r.status !== 'success') { b.innerHTML = '<span class="text-danger">' + esc(r.message || 'Gagal memeriksa') + '</span>'; return; }
         if (r.state === 'BELUM_ADA') {
           b.innerHTML = r.siap ? 'Nomor WhatsApp Anda belum disambungkan. Chat client masih memakai API bersama.<br><button class="btn btn-success btn-sm mt-2" id="gwBuat">Buat &amp; hubungkan WhatsApp saya</button>'
-            : '<span class="text-warning">Admin utama belum mengisi RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_ENV_ID di Properti Skrip, jadi pembuatan otomatis belum bisa.</span>';
+            : '<span class="text-warning">Admin utama belum mengisi RAILWAY_TOKEN di Properti Skrip, jadi pembuatan otomatis belum bisa.</span>';
           var t = document.getElementById('gwBuat'); if (t) t.onclick = function () { t.disabled = true; t.textContent = 'Membuat...'; TMC.api('terminateGwBuat').then(function (x) { if (x.status !== 'success') alert(x.message); muat(); }); };
           return;
         }

@@ -4,13 +4,16 @@
  *   RAILWAY_PROJECT_ID   id project Railway tempat service dibuat
  *   RAILWAY_ENV_ID       id environment (production)
  * Tiap sub admin disimpan di properti GWU_<nama> (url, kunci, id service). Kunci tidak pernah dikirim ke browser. */
-const GWU = { API: 'https://backboard.railway.com/graphql/v2', REPO: 'kkpmhdiqbal5/wa-gateway-pr', BRANCH: 'main' };
+const GWU = { API: 'https://backboard.railway.com/graphql/v2', REPO: 'kkpmhdiqbal5/wa-gateway-pr', BRANCH: 'main',
+  PROJECT: '075e1e5f-f2d4-4ae7-ad61-c3be25f35d4c', ENV: '5ddaad71-19be-44e3-8d56-eaf92c977b2c' };   // ID bukan rahasia; bisa ditimpa lewat properti RAILWAY_PROJECT_ID / RAILWAY_ENV_ID
+function gwuPid_() { return ccProp_('RAILWAY_PROJECT_ID') || GWU.PROJECT; }
+function gwuEid_() { return ccProp_('RAILWAY_ENV_ID') || GWU.ENV; }
 function gwuNama_(user) { return 'GWU_' + String(user || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40); }
 function gwuBaca_(user) { try { return JSON.parse(ccProp_(gwuNama_(user)) || 'null'); } catch (e) { return null; } }
 function gwuSimpan_(user, o) { PropertiesService.getScriptProperties().setProperty(gwuNama_(user), JSON.stringify(o)); }
 function gwuGql_(q, v) {
   const t = ccProp_('RAILWAY_TOKEN'); if (!t) throw new Error('RAILWAY_TOKEN belum diisi di Properti Skrip (admin utama).');
-  const r = UrlFetchApp.fetch(GWU.API, { method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + t }, payload: JSON.stringify({ query: q, variables: v || {} }), muteHttpExceptions: true });
+  const r = UrlFetchApp.fetch(GWU.API, { method: 'post', contentType: 'application/json', headers: /^rlwy_proj_/.test(t) ? { 'Project-Access-Token': t } : { Authorization: 'Bearer ' + t }, payload: JSON.stringify({ query: q, variables: v || {} }), muteHttpExceptions: true });
   let j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) { /* bukan JSON */ }
   if (j.errors && j.errors.length) throw new Error('Railway: ' + String(j.errors[0].message).slice(0, 200));
   if (r.getResponseCode() !== 200 || !j.data) throw new Error('Railway HTTP ' + r.getResponseCode());
@@ -20,8 +23,8 @@ function gwuGql_(q, v) {
 function gwuBuat_(au) {
   const user = au && au.user; if (!user) return tmErr_('Belum login.');
   const ada = gwuBaca_(user); if (ada && ada.serviceId) return gwuStatus_(au);
-  const pid = ccProp_('RAILWAY_PROJECT_ID'), eid = ccProp_('RAILWAY_ENV_ID'), hook = ccProp_('WA_HOOK_SECRET');
-  if (!pid || !eid || !ccProp_('RAILWAY_TOKEN')) return tmErr_('Admin utama belum mengisi RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_ENV_ID di Properti Skrip.');
+  const pid = gwuPid_(), eid = gwuEid_(), hook = ccProp_('WA_HOOK_SECRET');
+  if (!ccProp_('RAILWAY_TOKEN')) return tmErr_('Admin utama belum mengisi RAILWAY_TOKEN di Properti Skrip.');
   const exec = ScriptApp.getService().getUrl(); if (!exec || !hook) return tmErr_('Alamat web app / WA_HOOK_SECRET belum tersedia.');
   const kirimKey = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''), qrKey = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
   const vars = { HOOK_URL: exec + '?hook=' + encodeURIComponent(hook) + '&tugas=CHAT&admin=' + encodeURIComponent(user), KIRIM_KEY: kirimKey, QR_KEY: qrKey, AUTH_DIR: '/data/auth', PRIBADI: '1', TERIMA_SENDIRI: '0', PAIR_PHONE: '' };
@@ -50,7 +53,7 @@ function gwuStatus_(au) {
 }
 function gwuStatusSendiri_(au) {
   const g = gwuBaca_(au && au.user);
-  if (!g || !g.serviceId) return { status: 'success', state: 'BELUM_ADA', siap: !!(ccProp_('RAILWAY_TOKEN') && ccProp_('RAILWAY_PROJECT_ID') && ccProp_('RAILWAY_ENV_ID')) };
+  if (!g || !g.serviceId) return { status: 'success', state: 'BELUM_ADA', siap: !!ccProp_('RAILWAY_TOKEN') };
   if (!g.url) return { status: 'success', state: 'MEMBUAT' };
   try {
     const r = UrlFetchApp.fetch(g.url + '/status?k=' + encodeURIComponent(g.qrKey), { muteHttpExceptions: true });
