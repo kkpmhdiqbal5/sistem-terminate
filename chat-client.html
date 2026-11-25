@@ -8,6 +8,7 @@
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
   <script src="terminate-core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     .baris{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-bottom:1px solid #2a385b}
     .baris:last-child{border-bottom:0}
@@ -29,6 +30,10 @@
 
     <!-- TAB 1 -->
     <div id="tab-kirim">
+      <div class="card-custom p-3 mb-3" id="gwPanel">
+        <div class="fw-bold text-white mb-1">📱 WhatsApp saya (nomor sendiri untuk chat client)</div>
+        <div id="gwIsi" class="small text-secondary">Memeriksa...</div>
+      </div>
       <div class="card-custom p-3 mb-3">
         <div class="fw-bold text-white mb-2">Menunggu diambil <span id="jml" class="badge bg-info text-dark"></span></div>
         <div class="row g-2">
@@ -123,6 +128,35 @@
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
     var $ = function (id) { return document.getElementById(id); };
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
+
+    // ===== WhatsApp pribadi sub admin: gateway Railway dibuat otomatis, scan QR =====
+    (function () {
+      var gwTimer = null, qrDrawn = '';
+      function box() { return document.getElementById('gwIsi'); }
+      function gambar(r) {
+        var b = box(); if (!b) return;
+        if (r.status !== 'success') { b.innerHTML = '<span class="text-danger">' + esc(r.message || 'Gagal memeriksa') + '</span>'; return; }
+        if (r.state === 'BELUM_ADA') {
+          b.innerHTML = r.siap ? 'Nomor WhatsApp Anda belum disambungkan. Chat client masih memakai API bersama.<br><button class="btn btn-success btn-sm mt-2" id="gwBuat">Buat &amp; hubungkan WhatsApp saya</button>'
+            : '<span class="text-warning">Admin utama belum mengisi RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_ENV_ID di Properti Skrip, jadi pembuatan otomatis belum bisa.</span>';
+          var t = document.getElementById('gwBuat'); if (t) t.onclick = function () { t.disabled = true; t.textContent = 'Membuat...'; TMC.api('terminateGwBuat').then(function (x) { if (x.status !== 'success') alert(x.message); muat(); }); };
+          return;
+        }
+        if (r.state === 'MEMBUAT') { b.innerHTML = '<span class="text-info">⏳ Menyiapkan WhatsApp Anda di server (sekitar 1-3 menit)... halaman ini memeriksa otomatis.</span>'; return; }
+        if (r.state === 'MENUNGGU_SCAN') {
+          b.innerHTML = 'Buka WhatsApp di HP > <b>Perangkat tertaut</b> > <b>Tautkan perangkat</b>, lalu scan kode ini:<div id="gwQr" class="bg-white p-2 d-inline-block mt-2 d-block" style="width:fit-content"></div>';
+          if (typeof QRCode !== 'undefined') { new QRCode(document.getElementById('gwQr'), { text: r.qr, width: 240, height: 240 }); qrDrawn = r.qr; }
+          return;
+        }
+        if (r.state === 'TERHUBUNG') {
+          b.innerHTML = '<span class="text-success">✅ WhatsApp Anda terhubung. Pesan chat client dari akun Anda dikirim lewat nomor ini.</span> <button class="btn btn-outline-danger btn-sm ms-2" id="gwHapus">Putuskan &amp; hapus</button>';
+          document.getElementById('gwHapus').onclick = function () { if (confirm('Putuskan dan hapus WhatsApp Anda dari sistem?')) TMC.api('terminateGwHapus').then(function (x) { alert(x.message); muat(); }); };
+          if (gwTimer) { clearInterval(gwTimer); gwTimer = null; }
+        }
+      }
+      function muat() { TMC.api('terminateGwStatus').then(function (r) { gambar(r); if (!gwTimer && r.status === 'success' && (r.state === 'MEMBUAT' || r.state === 'MENUNGGU_SCAN')) gwTimer = setInterval(function () { TMC.api('terminateGwStatus').then(function (x) { if (x.state === 'MENUNGGU_SCAN' && x.qr === qrDrawn) return; gambar(x); }); }, 5000); }); }
+      muat();
+    })();
     var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], LANJUT_DILAPOR: ['Lanjut - sudah dilapor', 'success'], BERHENTI_DILAPOR: ['Berhenti - sudah dilapor', 'info'], SALAH_NOMOR: ['Salah nomor', 'danger'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary'], CHAT_LAIN: ['Chat lain', 'secondary']};
     function badge(st) { var l = LABEL[st] || [st || '-', 'secondary']; return '<span class="badge bg-' + l[1] + (l[1] === 'warning' || l[1] === 'info' ? ' text-dark' : '') + '">' + esc(l[0]) + '</span>'; }
     function pesan(el, t, j) { $(el).innerHTML = t ? '<div class="alert alert-' + j + ' py-2 mb-0 small" style="white-space:pre-line">' + esc(t) + '</div>' : ''; }

@@ -130,12 +130,17 @@ function ccTgKirimE_(e, teks) {
     return j.ok ? { ok: true } : { ok: false, msg: String(j.description || ('HTTP ' + res.getResponseCode())) };
   } catch (x) { return { ok: false, msg: x.message }; }
 }
+let CC_GW_USER = '';   // diisi saat permintaan dari dashboard (nama sub admin yang sedang login)
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
   let gw = null;
   if (fungsi === 'LAPORAN' && (CC_JALUR === 'GATEWAY' || CC_JALUR === 'AUTO')) {      // GATEWAY = hanya gateway; AUTO = gateway dulu, bila gagal cadangan Fonnte
     gw = ccGatewayLaporan_(target, pesan, foto);
     if (gw.ok || CC_JALUR === 'GATEWAY') return gw;
+  }
+  if (fungsi === 'CHAT_CLIENT' && CC_GW_USER && typeof gwuKirim_ === 'function') {       // sub admin punya WhatsApp sendiri (gateway pribadi) -> dipakai lebih dulu
+    const u = gwuKirim_(CC_GW_USER, target, pesan, foto); if (u.ok) return u;
+    if (u.pakai) return u;                                                              // gateway sudah dipilih tapi gagal: jangan diam-diam pakai nomor lain
   }
   const e = ccApiPilih_(fungsi, 'WA');
   if (!e) return { ok: false, msg: 'Belum ada API WhatsApp untuk fungsi ' + fungsi + '. Atur di Profil > Pengaturan API.' };
@@ -901,6 +906,7 @@ function ccTulisFotoRumah_(cid, link) {
 
 /* ---------- router ---------- */
 function chatRoute_(d, au) {
+  CC_GW_USER = au && au.user ? String(au.user) : '';
   switch (d.action) {
     case 'terminateChatKonfig': return ccKonfig_();
     case 'terminateMenunggu': return ccMenunggu_();
@@ -928,6 +934,9 @@ function chatRoute_(d, au) {
     case 'terminateChatAmbil': return ccAmbilAlih_(d, au);
     case 'terminateKirimLaporan': return ccKirimLaporan_(d, au);
     case 'terminateKirimTeks': return ccKirimTeks_(d, au);
+    case 'terminateGwStatus': return gwuStatus_(au);
+    case 'terminateGwBuat': return gwuBuat_(au);
+    case 'terminateGwHapus': return gwuHapus_(au);
     case 'terminateApiBaca': return ccApiBaca_();
     case 'terminateAiBaca': return ccAiBaca_();
     case 'terminateAiSimpan': return ccAiSimpan_(d, au);

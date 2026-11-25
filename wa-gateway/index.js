@@ -22,6 +22,11 @@ const grupBoleh = GRUP.split(',').map(s => s.trim()).filter(Boolean);
 // penyimpanan foto sementara (Apps Script mengunduh lewat /m/<id>)
 const media = new Map();
 http.createServer((req, res) => {
+  if ((req.url || '').split('?')[0] === '/status') {                                  // dibaca Apps Script: {tersambung, qr}
+    const k = new URL(req.url, 'http://x').searchParams.get('k');
+    if (!QR_KEY || k !== QR_KEY) { res.writeHead(403); return res.end('ditolak'); }
+    res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ tersambung: tersambung, qr: tersambung ? '' : qrTerakhir }));
+  }
   if ((req.url || '').split('?')[0] === '/qr') {
     const k = new URL(req.url, 'http://x').searchParams.get('k');
     if (!QR_KEY || k !== QR_KEY) { res.writeHead(403); return res.end('ditolak'); }
