@@ -71,6 +71,7 @@ function gwuHapus_(au) {
   return { status: 'success', message: 'Gateway dihapus.' };
 }
 // kirim lewat gateway milik sub admin. pakai:true = gateway memang ada & terhubung (jangan diam-diam pindah ke nomor lain)
+function gwuAda_(user) { const g = gwuBaca_(user); return !!(g && g.url && g.status === 'TERHUBUNG'); }
 function gwuKirim_(user, target, pesan, foto) {
   const g = gwuBaca_(user); if (!g || !g.url || g.status !== 'TERHUBUNG') return { ok: false, pakai: false };
   try {

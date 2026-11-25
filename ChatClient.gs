@@ -133,14 +133,15 @@ function ccTgKirimE_(e, teks) {
 let CC_GW_USER = '';   // diisi saat permintaan dari dashboard (nama sub admin yang sedang login)
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
+  if (['CHAT_CLIENT', 'TEKNISI', 'LAPORAN'].indexOf(fungsi) >= 0 && typeof gwuKirim_ === 'function') {    // semua kiriman dari dashboard: lewat WhatsApp milik admin yang sedang login
+    let pemilik = CC_GW_USER;
+    if (!pemilik && fungsi === 'CHAT_CLIENT') { try { const br = ccBarisChat_(ccNoHp_(target), ''); pemilik = br && br.DIKIRIMOLEH ? String(br.DIKIRIMOLEH) : ''; } catch (e) { pemilik = ''; } }   // balasan bot: lewat nomor pemilik chat
+    if (pemilik) { const u = gwuKirim_(pemilik, target, pesan, foto); if (u.ok || u.pakai) return u; }          // sudah punya gateway sendiri tapi gagal: tidak diam-diam pindah nomor
+  }
   let gw = null;
   if (fungsi === 'LAPORAN' && (CC_JALUR === 'GATEWAY' || CC_JALUR === 'AUTO')) {      // GATEWAY = hanya gateway; AUTO = gateway dulu, bila gagal cadangan Fonnte
     gw = ccGatewayLaporan_(target, pesan, foto);
     if (gw.ok || CC_JALUR === 'GATEWAY') return gw;
-  }
-  if (fungsi === 'CHAT_CLIENT' && CC_GW_USER && typeof gwuKirim_ === 'function') {       // sub admin punya WhatsApp sendiri (gateway pribadi) -> dipakai lebih dulu
-    const u = gwuKirim_(CC_GW_USER, target, pesan, foto); if (u.ok) return u;
-    if (u.pakai) return u;                                                              // gateway sudah dipilih tapi gagal: jangan diam-diam pakai nomor lain
   }
   const e = ccApiPilih_(fungsi, 'WA');
   if (!e) return { ok: false, msg: 'Belum ada API WhatsApp untuk fungsi ' + fungsi + '. Atur di Profil > Pengaturan API.' };
@@ -261,7 +262,7 @@ function ccKirimLaporan_(d, au) {
   if (teksList.length > 60) return tmErr_('Maksimal 60 pesan sekali kirim.');
   const ts = arr(d.ts).slice(0, 10).map(x => x.slice(0, 60)), mentah = arr(d.nomor || d.tujuan).slice(0, 20);
   if (!mentah.length) return tmErr_('Nomor tujuan wajib diisi.');
-  const pakai = Number(PropertiesService.getScriptProperties().getProperty('LAP_' + tmIso_(new Date()))) || 0, maks = Number(ccProp_('LAP_MAKS')) >= 0 && ccProp_('LAP_MAKS') !== '' ? Number(ccProp_('LAP_MAKS')) : CC.MAX_LAPORAN_HARI, sisaLap = Math.max(0, maks - pakai), bebas = maks === 0 || String(d.jalur) === 'GATEWAY';   // jalur gateway sendiri & LAP_MAKS=0: tanpa batas harian
+  const pakai = Number(PropertiesService.getScriptProperties().getProperty('LAP_' + tmIso_(new Date()))) || 0, maks = Number(ccProp_('LAP_MAKS')) >= 0 && ccProp_('LAP_MAKS') !== '' ? Number(ccProp_('LAP_MAKS')) : CC.MAX_LAPORAN_HARI, sisaLap = Math.max(0, maks - pakai), bebas = maks === 0 || String(d.jalur) === 'GATEWAY' || (typeof gwuAda_ === 'function' && gwuAda_(au && au.user));   // jalur gateway sendiri & LAP_MAKS=0: tanpa batas harian
   if (!bebas && teksList.length * mentah.length > sisaLap) return tmErr_('Batas ' + maks + ' pesan laporan per hari lewat Fonnte (agar nomor WA aman). Sisa hari ini: ' + sisaLap + '. Pilih jalur WA Gateway (tanpa batas), kurangi data / tujuan, atau lanjutkan besok.');
   if (teksList.length * mentah.length > 120) return tmErr_('Terlalu banyak pesan (pesan x nomor maksimal 120). Kurangi pilihan.');
   const hasil = { terkirim: [], gagal: [] };
