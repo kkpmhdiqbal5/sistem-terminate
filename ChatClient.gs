@@ -563,7 +563,7 @@ function tmLogChat_(phone, cid, arah, isi) {
 }
 function ccRiwayat_(phone, n) {
   return tmRead_(CC.SH.LOG).filter(r => String(r.PHONE) === String(phone)).slice(-n)
-    .map(r => ({ dari: r.ARAH === 'IN' ? 'client' : 'kami', isi: String(r.ISI || '') }));
+    .map(r => ({ dari: r.ARAH === 'IN' ? 'client' : 'kami', isi: String(r.ISI || '').replace(/^\[admin mengetik dari HP\] /, '') }));
 }
 function ccBarisChat_(phone, cid) {          // baris CHAT CLIENT terbaru untuk nomor ini (opsional cocokkan CID)
   let hit = null;
@@ -668,9 +668,10 @@ function waHookRoute_(e) {
     if (tugasHook === 'CHAT' && grup) { ccHookLog_(sender, pesan, 'diabaikan (webhook khusus chat client, grup tidak dibaca)'); return out({ status: 'ok', abaikan: 'grup' }); }
     if (!tugasHook && grup && !(typeof gmSumber_ === 'function' && gmSumber_(sender))) { ccHookLog_(sender, pesan, 'diabaikan (grup bukan sumber)'); return out({ status: 'ok', abaikan: 'grup' }); }
     // pesan yang diketik admin langsung dari HP / WhatsApp Web (bukan dari sistem): jangan dibaca sebagai balasan client
+    const dariSaya = g('dariSaya') === '1';       // gateway menandai pesan yang dikirim dari HP/WA Web nomor ini sendiri
     const flagKu = ['fromme', 'from_me', 'isfromme', 'outgoing', 'sent', 'direction', 'type'].some(k => { const v = String(b[k] != null ? b[k] : (e.parameter[k] != null ? e.parameter[k] : '')).toLowerCase(); return k === 'direction' || k === 'type' ? /^(out|outgoing|sent|send)$/.test(v) : v === 'true' || v === '1'; });
     const dariDevice = !grup && g('device') && ccNoHp_(g('device')) === ccNoHp_(sender);
-    if (!grup && (flagKu || dariDevice)) {
+    if (!grup && (flagKu || dariDevice || dariSaya)) {
       const hp = ccNoHp_(sender), baris = ccBarisChat_(hp, '');
       if (baris && pesan) { tmLogChat_(hp, tmCidDigit_(baris.CID), 'OUT', '[admin mengetik dari HP] ' + pesan); tmUpdateRows_(CC.SH.CHAT, r => String(r.PHONE) === hp, { AMBILALIH: 'YA' }); }
       ccHookLog_(sender, pesan, 'pesan admin dari HP: dicatat sebagai pesan kami, chat diambil alih admin (bot diam)'); return out({ status: 'ok', abaikan: 'admin' });
@@ -714,6 +715,21 @@ function ccRule_(t, ctx) {                                 // cadangan bila AI t
   if (/\b(lanjut|lanjutkan|masih|tetap|iya|ya|oke|ok)\b/.test(t)) return { intent: 'LANJUT', reply: '' };
   return { intent: 'ADMIN', reply: 'Terima kasih atas pesannya. Mohon balas *LANJUT* jika masih berlangganan atau *TIDAK* jika ingin berhenti. Admin kami akan menghubungi bila diperlukan.' };
 }
+// belajar dari balasan admin sungguhan (diketik dari HP): beberapa pasangan "pelanggan -> admin" terbaru jadi contoh gaya & isi jawaban
+function ccContoh_() {
+  const ch = CacheService.getScriptCache(); let c = ch.get('cc_contoh'); if (c != null) return c;
+  c = '';
+  try {
+    const log = tmRead_(CC.SH.LOG).slice(-1500), ps = [];
+    log.forEach((r, i) => {
+      if (r.ARAH !== 'OUT' || String(r.ISI).indexOf('[admin mengetik dari HP] ') !== 0) return;
+      for (let j = i - 1; j >= 0 && j > i - 6; j--) if (String(log[j].PHONE) === String(r.PHONE) && log[j].ARAH === 'IN') { ps.push('Pelanggan: ' + String(log[j].ISI).slice(0, 150) + ' => Admin: ' + String(r.ISI).slice(25, 200)); break; }
+    });
+    if (ps.length) c = ' Contoh balasan admin manusia sebelumnya (tiru nada sopan dan ketepatannya, jangan disalin mentah): ' + ps.slice(-5).join(' | ') + '.';
+  } catch (e) { /* abaikan */ }
+  try { ch.put('cc_contoh', c, 21600); } catch (e) { /* abaikan */ }
+  return c;
+}
 function ccAI_(baris, teks, ctx) {
   const ea = ccApiPilih_('AI_CHAT', 'AI'), key = ea && ea.token;
   if (!key || !ccAiCfg_().chat.aktif) return null;
@@ -735,7 +751,7 @@ function ccAI_(baris, teks, ctx) {
   if (msgs.length && msgs[msgs.length - 1].role === 'user') msgs[msgs.length - 1].content += '\n' + teks; else msgs.push({ role: 'user', content: teks });
   while (msgs.length && msgs[0].role !== 'user') msgs.shift();
   try {
-    const L = ccLlm_(ea, sistem + (extra ? ' Informasi tambahan dari admin (boleh dipakai untuk menjawab): ' + extra : ''), msgs, 250);
+    const L = ccLlm_(ea, sistem + ' Selalu sapa dengan "Bapak/Ibu", sopan, jawab tepat sesuai pertanyaan, jangan menebak data yang tidak ada.' + ccContoh_() + (extra ? ' Informasi tambahan dari admin (boleh dipakai untuk menjawab): ' + extra : ''), msgs, 250);
     if (L.err) { Logger.log(L.err); return null; } const txt = L.t;
     const m = txt.match(/\{[\s\S]*\}/); if (!m) return null;
     const o = JSON.parse(m[0]);

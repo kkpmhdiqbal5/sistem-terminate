@@ -107,7 +107,7 @@ async function mulai() {
         const dok = isi.documentMessage && /^image\//.test(isi.documentMessage.mimetype || '') ? isi.documentMessage : null;
         const img = isi.imageMessage || dok, loc = isi.locationMessage || isi.liveLocationMessage;
         const teks = isi.conversation || (isi.extendedTextMessage && isi.extendedTextMessage.text) || (img && img.caption) || '';
-        const body = { sender: jid, member: (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0], name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, kunci: JSON.stringify(m.key), tipe: Object.keys(isi).join(',') };
+        const body = { sender: jid, member: (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0], name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, kunci: JSON.stringify(m.key), dariSaya: m.key.fromMe ? '1' : '', tipe: Object.keys(isi).join(',') };
         if (loc) body.location = loc.degreesLatitude + ',' + loc.degreesLongitude;
         if (img) {
           try {
