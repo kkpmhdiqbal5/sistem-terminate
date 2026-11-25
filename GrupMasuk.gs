@@ -384,6 +384,8 @@ function gmPrLok_(r) {
 function gmKoordinat_(t) {
   t = String(t || '');
   const m = /(-?\d{1,3}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/.exec(t); if (m) return { lat: +m[1], lng: +m[2] };
+  const kk = /(-?\d{1,3}),(\d{4,})\s*[,;]\s*(-?\d{1,3}),(\d{4,})/.exec(t);       // koma desimal: 3,6078672, 98,9880513 (dipakai bila tidak ada pin lokasi)
+  if (kk) return { lat: +(kk[1] + '.' + kk[2]), lng: +(kk[3] + '.' + kk[4]) };
   // format derajat: 3°29'47.28"N 98°40'53.15"E
   const d = /(\d{1,2})\s*°\s*(\d{1,2})\s*['\u2032]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|\u2033|'')?\s*([NS])[\s,]*(\d{1,3})\s*°\s*(\d{1,2})\s*['\u2032]\s*(\d{1,2}(?:\.\d+)?)\s*(?:"|\u2033|'')?\s*([EW])/i.exec(t);
   if (!d) return null;

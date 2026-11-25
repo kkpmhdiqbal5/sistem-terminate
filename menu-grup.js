@@ -13,7 +13,7 @@
       { h: "terminate-edit.html", ic: "✏️", t: "Edit", p: "TEDIT" },
       { h: "terminate-laporan.html", ic: "📋", t: "Laporan", p: "TLAPORAN" },
       { h: "terminate-full.html", ic: "🗂️", t: "Data Penuh", p: "TDATA", admin: true },
-      { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT", admin: true }] },
+      { h: "chat-client.html", ic: "💬", t: "Chat Client", p: "TCHAT" }] },
     { id: "dashboard", ic: "📊", t: "Dashboard", items: [
       { h: "admin.html", ic: "📊", t: "Dashboard", p: "DASHBOARD" },
       { h: "search.html?sumber=TERMINATE", ic: "🔎", t: "Cari Terminate", p: "DATAADMIN" },

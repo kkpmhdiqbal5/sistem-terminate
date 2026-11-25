@@ -911,6 +911,7 @@ function ccTulisFotoRumah_(cid, link) {
 /* ---------- router ---------- */
 function chatRoute_(d, au) {
   CC_GW_USER = au && au.user ? String(au.user) : '';
+  if (au && au.role !== 'ADMIN' && ['terminateChatDiag', 'terminatePrAtur', 'terminateGrupUji', 'terminateTujuanSumber', 'terminateTujuanFonnte', 'terminateAmbilUlang', 'terminateAiSimpan', 'terminateChatSegarkan'].indexOf(d.action) >= 0) return tmErr_('Fitur ini khusus admin utama.');
   switch (d.action) {
     case 'terminateChatKonfig': return ccKonfig_();
     case 'terminateMenunggu': return ccMenunggu_(au);

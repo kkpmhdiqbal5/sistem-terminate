@@ -373,11 +373,11 @@ function tmIzinDari_(role, row, h, rows) {
   const out = {};
   Object.keys(TM_HDR_LAMA).forEach(k => { const i = h.indexOf(TM_HDR_LAMA[k]); out[k] = i >= 0 ? tmFlag_(row[i], true) : true; });
   TM_IZIN.forEach(k => {
-    const bawaan = role === 'ADMIN' ? true : (role === 'SUBADMIN' && k !== 'TDATA' && k !== 'TIMPOR');
+    const bawaan = role === 'ADMIN' ? true : (role === 'SUBADMIN' && k !== 'TDATA' && k !== 'TIMPOR' && k !== 'TCHAT');   // Chat Client: sub admin harus diberi izin di sheet USERS
     const i = h.indexOf(TM_HDR[k]);
     let v = i >= 0 ? tmFlag_(row[i], bawaan) : bawaan;
     if (!role) v = false;                       // tanpa peran Terminate = tidak ada halaman Terminate
-    if ((k === 'TDATA' || k === 'TIMPOR' || k === 'TCHAT') && role !== 'ADMIN') v = false;   // Data penuh & Impor WA selalu khusus Admin
+    if ((k === 'TDATA' || k === 'TIMPOR') && role !== 'ADMIN') v = false;   // Data penuh & Impor WA selalu khusus Admin; Chat Client mengikuti kolom 'Akses Terminate Chat' di USERS
     out[k] = v;
   });
   const iUu = h.indexOf('USERNAME') >= 0 ? h.indexOf('USERNAME') : 0;
@@ -1473,7 +1473,8 @@ function tmAmbil_() {
   // data dari grup PR yang belum lengkap (pin + foto sudah masuk, nama belum): tetap tampil supaya foto & lokasinya bisa dipakai teknisi
   try {
     const nm = ccProp_('FOTO_FOLDER_ID') || (typeof GM_FOTO_FOLDER !== 'undefined' ? GM_FOTO_FOLDER : '');
-    tmRead_(GM_SH_PR).filter(r => String(r.STATUS) === 'BARU' && (gmPrLok_(r) || r.FOTO)).forEach(r => {
+    const ada = {}; [TM.SH.B1, TM.SH.B2].forEach(n => { try { tmRead_(n).forEach(x => { const k = String(x.KOORDINAT || '').trim(); if (k) ada[k] = 1; }); } catch (e) { /* sheet belum ada */ } });
+    tmRead_(GM_SH_PR).filter(r => (String(r.STATUS) === 'BARU' || (String(r.STATUS) === 'TANYA' && !ada[String(r.KOORDINAT || '').trim()] && String(r.REAKSI) !== 'YA')) && (gmPrLok_(r) || r.FOTO)).forEach(r => {   // TANYA yang barisnya hilang dari Baris 1 tetap tampil
       const l = gmPrLok_(r) || {}; let foto = String(r.FOTO || '').trim();
       if (foto && !/^https?:/.test(foto) && nm) { try { const it = DriveApp.getFolderById(nm).getFilesByName(foto); if (it.hasNext()) foto = it.next().getUrl(); } catch (e) { /* tetap nama file */ } }
       const odp = String(r.ODPTERDEKAT || '').trim().toUpperCase();
