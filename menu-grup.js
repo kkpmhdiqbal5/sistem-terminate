@@ -23,10 +23,10 @@
       { h: "bersih-data.html", ic: "🧹", t: "Bersihkan Data", p: "TIMPOR" },
       { h: "sumber-grup.html", ic: "📡", t: "Sumber Grup", p: "TCHAT" },
       { h: "laporan.html", ic: "📑", t: "Laporan & Input Massal", p: "DATAADMIN", alt: ["laporan50.html"] }] },
-    { id: "profil", ic: "👤", t: "Profil", admin: true, items: [
+    { id: "profil", ic: "👤", t: "Profil", items: [
       { h: "profil.html", ic: "🪪", t: "Profil Saya" },
-      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TAPI" },   // token WA/Telegram/AI: admin tertinggi
-      { h: "pengaturan-ai.html", ic: "🤖", t: "Pengaturan AI", p: "TCHAT" }] }   // saklar AI per fitur
+      { h: "pengaturan-api.html", ic: "🔐", t: "Pengaturan API", p: "TAPI", admin: true },   // token WA/Telegram/AI: admin tertinggi
+      { h: "pengaturan-ai.html", ic: "🤖", t: "Pengaturan AI", p: "TCHAT", admin: true }] }   // saklar AI per fitur
   ];
   var CSS = ".mg-nav{position:fixed;left:0;right:0;bottom:0;z-index:2000;background:#1c2541;border-top:1px solid #2a385b;font-family:'Segoe UI',sans-serif;color:#e0e6ed;box-shadow:0 -4px 14px rgba(0,0,0,.4)}" +
     ".mg-nav *{box-sizing:border-box}" +

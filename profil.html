@@ -16,6 +16,7 @@
     .av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;font-weight:700;flex:none}
     .chip{display:inline-block;background:#0b132b;border:1px solid #3a506b;border-radius:999px;padding:2px 10px;font-size:.75rem;margin:0 4px 4px 0;color:#cbd5e1}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
 </head>
@@ -51,6 +52,12 @@
       <div id="pesan" class="mt-2"></div>
     </div>
 
+    <div class="kartu p-3 mb-3" id="gwPanel" style="display:none">
+      <div class="fw-bold text-white mb-1">📱 WhatsApp saya</div>
+      <div class="kecil mb-2">Boleh lebih dari satu. Pilih fitur tiap nomor: Chat client, Kirim ke teknisi, Kirim laporan.</div>
+      <div id="gwIsi" class="small text-secondary">Memeriksa...</div>
+    </div>
+
     <div class="kartu p-3 mb-3" id="kotakApi" style="display:none">
       <div class="fw-bold text-white mb-1">Pengaturan API (khusus admin tertinggi)</div>
       <div class="kecil mb-2">Isi token WhatsApp, Telegram, dan API key bot AI tanpa membuka Apps Script.</div>
@@ -70,11 +77,53 @@
   <script>
     var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsS4-LPktyuUKoC6Cf6TERV498wqvm31frvD7-W0gFhrCb9fkgwVBjAHeLrEeVMd25/exec";
     var S = Auth.guard();
-    if (S.role !== "ADMIN") { location.replace(Auth.home()); throw new Error("admin"); }   // Profil & fitur admin: khusus admin
     var user = S.username || "?", iz = S.izin || {};
     var NAMA = { TINPUT: "Input Terminate", TDIAMBIL: "Perangkat Diambil", TEDIT: "Edit Data", TLAPORAN: "Laporan Terminate", TDATA: "Data Penuh",
       TIMPOR: "Impor & Bersihkan Data", TCHAT: "Chat Client", TAPI: "Pengaturan API (admin tertinggi)", DASHBOARD: "Dashboard Admin", FORMINPUT: "Form Input", DATAADMIN: "Data Admin", MANAJEMENAKUN: "Manajemen Akun" };
     function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function api(action, payload) {
+      return fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(Object.assign({}, payload || {}, { action: action, token: S.token })) })
+        .then(function (r) { return r.json(); })
+        .then(function (r) { if (r && r.code === "SESSION") Auth.logout(r.message); return r; })
+        .catch(function () { return { status: "error", message: "Gagal terhubung ke server." }; });
+    }
+    var TMC = { esc: esc };
+    if (Auth.can("TCHAT")) { document.getElementById("gwPanel").style.display = "";
+    // ===== WhatsApp sub admin: boleh lebih dari satu, tiap WhatsApp memilih fitur yang didukung =====
+    (function () {
+      var gwTimer = null, tanda = '', FITUR = { CHAT_CLIENT: 'Chat client', TEKNISI: 'Kirim ke teknisi', LAPORAN: 'Kirim laporan' };
+      function box() { return document.getElementById('gwIsi'); }
+      function cek(pref, pilih) { return Object.keys(FITUR).map(function (k) { return '<label class="me-3"><input type="checkbox" class="' + pref + '" value="' + k + '"' + ((pilih || []).indexOf(k) >= 0 ? ' checked' : '') + '> ' + FITUR[k] + '</label>'; }).join(''); }
+      function ambil(el, pref) { return Array.prototype.map.call(el.querySelectorAll('.' + pref + ':checked'), function (c) { return c.value; }); }
+      function kartu(g) {
+        var st = g.state === 'TERHUBUNG' ? '<span class="text-success">✅ terhubung</span>' : g.state === 'MENUNGGU_SCAN' ? '<span class="text-warning">menunggu scan QR</span>' : '<span class="text-info">⏳ menyiapkan (1-3 menit)</span>';
+        var h = '<div class="border rounded p-2 mb-2" data-id="' + esc(g.id) + '"><div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><b class="text-white">' + esc(g.nama) + '</b>' + st + '</div>';
+        if (g.state === 'MENUNGGU_SCAN') h += '<div class="mt-2">Buka WhatsApp > <b>Perangkat tertaut</b> > <b>Tautkan perangkat</b>, scan:<div class="gwQr bg-white p-2 mt-1" style="width:fit-content"></div></div>';
+        h += '<div class="mt-2 small">Fitur: ' + cek('gf', g.fitur) + '<button class="btn btn-outline-info btn-sm py-0 gwSimpan">Simpan fitur</button> <button class="btn btn-outline-danger btn-sm py-0 gwHapus">Hapus</button></div></div>';
+        return h;
+      }
+      function gambar(r) {
+        var b = box(); if (!b) return;
+        if (r.status !== 'success') { b.innerHTML = '<span class="text-danger">' + esc(r.message || 'Gagal memeriksa') + '</span>'; return; }
+        var t = JSON.stringify(r.daftar.map(function (g) { return [g.id, g.state, g.qr, (g.fitur || []).join()]; })); if (t === tanda) return; tanda = t;
+        var h = (r.daftar.length ? r.daftar.map(kartu).join('') : '<div class="mb-2">Belum ada WhatsApp milik Anda. Chat client masih memakai API bersama.</div>');
+        h += r.siap ? '<div class="border rounded p-2"><div class="fw-bold text-white small mb-1">+ Tambah WhatsApp</div><input id="gwNama" class="form-control form-control-dark form-control-sm mb-1" placeholder="Nama (mis. WA Kantor)"><div class="small mb-1">Fitur yang didukung: ' + cek('gn', ['CHAT_CLIENT', 'TEKNISI', 'LAPORAN']) + '</div><button class="btn btn-success btn-sm" id="gwTambah">Buat &amp; hubungkan</button></div>'
+          : '<span class="text-warning">Admin utama belum mengisi RAILWAY_TOKEN di Properti Skrip, jadi pembuatan otomatis belum bisa.</span>';
+        if (r.semua && r.semua.length) h += '<div class="small mt-2 text-secondary">Semua sub admin: ' + r.semua.map(function (x) { return esc(x.admin) + ' - ' + esc(x.nama) + ' (' + esc(x.status) + ': ' + x.fitur.map(function (f) { return esc(FITUR[f] || f); }).join('/') + ')'; }).join('; ') + '</div>';
+        b.innerHTML = h;
+        r.daftar.forEach(function (g) {
+          var el = b.querySelector('[data-id="' + g.id + '"]'); if (!el) return;
+          var q = el.querySelector('.gwQr'); if (q && g.qr && typeof QRCode !== 'undefined') new QRCode(q, { text: g.qr, width: 220, height: 220 });
+          el.querySelector('.gwSimpan').onclick = function () { api('terminateGwFitur', { id: g.id, fitur: ambil(el, 'gf') }).then(function (x) { alert(x.message); tanda = ''; muat(); }); };
+          el.querySelector('.gwHapus').onclick = function () { if (confirm('Putuskan dan hapus WhatsApp "' + g.nama + '"?')) api('terminateGwHapus', { id: g.id }).then(function (x) { alert(x.message); tanda = ''; muat(); }); };
+        });
+        var tb = document.getElementById('gwTambah'); if (tb) tb.onclick = function () { tb.disabled = true; tb.textContent = 'Membuat...'; api('terminateGwBuat', { nama: document.getElementById('gwNama').value, fitur: ambil(b, 'gn') }).then(function (x) { alert(x.message); tanda = ''; muat(); }); };
+      }
+      function ulang(r) { var aktif = r.status === 'success' && r.daftar.some(function (g) { return g.state !== 'TERHUBUNG'; }); if (aktif && !gwTimer) gwTimer = setInterval(muat, 6000); if (!aktif && gwTimer) { clearInterval(gwTimer); gwTimer = null; } }
+      function muat() { api('terminateGwStatus').then(function (r) { gambar(r); ulang(r); }); }
+      muat();
+    })();
+    }
     document.getElementById("av").textContent = user.charAt(0).toUpperCase();
     document.getElementById("nama").textContent = S.nama || user;
     document.getElementById("info").textContent = "@" + user + " · " + (S.role === "ADMIN" ? "ADMIN" : (S.role ? "SUB ADMIN" : "USER"));
