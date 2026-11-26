@@ -1098,7 +1098,7 @@ function tmImporWA_(d, au) {
           }
           // rec lebih baru: lengkapi dari yang lama, hapus semua yang lama kecuali satu di sheet tujuan (diperbarui di tempat)
           cocok.forEach(r => lengkapi(rec, r.o));
-          const sama = cocok.find(r => (tujuan.rows.indexOf(r) >= 0) || (tujuan.baru.indexOf(r) >= 0));
+          const sama = nama === 'Instalasi' ? null : cocok.find(r => (tujuan.rows.indexOf(r) >= 0) || (tujuan.baru.indexOf(r) >= 0));   // Instalasi: baris lama dihapus lalu ditulis ulang di bawah; MT: hanya diperbarui di tempat
           cocok.forEach(r => { if (r !== sama) { r.del = true; hasil.dihapus++; } });
           if (sama) {
             TM_KEYS_IW.forEach(k => { if (rec[k] !== undefined && String(rec[k]).trim() !== '' && String(sama.o[k] == null ? '' : sama.o[k]) !== String(rec[k])) { sama.o[k] = rec[k]; sama.upd[k] = rec[k]; } });
