@@ -1059,7 +1059,6 @@ function tmImporWA_(d, au) {
                    
                     SN: tmCleanCode_(s('sn')), PSN: tmCleanCode_(s('psn')), KET: s('ket'), TANGGAL: tglIso ? tmTglIndo_(tglIso) : s('tanggal') };
       const snLama = tmNorm_(s('snlama'));
-      const samaCid = r => !rec.CID || !tmNorm_(r.o.CID) || tmNorm_(r.o.CID) === tmNorm_(rec.CID);   // identitas data = CID (bukan nama); CID beda = data baru
       if (!nama || (!rec.CID && !rec.SN && !rec.PSN)) { lewati(x, 'tidak ada CID / SN', 'ditolak'); return; }
       if (!rec.POP) { lewati(x, 'kode ODP bukan PRBGN / PTCRMN' + (s('popasli') ? ' dan POP "' + s('popasli') + '" bukan Perbaungan / Pantai Cermin' : ' dan POP tidak tertulis Perbaungan / Pantai Cermin'), 'pop'); return; }
       const tujuan = M[nama];
@@ -1072,7 +1071,7 @@ function tmImporWA_(d, au) {
         });
       }
       // 1b) Instalasi: CID sama tetapi SN berbeda = ganti perangkat -> perbarui SN & P-SN di baris yang sama (bukan baris baru)
-      if (nama === 'Instalasi' && rec.CID && (rec.SN || rec.PSN) && !(rec.SN && semua().some(r => sn(r) === tmNorm_(rec.SN) && samaCid(r)))) {
+      if (nama === 'Instalasi' && rec.CID && (rec.SN || rec.PSN) && !(rec.SN && semua().some(r => sn(r) === tmNorm_(rec.SN)))) {
         const lama = M.Instalasi.rows.concat(M.Instalasi.baru).filter(r => !r.del && tmNorm_(r.o.CID) === tmNorm_(rec.CID));
         if (lama.length) {
           const t0 = lama.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
@@ -1086,7 +1085,7 @@ function tmImporWA_(d, au) {
       }
       // 2) SN sama -> yang terbaru menang
       if (rec.SN) {
-        const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN) && samaCid(r));
+        const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN));   // S/N sama diprioritaskan: dianggap perangkat yang sama walau CID berbeda
         if (cocok.length) {
           const terbaru = cocok.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
           if ((terbaru.tgl || '') > tglIso) {                                            // data di sheet lebih baru: dipertahankan, kolom kosongnya dilengkapi dari data ini (satu data paling lengkap)
