@@ -705,6 +705,11 @@ function waHookRoute_(e) {
         if (tugasHook === 'PR') gmPrTerima_(mk); else { try { gmSimpan_(mk); } catch (er) { /* abaikan */ } gmTerima_(mk); }
         ccHookLog_(sender, 'webhook tugas ' + tugasHook + (g('galat') ? ' - ' + g('galat') : ''), 'selesai'); return out({ status: 'ok', tugas: tugasHook });
       }
+      if (grup && !tugasHook && gmTugas_(sender) === 'PR') {          // satu nomor boleh memegang dua tugas: grup bertugas PR diarahkan ke logika PR
+        rel(); if (g('reaksi_id')) { const h = gmPrReaksiMasuk_(g('reaksi_id'), g('reaksi'), sender); ccHookLog_(sender, 'reaksi ' + g('reaksi'), 'grup PR -> ' + h); return out({ status: 'ok', tugas: 'PR' }); }
+        gmPrTerima_({ grup: sender, member: g('member') || ccNoHp_(sender), pesan: pesan, media: media, ext: g('extension') || g('tipe'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname'), kunci: g('kunci') });
+        ccHookLog_(sender, 'grup PR (nomor gabungan)', 'selesai'); return out({ status: 'ok', tugas: 'PR' });
+      }
       if (grup) { rel(); const mg = { grup: sender, member: g('member'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi, nama: g('name') || g('pushname') }; try { gmSimpan_(mg); } catch (er) { /* abaikan */ } gmTerima_(mg); }   // mengunci sendiri
       else if (!media && !lokasi && typeof gmPrAdmin_ === 'function' && gmPrAdmin_(ccNoHp_(sender), pesan)) { /* jawaban admin atas pertanyaan ODP */ }
       else if (typeof gmPrPribadi_ === 'function' && gmPrPribadi_(ccNoHp_(sender))) { rel(); gmPrTerima_({ grup: ccNoHp_(sender), member: ccNoHp_(sender), nama: g('name') || g('pushname'), pesan: pesan, media: media, ext: g('extension'), filename: g('filename'), lokasi: lokasi }); }   // chat pribadi anggota tim instalasi (tugas PR)
