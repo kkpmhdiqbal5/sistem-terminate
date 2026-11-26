@@ -8,6 +8,8 @@
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
   <script src="terminate-core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="wa-saya.js"></script>
   <style>
     .baris{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-bottom:1px solid #2a385b}
     .baris:last-child{border-bottom:0}
@@ -121,6 +123,7 @@
 
   <script>
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
+    WaSaya.pasang(['CHAT_CLIENT', 'TEKNISI', 'LAPORAN']);
     var $ = function (id) { return document.getElementById(id); };
     function deb(f, t) { var h; return function () { var a = arguments, c = this; clearTimeout(h); h = setTimeout(function () { f.apply(c, a); }, t || 250); }; }
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};

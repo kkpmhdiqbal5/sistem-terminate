@@ -8,6 +8,8 @@
   <script src="auth.js"></script>
   <script src="menu-grup.js"></script>
   <script src="terminate-core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="wa-saya.js"></script>
   <script src="kirim-api.js"></script>
 </head>
 <body>
@@ -32,6 +34,7 @@
   </div>
   <script>
     var S = TMC.init({ active: 'ambil', title: '🧭 Tugas Ambil' });
+    WaSaya.pasang(['LAPORAN']);
     var $ = function (id) { return document.getElementById(id); };
     var data = [], popAktif = '', saya = null, boleh = window.KirimApi && KirimApi.ok();
     function teks(x) {
