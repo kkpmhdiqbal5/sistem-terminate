@@ -303,19 +303,23 @@ function gmOdpTeks_(teks) {
 }
 // Instalasi / MT: dibaca pembaca laporan teknisi (WaParser.gs) lalu diimpor dengan aturan anti-dobel yang sama dengan halaman Impor
 function gmInstMt_(teks, tgl) {
+  // laporan yang sama biasanya dikirim ke 2-3 grup sekaligus: yang sudah berhasil diproses dalam 6 jam dilewati (mengurangi antrean kunci)
+  const ck = 'im_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(teks) + '|' + (tgl || ''))).slice(0, 20), cache = CacheService.getScriptCache();
+  if (cache.get(ck)) return 'laporan sama sudah diproses';
   let ex; try { ex = WAParser.ekstrak(teks, { mode: 'campur', ragu: 'lewati', mtHanyaGanti: false }); } catch (e) { return 'pembaca gagal: ' + e.message; }
   const hariIni = tgl || tmIso_(new Date());
   const rows = ex.baris.filter(r => r.sheet === 'Instalasi' || r.sheet === 'MT').map(r => Object.assign({}, r, { tanggal: hariIni }));
   if (!rows.length) return '';
   const r = tmImporWA_({ rows: rows }, { user: 'GRUP WA' });
+  if (r.status === 'success') { try { cache.put(ck, '1', 21600); } catch (e) { /* abaikan */ } }
   return r.status === 'success' ? 'Instalasi/MT: ' + r.message : 'Instalasi/MT gagal: ' + r.message;
 }
-function gmKunci(fn) { const lock = LockService.getScriptLock(); lock.waitLock(25000); try { return fn(); } finally { lock.releaseLock(); } }
+function gmKunci(fn) { const lock = LockService.getScriptLock(); lock.waitLock(90000); try { return fn(); } finally { lock.releaseLock(); } }
 // uji manual dari halaman Impor: tempel teks laporan
 function gmUjiTeks_(d) {
   const items = gmParse_(String(d.teks || ''));
   if (!items.length) return tmErr_('Tidak ada data yang terbaca. Pastikan format "Nama : … CID : …".');
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try { const h = gmProses_(items, ''); return { status: 'success', message: items.length + ' data terbaca: ' + gmRingkas_(h) + '.' }; } finally { lock.releaseLock(); }
 }
 

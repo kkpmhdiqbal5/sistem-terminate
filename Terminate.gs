@@ -167,7 +167,7 @@ function tmOdpPetaApi_() {
 function tmOdpImporApi_(d, au) {
   const rows = (Array.isArray(d.rows) ? d.rows : []).slice(0, 5000);
   if (!rows.length) return tmErr_('Tidak ada ODP.');
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try { const h = tmOdpSimpan_(rows, String(d.sumber || 'KMZ').slice(0, 60)); return { status: 'success', message: h.tambah + ' ODP baru, ' + h.ubah + ' diperbarui.' }; }
   finally { lock.releaseLock(); }
 }
@@ -631,7 +631,7 @@ function tmSimpan_(d, au) {
   };
 
   const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  lock.waitLock(90000);
   try {
     let pindah = false;
     if (jenis === 'TERMINATE') {
@@ -785,7 +785,7 @@ function tmFotoSimpan_(d, au) {
   if (!d.foto || String(d.foto).length < 100) return tmErr_('Foto belum dipilih.');
   if (String(d.foto).length > 6000000) return tmErr_('Foto terlalu besar. Pilih foto lain.');
   const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  lock.waitLock(90000);
   try {
     const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
     if (!rec) return tmErr_('Data tidak ditemukan.');
@@ -813,7 +813,7 @@ function tmEditSimpan_(d, au) {
   if (!/^\d{6,20}$/.test(cid)) return tmErr_('CID harus berupa angka (6-20 digit).');
 
   const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  lock.waitLock(90000);
   try {
     const semua = tmRead_(TM.SH.LOG);
     const rec = semua.filter(r => String(r.ID) === id)[0];
@@ -848,7 +848,7 @@ function tmPopResmi_(p, odp) { return tmPopKode_(p) || (p && typeof gmPopDariOdp
 // (1) POP -> nama resmi; (2) SN / P-SN / ODP yang kosong dilengkapi dari data lain; (3) baris tanpa SN yang di LOG tercatat lanjut / kunjungan (bukan terminate)
 // dipindah ke sheet "lanjut berlanganan" / "kunjungan" lengkap dengan datanya. dry = pratinjau.
 function tmRapikanDiambil_(d, au) {
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try {
     const sh = tmSheet_(TM.SH.DIAMBIL); if (!sh || sh.getLastRow() < 2) return { status: 'success', pop: 0, salah: [], message: 'Sheet kosong.' };
     const rows = tmRead_(TM.SH.DIAMBIL), hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(tmCanon_);
@@ -889,7 +889,7 @@ function tmEditLengkap_(d, au) {
   const t = k => String(d[k] == null ? '' : d[k]).trim();
   const cid = t('cid').replace(/\s+/g, '');
   if (cid && !/^\d{6,20}$/.test(cid)) return tmErr_('CID harus berupa angka (6-20 digit).');
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try {
     const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
     if (!rec) return tmErr_('Data tidak ditemukan.');
@@ -911,7 +911,7 @@ function tmEditLengkap_(d, au) {
 // Hapus satu data dari semua sheet (dicari lewat ID / SN). Dicatat di "LOG HAPUS BERSIH".
 function tmHapus_(d, au) {
   const id = String(d.id || '').trim(); if (!id) return tmErr_('ID data tidak ada.');
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try {
     const rec = tmRead_(TM.SH.LOG).filter(r => String(r.ID) === id)[0];
     if (!rec) return tmErr_('Data tidak ditemukan.');
@@ -1028,7 +1028,7 @@ function tmImporWA_(d, au) {
   let rows = Array.isArray(d.rows) ? d.rows.slice(0, 200) : [];
   if (!rows.length) return tmErr_('Tidak ada baris untuk diimpor.');
   const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  lock.waitLock(90000);
   try {
     const hasil = { Instalasi: 0, MT: 0, terminate: 0, kunjungan: 0, lanjut: 0, dobel: 0, ditolak: 0, diperbarui: 0, dihapus: 0, pop: 0, lewat: [] };
     // laporan Terminate (diambil / tidak ada di rumah / lanjut) -> jalur grup WA (GrupMasuk.gs), SN dilengkapi dari data yang ada
@@ -1165,7 +1165,7 @@ function tmRapikanIW_(M, au, kering) {
 }
 // tombol "Rapikan Instalasi & MT" (dry = pratinjau)
 function tmRapikanApi_(d, au) {
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try {
     const M = { Instalasi: tmModelIW_(TM.SH.INSTALASI), MT: tmModelIW_(TM.SH.MT) };
     if (d.dry) {
@@ -1245,7 +1245,7 @@ function tmRingkasHapus_(hapus) {
 }
 function tmBersih_(d, au, tombol) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  lock.waitLock(90000);
   try {
     const F = tmBacaCid_(TM.SH.FULL), T = tmBacaCid_(TM.SH.TARGET), K = tmBacaCid_(TM.SH.KUNJUNGAN);
     if (!F.sh || !T.sh) return tmErr_('Sheet Full Data / target tidak ditemukan.');
@@ -1340,7 +1340,7 @@ function tmPanggilHapusArsip_(teks) {
 // Tulis siapa yang mengambil di sheet "sudah diambil" (perbarui baris bila CID sudah ada, kalau belum tambah baris)
 // Gabungkan sekali: semua baris sheet "Terminate" (perangkat sudah diambil) -> "sudah diambil" (satu CID satu baris), lalu baris itu dihapus dari "Terminate". dry = pratinjau.
 function tmGabungDiambil_(d, au) {
-  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  const lock = LockService.getScriptLock(); lock.waitLock(90000);
   try {
     const sh = tmSheet_(TM.SH.TERMINATE);
     if (!sh || sh.getLastRow() < 2) return { status: 'success', total: 0, message: 'Sheet Terminate kosong.' };

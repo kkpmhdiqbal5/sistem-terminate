@@ -694,7 +694,7 @@ function waHookRoute_(e) {
     const kunci = 'in_' + sender + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pesan + '|' + media + (/^non-text message$/i.test(pesan) && !media ? '|' + (g('inboxid') || g('timestamp') || g('id')) : ''))).slice(0, 16);
     const cache = CacheService.getScriptCache();
     // cek dobel DI DALAM kunci: kiriman ulang serentak dari Fonnte diproses bergiliran, jadi hanya yang pertama lolos
-    const lock = LockService.getScriptLock(); lock.waitLock(25000);
+    const lock = LockService.getScriptLock(); lock.waitLock(90000);
     let lepas = false; const rel = () => { if (!lepas) { lepas = true; lock.releaseLock(); } };
     try {
       if (cache.get(kunci)) { ccHookLog_(sender, pesan, 'diabaikan (dobel)'); return out({ status: 'ok', abaikan: 'dobel' }); }
