@@ -94,7 +94,7 @@
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">KATA KUNCI / SCAN</label>
                 <div class="flex">
-                    <input type="text" id="filterKeyword" onkeyup="applyFilter()" placeholder="Ketik pencarian..." class="w-full bg-slate-900 border border-slate-600 rounded-l p-2 text-sm focus:outline-none focus:border-blue-500">
+                    <input type="text" id="filterKeyword" onkeyup="applyFilterD()" placeholder="Ketik pencarian..." class="w-full bg-slate-900 border border-slate-600 rounded-l p-2 text-sm focus:outline-none focus:border-blue-500">
                     <button class="bg-cyan-500 hover:bg-cyan-600 text-slate-900 font-bold px-3 rounded-r text-sm"><i class="fas fa-camera"></i> SCAN</button>
                 </div>
             </div>
@@ -193,14 +193,17 @@
         }
         let urut = { k: "", d: 1 };
         function urutKolom(k) { urut = { k: k, d: urut.k === k ? -urut.d : 1 }; applyFilter(); }
-        function applyFilter() {
+        function deb(f, t) { var h; return function () { var a = arguments, c = this; clearTimeout(h); h = setTimeout(function () { f.apply(c, a); }, t || 250); }; }
+var applyFilterD = deb(function () { applyFilter(); }, 250);
+function applyFilter() {
             let filterSheet = document.getElementById("filterSheet").value;
             let filterKriteria = document.getElementById("filterKriteria").value;
             let filterTanggal = document.getElementById("filterTanggal").value; 
             let filterKeyword = document.getElementById("filterKeyword").value.toLowerCase();
 
+            let grup = document.getElementById("filterGrup").value;
             filteredDataList = globalDataList.filter(row => {
-                let grup = document.getElementById("filterGrup").value, adaClient = GRUP_CLIENT.indexOf(row.sumber_sheet) >= 0;
+                let adaClient = GRUP_CLIENT.indexOf(row.sumber_sheet) >= 0;
                 if((grup === "CLIENT" && !adaClient) || (grup === "TERMINATE" && adaClient)) return false;
                 let matchSheet = true;
                 if(filterSheet !== "Semua Sheet") {

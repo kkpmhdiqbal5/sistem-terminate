@@ -122,6 +122,7 @@
   <script>
     var S = TMC.init({ active: 'chat', title: '💬 Chat Client' });
     var $ = function (id) { return document.getElementById(id); };
+    function deb(f, t) { var h; return function () { var a = arguments, c = this; clearTimeout(h); h = setTimeout(function () { f.apply(c, a); }, t || 250); }; }
     var esc = TMC.esc, semua = [], pilih = {}, tampilN = 200, konfig = {};
 
     var LABEL = { MENUNGGU_BALASAN: ['Menunggu balasan', 'secondary'], LANJUT: ['Lanjut', 'success'], MINTA_FOTO: ['Diminta lokasi & foto', 'warning'], FOTO_DITERIMA: ['Foto diterima', 'info'], SIAP_DIAMBIL: ['Siap diambil (Baris 1)', 'success'], PERLU_ADMIN: ['Perlu admin', 'danger'], STOP: ['Stop chat', 'dark'], LANJUT_DILAPOR: ['Lanjut - sudah dilapor', 'success'], BERHENTI_DILAPOR: ['Berhenti - sudah dilapor', 'info'], SALAH_NOMOR: ['Salah nomor', 'danger'], MINTA_BUKTI: ['Diminta foto bukti', 'warning'], BUKTI_DITERIMA: ['Bukti diterima', 'info'] , INGIN_PASANG: ['Ingin pasang WiFi', 'primary'], DIHUBUNGI: ['Sudah dihubungi', 'info'], SELESAI: ['Selesai', 'secondary'], CHAT_LAIN: ['Chat lain', 'secondary']};
@@ -191,7 +192,7 @@
       hitung();
     }
     $('daftar').addEventListener('change', function (e) { var c = e.target.getAttribute('data-c'); if (!c) return; if (e.target.checked) pilih[c] = 1; else delete pilih[c]; hitung(); });
-    ['cari', 'fPop', 'fSumber', 'fChat'].forEach(function (id) { $(id).addEventListener('input', function () { tampilN = 200; gambar(); }); });
+    ['cari', 'fPop', 'fSumber', 'fChat'].forEach(function (id) { $(id).addEventListener('input', deb(function () { tampilN = 200; gambar(); }, 250)); });
     $('btnSemua').onclick = function () { saring().forEach(function (x) { pilih[x.cid] = 1; }); gambar(); };
     $('btnTak').onclick = function () { pilih = {}; gambar(); };
     // pilih N teratas dari hasil pencarian/filter yang sedang tampil (nomor HP tidak valid dilewati)
@@ -286,7 +287,7 @@
       $k('kWa').href = 'https://wa.me/?text=' + encodeURIComponent('LAPORAN TERMINATE\n\n' + gab);
       function isi() { var q = $k('kCari').value.trim().toLowerCase(); $k('kDaftar').innerHTML = tersimpan.map(function (x, i) { return { x: x, i: i }; }).filter(function (o) { return !q || (o.x.nama + ' ' + o.x.nomor).toLowerCase().indexOf(q) >= 0; }).map(function (o) { return '<label class="d-flex gap-2 py-1 border-bottom border-secondary small"><input type="checkbox" data-t="' + o.i + '"' + (pil[o.x.nomor] ? ' checked' : '') + '><b>' + esc(o.x.nama) + '</b></label>'; }).join('') || '<div class="kecil p-2">Belum ada grup tersimpan (simpan di halaman Laporan).</div>'; }
       TMC.api('terminateTujuanBaca').then(function (r) { if (r.status === 'success') { tersimpan = r.data || []; isi(); } });
-      $k('kCari').oninput = isi;
+      $k('kCari').oninput = deb(isi, 250);
       $k('kDaftar').addEventListener('change', function (e) { var i = e.target.getAttribute('data-t'); if (i == null) return; if (e.target.checked) pil[tersimpan[i].nomor] = 1; else delete pil[tersimpan[i].nomor]; });
       $k('kTutup').onclick = function () { ov.remove(); };
       function tandai() { var jobs = []; if (L.lanjut.length) jobs.push(TMC.api('terminateChatUbah', { status: 'LANJUT_DILAPOR', items: L.lanjut })); if (L.berhenti.length) jobs.push(TMC.api('terminateChatUbah', { status: 'BERHENTI_DILAPOR', items: L.berhenti })); return Promise.all(jobs).then(function () { pilihS = {}; hitungS(); muatStatus(); }); }
@@ -360,7 +361,7 @@
       var q = $('cariS').value.trim().toLowerCase(); if (!q) return true;
       return [x.nama, x.cid, x.phone, x.odp, x.pop, x.terakhir].join(' ').toLowerCase().indexOf(q) >= 0;
     }
-    $('cariS').addEventListener('input', function () { gambarStatus(); });
+    $('cariS').addEventListener('input', deb(function () { gambarStatus(); }, 250));
     function cocokTgl(x) {
       var a = $('tglS').value, b = $('tglS2').value || a; if (!a) return true;
       return [isoDari(x.kirim), isoDari(x.balas)].some(function (t) { return t && t >= a && t <= b; });

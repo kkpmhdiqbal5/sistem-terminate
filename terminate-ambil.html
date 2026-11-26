@@ -107,7 +107,7 @@
         data = (r.data || []).map(function (x, i) { x.i = i; return x; }); $('pesan').textContent = ''; chip(); render();
       }).catch(function () { $('pesan').textContent = 'Gagal terhubung ke server.'; });
     }
-    $('q').oninput = render;
+    $('q').oninput = (function (f) { var h; return function () { clearTimeout(h); h = setTimeout(f, 250); }; })(render);
     $('btnMuat').onclick = muat;
     $('btnDekat').onclick = function () {
       if (saya) { saya = null; $('btnDekat').textContent = '📍 Urut terdekat dari saya'; render(); return; }
