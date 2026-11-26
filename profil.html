@@ -119,7 +119,7 @@
         });
         var tb = document.getElementById('gwTambah'); if (tb) tb.onclick = function () { tb.disabled = true; tb.textContent = 'Membuat...'; api('terminateGwBuat', { nama: document.getElementById('gwNama').value, fitur: ambil(b, 'gn') }).then(function (x) { alert(x.message); tanda = ''; muat(); }); };
       }
-      function ulang(r) { var aktif = r.status === 'success' && r.daftar.some(function (g) { return g.state !== 'TERHUBUNG'; }); if (aktif && !gwTimer) gwTimer = setInterval(muat, 6000); if (!aktif && gwTimer) { clearInterval(gwTimer); gwTimer = null; } }
+      function ulang(r) { var aktif = r.status === 'success' && r.daftar.some(function (g) { return g.state !== 'TERHUBUNG'; }); if (aktif && !gwTimer) { var n = 0; gwTimer = setInterval(function () { if (document.hidden) return; if (++n > 20) { clearInterval(gwTimer); gwTimer = null; return; } muat(); }, 12000); } if (!aktif && gwTimer) { clearInterval(gwTimer); gwTimer = null; } }
       function muat() { api('terminateGwStatus').then(function (r) { gambar(r); ulang(r); }); }
       muat();
     })();
