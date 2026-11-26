@@ -1059,19 +1059,20 @@ function tmImporWA_(d, au) {
                    
                     SN: tmCleanCode_(s('sn')), PSN: tmCleanCode_(s('psn')), KET: s('ket'), TANGGAL: tglIso ? tmTglIndo_(tglIso) : s('tanggal') };
       const snLama = tmNorm_(s('snlama'));
+      const samaCid = r => !rec.CID || !tmNorm_(r.o.CID) || tmNorm_(r.o.CID) === tmNorm_(rec.CID);   // identitas data = CID (bukan nama); CID beda = data baru
       if (!nama || (!rec.CID && !rec.SN && !rec.PSN)) { lewati(x, 'tidak ada CID / SN', 'ditolak'); return; }
       if (!rec.POP) { lewati(x, 'kode ODP bukan PRBGN / PTCRMN' + (s('popasli') ? ' dan POP "' + s('popasli') + '" bukan Perbaungan / Pantai Cermin' : ' dan POP tidak tertulis Perbaungan / Pantai Cermin'), 'pop'); return; }
       const tujuan = M[nama];
       const lengkapi = (dst, src) => TM_KEYS_IW.forEach(k => { if (k !== 'TANGGAL' && k !== 'KET' && !String(rec[k] || '').trim() && String(src[k] || '').trim()) rec[k] = String(src[k]).trim(); });
 
       // 1) MT ganti perangkat: SN lama di Instalasi -> lengkapi data, lalu hapus baris Instalasi lama
-      if (nama === 'MT' && snLama && snLama !== tmNorm_(rec.SN)) {
-        M.Instalasi.rows.concat(M.Instalasi.baru).filter(r => !r.del && sn(r) === snLama).forEach(r => {
+      if (nama === 'MT' && rec.CID && rec.SN && (!snLama || snLama !== tmNorm_(rec.SN))) {           // dicari berdasarkan CID saja
+        M.Instalasi.rows.concat(M.Instalasi.baru).filter(r => !r.del && tmNorm_(r.o.CID) === tmNorm_(rec.CID) && sn(r) !== tmNorm_(rec.SN)).forEach(r => {
           lengkapi(rec, r.o); r.del = true; hasil.dihapus++;
         });
       }
       // 1b) Instalasi: CID sama tetapi SN berbeda = ganti perangkat -> perbarui SN & P-SN di baris yang sama (bukan baris baru)
-      if (nama === 'Instalasi' && rec.CID && (rec.SN || rec.PSN) && !(rec.SN && semua().some(r => sn(r) === tmNorm_(rec.SN)))) {
+      if (nama === 'Instalasi' && rec.CID && (rec.SN || rec.PSN) && !(rec.SN && semua().some(r => sn(r) === tmNorm_(rec.SN) && samaCid(r)))) {
         const lama = M.Instalasi.rows.concat(M.Instalasi.baru).filter(r => !r.del && tmNorm_(r.o.CID) === tmNorm_(rec.CID));
         if (lama.length) {
           const t0 = lama.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
@@ -1085,7 +1086,7 @@ function tmImporWA_(d, au) {
       }
       // 2) SN sama -> yang terbaru menang
       if (rec.SN) {
-        const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN));
+        const cocok = semua().filter(r => sn(r) === tmNorm_(rec.SN) && samaCid(r));
         if (cocok.length) {
           const terbaru = cocok.slice().sort((a, b) => (a.tgl || '').localeCompare(b.tgl || '')).pop();
           if ((terbaru.tgl || '') > tglIso) {                                            // data di sheet lebih baru: dipertahankan, kolom kosongnya dilengkapi dari data ini (satu data paling lengkap)
