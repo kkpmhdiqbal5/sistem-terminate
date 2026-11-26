@@ -68,6 +68,7 @@ function ccApiLama_() {                                   // pengaturan lama (Sc
 function ccApiPilih_(fungsi, jenis) {
   const all = ccApiList_().concat(ccApiLama_());
   for (let i = 0; i < all.length; i++) if (all[i].jenis === jenis && (all[i].fungsi || []).indexOf(fungsi) >= 0 && all[i].token) return all[i];
+  if (jenis === 'AI') for (let i = 0; i < all.length; i++) if (all[i].jenis === 'AI' && all[i].token) return all[i];   // fungsi tanpa API sendiri tetap memakai AI mana pun yang ada
   return null;
 }
 function ccTujuan_(fungsi) { const e = ccApiPilih_(fungsi, 'WA'); return e && e.tujuan && e.tujuan[fungsi] ? String(e.tujuan[fungsi]) : ''; }
