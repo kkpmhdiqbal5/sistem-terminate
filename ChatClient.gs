@@ -160,19 +160,18 @@ function ccTgKirimE_(e, teks) {
 let CC_GW_USER = '';   // diisi saat permintaan dari dashboard (nama sub admin yang sedang login)
 let CC_GW_ADMIN = false;   // pengirim di dashboard = admin utama
 let CC_KANAL_BARU = false; // true saat pesan awal kampanye: jalur dipilih ulang, tidak mengikuti jalur percakapan lama
-// Jalur kirim: (1) percakapan yang sudah berjalan mengikuti jalurnya (kolom DIKIRIM API); (2) admin utama & balasan bot mengikuti pilihan di Pengaturan API (mis. Fonnte);
-// (3) sub admin memakai WhatsApp pribadinya bila sudah tersambung; selain itu API bersama.
+// Jalur kirim: CHAT_CLIENT selalu lewat gateway WhatsApp pemilik chat (Fonnte hanya cadangan bila gateway belum ada);
+// TEKNISI/LAPORAN: admin utama mengikuti Pengaturan API, sub admin memakai WhatsApp pribadinya bila tersambung; selain itu API bersama.
 function waKirim_(target, pesan, fungsi, foto) {
   fungsi = fungsi || 'CHAT_CLIENT';
   ccTandaiKeluar_(ccNoHp_(target), pesan);                    // gema kiriman ini (Fonnte / gateway) jangan dibaca sebagai pesan client / admin
   if (['CHAT_CLIENT', 'TEKNISI', 'LAPORAN'].indexOf(fungsi) >= 0 && typeof gwuKirim_ === 'function') {
-    let pemilik = CC_GW_USER, gid = '', fonnte = false;
+    let pemilik = CC_GW_USER, gid = '';
     if (fungsi === 'CHAT_CLIENT' && !CC_KANAL_BARU) {
-      try { const br = ccBarisChat_(ccNoHp_(target), ''); if (br) { if (!pemilik) pemilik = br.DIKIRIMOLEH ? String(br.DIKIRIMOLEH) : ''; const a = String(br.DIKIRIMAPI || ''); if (a.indexOf('::') > 0) gid = a.split('::')[0]; else if (a) fonnte = true; } } catch (e) { /* tanpa riwayat */ }
+      try { const br = ccBarisChat_(ccNoHp_(target), ''); if (br) { if (!pemilik) pemilik = br.DIKIRIMOLEH ? String(br.DIKIRIMOLEH) : ''; const a = String(br.DIKIRIMAPI || ''); if (a.indexOf('::') > 0) gid = a.split('::')[0]; } } catch (e) { /* tanpa riwayat */ }
     }
-    const apiDipilih = !!ccApiPilih_(fungsi, 'WA') && (!CC_GW_USER || CC_GW_ADMIN);          // admin utama / bot: yang dipilih di Pengaturan API menang
-    if (fonnte && (CC_GW_USER || !ccApiPilih_(fungsi, 'WA'))) fonnte = false;               // jalur Fonnte hanya mengikat balasan bot; bila API-nya sudah dihapus pakai aturan biasa
-    if (pemilik && !fonnte && (gid || !apiDipilih)) { const u = gwuKirim_(pemilik, target, pesan, foto, fungsi, gid); if (u.ok || u.pakai) return u; }       // sudah punya WhatsApp sendiri tapi gagal: tidak diam-diam pindah nomor
+    const apiDipilih = fungsi !== 'CHAT_CLIENT' && !!ccApiPilih_(fungsi, 'WA') && (!CC_GW_USER || CC_GW_ADMIN);   // chat client SELALU lewat gateway; Pengaturan API (Fonnte) hanya untuk teknisi/laporan
+    if (pemilik && (gid || !apiDipilih)) { const u = gwuKirim_(pemilik, target, pesan, foto, fungsi, gid); if (u.ok || u.pakai) return u; }       // sudah punya WhatsApp sendiri tapi gagal: tidak diam-diam pindah nomor
   }
   let gw = null;
   if (fungsi === 'LAPORAN' && (CC_JALUR === 'GATEWAY' || CC_JALUR === 'AUTO')) {      // GATEWAY = hanya gateway; AUTO = gateway dulu, bila gagal cadangan Fonnte
