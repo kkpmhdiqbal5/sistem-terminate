@@ -21,6 +21,16 @@ const grupBoleh = GRUP.split(',').map(s => s.trim()).filter(Boolean);
 
 // penyimpanan foto sementara (Apps Script mengunduh lewat /m/<id>)
 const media = new Map();
+// pesan yang KITA kirim lewat /kirim & /reaksi: id dicatat SEBELUM dikirim supaya gemanya tidak diteruskan ke webhook (kalau diteruskan, dibaca sebagai "admin mengetik dari HP"),
+// dan isinya dipakai getMessage agar kiriman ulang WhatsApp berhasil (tanpa ini pesan tampil "Menunggu pesan ini")
+const terkirimKu = new Map();
+async function kirimWA(jid, isi) {
+  const mid = '3EB0' + crypto.randomBytes(12).toString('hex').toUpperCase();
+  terkirimKu.set(mid, null);
+  if (terkirimKu.size > 500) terkirimKu.delete(terkirimKu.keys().next().value);      // shortcut: simpan 500 pesan terakhir saja (memori)
+  try { const r = await sockAktif.sendMessage(jid, isi, { messageId: mid }); terkirimKu.set(mid, r); return r; }
+  catch (e) { terkirimKu.delete(mid); throw e; }
+}
 http.createServer((req, res) => {
   if ((req.url || '').split('?')[0] === '/status') {                                  // dibaca Apps Script: {tersambung, qr}
     const k = new URL(req.url, 'http://x').searchParams.get('k');
@@ -45,11 +55,11 @@ http.createServer((req, res) => {
         if (!sockAktif || !tersambung) { res.writeHead(503); return res.end('gateway belum tersambung'); }
         const jid = /@/.test(to) ? to : to.replace(/\D/g, '').replace(/^0/, '62') + '@s.whatsapp.net';
         const f = b.file || (b.url ? { url: String(b.url) } : null);                  // file: {base64, mimetype, filename} atau url https
-        if (!f) await sockAktif.sendMessage(jid, { text: teks });
+        if (!f) await kirimWA(jid, { text: teks });
         else {
           const sumber = f.base64 ? Buffer.from(f.base64, 'base64') : { url: f.url }, mime = f.mimetype || 'application/octet-stream';
           if (!f.base64 && !/^https:\/\//.test(f.url || '')) { res.writeHead(400); return res.end('url harus https'); }
-          await sockAktif.sendMessage(jid, /^image\//.test(mime) || (!f.base64 && !f.mimetype) ? { image: sumber, caption: teks } : { document: sumber, mimetype: mime, fileName: f.filename || 'dokumen', caption: teks });
+          await kirimWA(jid, /^image\//.test(mime) || (!f.base64 && !f.mimetype) ? { image: sumber, caption: teks } : { document: sumber, mimetype: mime, fileName: f.filename || 'dokumen', caption: teks });
         }
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"status":"ok"}');
       } catch (e) { res.writeHead(500); res.end(String(e.message)); }
@@ -64,7 +74,7 @@ http.createServer((req, res) => {
       try {
         const b = JSON.parse(raw || '{}'); if (!b.key || !b.key.remoteJid || !b.key.id) { res.writeHead(400); return res.end('key wajib'); }
         if (!sockAktif || !tersambung) { res.writeHead(503); return res.end('gateway belum tersambung'); }
-        await sockAktif.sendMessage(b.key.remoteJid, { react: { text: String(b.emoji || '👍'), key: b.key } });
+        await kirimWA(b.key.remoteJid, { react: { text: String(b.emoji || '👍'), key: b.key } });
         res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"status":"ok"}');
       } catch (e) { res.writeHead(500); res.end(String(e.message)); }
     });
@@ -76,15 +86,21 @@ http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': f.mime }); res.end(f.buf);
 }).listen(process.env.PORT || 3000);
 
-async function kirim(body) {
-  try { const r = await fetch(HOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), redirect: 'follow' }); console.log('hook', r.status, body.sender, (body.message || '').slice(0, 40)); }
-  catch (e) { console.error('hook gagal', e.message); }
+async function kirim(body, coba) {
+  coba = coba || 0;
+  try {
+    const r = await fetch(HOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), redirect: 'follow' });
+    let j = {}; try { j = await r.json(); } catch (e) { /* balasan bukan JSON */ }
+    console.log('hook', r.status, body.sender, (body.message || '').slice(0, 40), j.tunda ? '(tunda: ' + j.tunda + ')' : '');
+    if (j.tunda && coba < 3) setTimeout(() => kirim(body, coba + 1), [8000, 25000, 90000][coba]);   // nomor untuk ID @lid belum dikenal: coba lagi setelah salinan Fonnte sempat mengajarkannya
+  } catch (e) { console.error('hook gagal', e.message); }
 }
 
 async function mulai() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
-  const sock = makeWASocket({ version, auth: state, logger: pino({ level: 'silent' }), browser: ['Gateway PR', 'Chrome', '1.0'] });
+  const sock = makeWASocket({ version, auth: state, logger: pino({ level: 'silent' }), browser: ['Gateway PR', 'Chrome', '1.0'],
+    getMessage: async key => { const r = terkirimKu.get(key.id); return r && r.message ? r.message : undefined; } });   // kiriman ulang WhatsApp (hindari "Menunggu pesan ini")
   sockAktif = sock;
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
@@ -98,6 +114,7 @@ async function mulai() {
       try {
         const jid = m.key.remoteJid || '';
         console.log('masuk', type, jid, m.key.fromMe ? 'dari-sendiri' : 'dari-orang', m.message ? Object.keys(m.message).join(',') : 'kosong');   // diagnosa: hapus bila sudah stabil
+        if (m.key.fromMe && terkirimKu.has(m.key.id)) continue;                      // gema kiriman kita sendiri (/kirim, /reaksi): jangan diteruskan
         const baru = Date.now() / 1000 - Number(m.messageTimestamp || 0) < 120;       // abaikan riwayat lama saat tersambung
         if (type !== 'notify' && !(TERIMA_SENDIRI && m.key.fromMe && baru)) continue;
         if ((m.key.fromMe && !TERIMA_SENDIRI) || !m.message || /^status@|@broadcast$|@newsletter$/.test(jid) || (PRIBADI === '0' && !jid.endsWith('@g.us'))) continue;   // grup PR + chat pribadi; PRIBADI=0 untuk grup saja
@@ -107,7 +124,11 @@ async function mulai() {
         const dok = isi.documentMessage && /^image\//.test(isi.documentMessage.mimetype || '') ? isi.documentMessage : null;
         const img = isi.imageMessage || dok, loc = isi.locationMessage || isi.liveLocationMessage;
         const teks = isi.conversation || (isi.extendedTextMessage && isi.extendedTextMessage.text) || (img && img.caption) || '';
-        const body = { sender: jid, member: (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0], name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, kunci: JSON.stringify(m.key), dariSaya: m.key.fromMe ? '1' : '', tipe: Object.keys(isi).join(',') };
+        const grupJid = jid.endsWith('@g.us'), tk = Object.keys(isi);
+        if (!grupJid && !teks && !img && !loc && tk.every(k => /^(reactionMessage|protocolMessage|senderKeyDistributionMessage|messageContextInfo)$/.test(k))) continue;   // reaksi / pesan sistem di chat pribadi bukan pesan client maupun admin
+        const nomorAsli = s => String(s || '').split('@')[0].split(':')[0];          // nomor telepon asli bila WhatsApp menyertakannya (chat dengan ID samaran @lid)
+        const pn = nomorAsli(m.key.senderPn || m.key.remoteJidAlt), mp = nomorAsli(m.key.participantPn || m.key.participantAlt);
+        const body = { sender: jid, member: grupJid ? (mp || (m.key.participant || (m.key.fromMe ? PAIR_PHONE : '') || '').split('@')[0]) : '', pn: grupJid ? '' : pn, name: m.pushName || '', message: teks || 'non-text message', id: m.key.id, kunci: JSON.stringify(m.key), dariSaya: m.key.fromMe ? '1' : '', tipe: tk.join(',') };
         if (loc) body.location = loc.degreesLatitude + ',' + loc.degreesLongitude;
         if (img) {
           try {

@@ -18,7 +18,7 @@ const TM = {
   SH: {
     LOG: 'LOG TERMINATE',        // arsip permanen semua input (sumber data halaman)
     TERMINATE: 'Terminate', KUNJUNGAN: 'kunjungan', LANJUT: 'lanjut berlanganan',
-    KUNJUNGAN: 'kunjungan', TARGET: 'target', DIAMBIL: 'sudah diambil', B1: 'Baris 1', B2: 'Baris 2', USERS: 'USERS',
+    KUNJUNGAN: 'kunjungan', TARGET: 'target', DIAMBIL: 'sudah diambil', B1: 'Baris 1', B2: 'Baris 2', B3: 'Baris 3', USERS: 'USERS',
     FULL: 'Full Data', INSTALASI: 'Instalasi', MT: 'MT'
   },
   POPS: ['PERBAUNGAN', 'PANTAI CERMIN'],

@@ -65,7 +65,7 @@
 
       <div class="card-custom p-3 mb-3">
         <div class="fw-bold text-white mb-1">② Chat client (WhatsApp API saja, dibalas bot AI) <span id="badgeAI"></span></div>
-        <div class="kecil mb-2">Bot membalas otomatis. Client yang berhenti diminta share lokasi (Sherlock) dan foto rumah; bila keduanya lengkap, client masuk <b>Berhenti - sudah ada bukti</b>; tekan <b>Masukkan ke laporan</b> untuk memasukkannya ke Baris 1. Client lanjut yang sudah kirim bukti juga menunggu tombol itu. Maks <b><span id="maksKirim">30</span></b> client sekali kirim dan maks <span id="maxHari">30</span> pesan per hari (sisa hari ini: <b id="sisaHari">-</b>), ada jeda otomatis antar pesan.</div>
+        <div class="kecil mb-2">Bot membalas otomatis. Client yang berhenti diminta share lokasi (Sherlock) dan foto rumah; bila keduanya lengkap, client <b>otomatis masuk Baris 1</b> (siap diambil teknisi). Client yang lanjut masuk <b>Baris 3</b>; setelah kirim bukti, <b>superadmin</b> menekan <b>Masukkan ke laporan</b> untuk membuat laporannya. Client yang sudah diingatkan pindah ke kelompok <b>Sudah diingatkan</b>. Maks <b><span id="maksKirim">30</span></b> client sekali kirim dan maks <span id="maxHari">30</span> pesan per hari (sisa hari ini: <b id="sisaHari">-</b>), ada jeda otomatis antar pesan.</div>
         <select id="tplPesan" class="form-select form-select-dark mb-2"><option value="awal">Pesan: tanya masih lanjut berlangganan?</option><option value="ambil">Pesan: izin pengambilan perangkat (sopan)</option></select>
         <textarea id="pesan" rows="5" class="form-control form-control-dark mb-2"></textarea>
         <div class="kecil mb-2">Isian otomatis: <code>{nama}</code> <code>{cid}</code> <code>{odp}</code></div>
@@ -344,13 +344,14 @@
         statusData = (r.data || []).filter(function (x) { return x.status !== 'CHAT_LAIN'; }); gambarStatus();   // chat selain client tidak ditampilkan
       });
     }
-    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['lanjut_belum', 'Lanjut - belum dilapor'], ['lanjut_bukti', 'Lanjut - sudah ada bukti'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti'], ['berhenti_bukti', 'Berhenti - sudah ada bukti'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['ambil', 'Ditangani admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';
+    var GRUP = [['semua', 'Semua'], ['menunggu', 'Menunggu balasan'], ['diingatkan', 'Sudah diingatkan'], ['lanjut_belum', 'Baris 3 - lanjut, menunggu bukti'], ['lanjut_bukti', 'Baris 3 - bukti masuk (diambil superadmin)'], ['lanjut_sudah', 'Lanjut - sudah dilapor'], ['berhenti', 'Berhenti - menunggu foto & lokasi'], ['berhenti_bukti', 'Berhenti - lengkap, belum masuk Baris 1'], ['baris1', 'Baris 1 (siap diambil)'], ['berhenti_lapor', 'Berhenti - sudah dilapor'], ['salah', 'Salah nomor'], ['admin', 'Perlu admin'], ['ambil', 'Ditangani admin'], ['calon', 'Calon pelanggan'], ['lain', 'Chat lain'], ['stop', 'Stop']], grupAktif = 'menunggu';
     function grupDari(x) {
       if (!x.cid) return x.status === 'CHAT_LAIN' ? 'lain' : 'calon';
       if (x.ambil) return 'ambil';
-      if (x.status === 'MENUNGGU_BALASAN') return 'menunggu';
+      if (x.status === 'MENUNGGU_BALASAN') return x.ingat > 0 ? 'diingatkan' : 'menunggu';     // sudah pernah diingatkan: kelompok sendiri
       if (x.status === 'LANJUT_DILAPOR') return 'lanjut_sudah';
-      if (x.status === 'BERHENTI_DILAPOR' || (x.status === 'SIAP_DIAMBIL' && x.baris1)) return 'berhenti_lapor';
+      if (x.status === 'BERHENTI_DILAPOR') return 'berhenti_lapor';
+      if (x.status === 'SIAP_DIAMBIL' && x.baris1) return 'baris1';
       if (x.status === 'SALAH_NOMOR') return 'salah';
       if (x.status === 'BUKTI_DITERIMA' && !x.lapor) return 'lanjut_bukti';
       if (x.status === 'LANJUT' || x.status === 'MINTA_BUKTI' || x.status === 'BUKTI_DITERIMA') return x.lapor ? 'lanjut_sudah' : 'lanjut_belum';

@@ -163,11 +163,11 @@ function gmProses_(items, fotoUrl, opt) {
         bersih += tmHapusAntrian_(rec) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID) + tmHapusCid_(TM.SH.LANJUT, rec.CID);
         tmTandaiDiambil_([rec]);
         if (cari.found && cari.sheet === TM.SH.B1) { try { tmPindahB1_(rec.SN, rec.PSN, rec); } catch (e) { /* abaikan */ } }
-        tmHapusCid_(TM.SH.B1, rec.CID);
+        tmHapusCid_(TM.SH.B1, rec.CID); tmHapusCid_(TM.SH.B3, rec.CID);
         if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'BERHENTI_DILAPOR');
       } else {
         bersih += tmHapusAntrian_(rec);
-        if (x.jenis === 'LANJUT') { bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID); if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'LANJUT_DILAPOR'); }
+        if (x.jenis === 'LANJUT') { bersih += tmHapusCid_(TM.SH.B1, rec.CID) + tmHapusCid_(TM.SH.KUNJUNGAN, rec.CID) + tmHapusCid_(TM.SH.B3, rec.CID); if (typeof ccStatusChatCid_ === 'function') ccStatusChatCid_(rec.CID, 'LANJUT_DILAPOR'); }     // sudah dilaporkan: keluar dari Baris 3
       }
     } catch (e) { rec.VERIF += ' | GAGAL BERSIHKAN ANTRIAN'; }
     const kerja = Object.assign({}, rec); delete kerja.JENIS;
